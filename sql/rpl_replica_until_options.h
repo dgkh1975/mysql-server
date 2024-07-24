@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -190,7 +191,7 @@ class Until_position : public Until_option {
 
   /*
     It stores the suffix number of m_until_log_name. Suffix number is compared
-    as a number but not a string. Othwerwise it will cause trouble for the below
+    as a number but not a string. Otherwise it will cause trouble for the below
     log names. master-bin.999999 and master-bin.1234567.
   */
   ulong m_until_log_name_extension;
@@ -271,7 +272,7 @@ class Until_gtids : public Until_option {
 /**
    @class Until_before_gtids
 
-   It implementes the logic of UNTIL SQL_BEFORE_GTIDS
+   It implements the logic of UNTIL SQL_BEFORE_GTIDS
 */
 class Until_before_gtids : public Until_gtids {
  public:
@@ -286,7 +287,7 @@ class Until_before_gtids : public Until_gtids {
 /**
    @class Until_after_gtids
 
-   It implementes the logic of UNTIL SQL_AFTER_GTIDS
+   It implements the logic of UNTIL SQL_AFTER_GTIDS
 */
 class Until_after_gtids : public Until_gtids {
  public:
@@ -301,7 +302,7 @@ class Until_after_gtids : public Until_gtids {
 /**
    @class Until_view_id
 
-   It implementes the logic for UNTIL VIEW_ID.
+   It implements the logic for UNTIL VIEW_ID.
 */
 class Until_view_id : public Until_option {
  public:
@@ -346,14 +347,14 @@ class Until_view_id : public Until_option {
 /**
    @class Until_mts_gap
 
-   It implementes the logic of UNTIL SQL_AFTER_MTS_GAP
+   It implements the logic of UNTIL SQL_AFTER_MTS_GAP
 */
 class Until_mts_gap : public Until_option {
  public:
   Until_mts_gap(Relay_log_info *rli) : Until_option(rli) {}
 
   /**
-     Intialize it when starting the slave.
+     Initialize it when starting the slave.
   */
   void init();
 

@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -53,9 +54,8 @@ dberr_t lock_prdt_lock(buf_block_t *block,  /*!< in/out: buffer block of rec */
                                             SELECT FOR UPDATE */
                        ulint type_mode,
                        /*!< in: LOCK_PREDICATE or LOCK_PRDT_PAGE */
-                       que_thr_t *thr, /*!< in: query thread
+                       que_thr_t *thr); /*!< in: query thread
                                        (can be NULL if BTR_NO_LOCKING_FLAG) */
-                       mtr_t *mtr);    /*!< in/out: mini-transaction */
 
 /** Acquire a "Page" lock on a block
 @param[in]  page_id   id of the page to lock
@@ -109,12 +109,10 @@ after split.
 @param[in,out]  right_block   the new half page
 @param[in]      left_prdt     MBR on the old page
 @param[in]      right_prdt    MBR on the new page
-@param[in]      parent_prdt   original parent MBR
 @param[in]      page_id       the parent's page id
 */
 void lock_prdt_update_parent(buf_block_t *left_block, buf_block_t *right_block,
                              lock_prdt_t *left_prdt, lock_prdt_t *right_prdt,
-                             lock_prdt_t *parent_prdt,
                              const page_id_t &page_id);
 
 /** Checks if locks of other transactions prevent an immediate insert of
@@ -143,7 +141,7 @@ Get predicate lock's minimum bounding box
 static inline
 rtr_mbr_t*
 prdt_get_mbr_from_prdt(
-	const lock_prdt_t*	prdt);	/*!< in: the lock predicate */
+        const lock_prdt_t*      prdt);  /*!< in: the lock predicate */
 
 #endif
 /** Moves the locks of a record to another record and resets the lock bits of
@@ -155,15 +153,15 @@ void lock_prdt_rec_move(
                                  the donating record */
 
 /** Check whether there are no R-tree Page locks on a page by other transactions
-@param[in]	trx	trx to test the lock
-@param[in]	page_id	id of the page
-@retval	true	if there is no lock
-@retval	false	if some transaction other than trx holds a page lock */
+@param[in]      trx     trx to test the lock
+@param[in]      page_id id of the page
+@retval true    if there is no lock
+@retval false   if some transaction other than trx holds a page lock */
 bool lock_test_prdt_page_lock(const trx_t *trx, const page_id_t &page_id);
 
 /** Removes predicate lock objects set on an index page which is discarded.
-@param[in]	block		page to be discarded
-@param[in]	lock_hash	lock hash */
+@param[in]      block           page to be discarded
+@param[in]      lock_hash       lock hash */
 void lock_prdt_page_free_from_discard(const buf_block_t *block,
                                       hash_table_t *lock_hash);
 

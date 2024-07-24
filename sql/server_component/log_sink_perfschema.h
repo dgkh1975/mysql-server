@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -74,7 +75,7 @@ typedef struct _log_sink_pfs_event {
   uint m_subsys_length;
 
   /** Column ERROR_LOG_MESSAGE. */
-  uint m_message_length;  //< actual length, not counting trailing '\0'
+  uint m_message_length;  ///< actual length, not counting trailing '\0'
 } log_sink_pfs_event;
 
 /*
@@ -109,12 +110,12 @@ typedef struct _log_sink_pfs_event {
   (Ideally though you'd update @error_log_last_poll from the 'logged'
   field (that is, the timestamp) of the last new row you received.)
 */
-extern ulong log_sink_pfs_buffered_bytes;   //< bytes in use (now)
-extern ulong log_sink_pfs_buffered_events;  //< events in buffer (now)
-extern ulong log_sink_pfs_expired_events;   //< number of expired entries (ever)
-extern ulong log_sink_pfs_longest_event;    //< longest event seen (ever)
+extern ulong log_sink_pfs_buffered_bytes;   ///< bytes in use (now)
+extern ulong log_sink_pfs_buffered_events;  ///< events in buffer (now)
+extern ulong log_sink_pfs_expired_events;  ///< number of expired entries (ever)
+extern ulong log_sink_pfs_longest_event;   ///< longest event seen (ever)
 extern ulonglong
-    log_sink_pfs_latest_timestamp;  //< timestamp of most recent write
+    log_sink_pfs_latest_timestamp;  ///< timestamp of most recent write
 
 // The public interface to reading the error-log from the ring-buffer:
 
@@ -169,6 +170,6 @@ log_service_error log_error_read_log(const char *log_name);
 log_service_error log_sink_pfs_event_add(log_sink_pfs_event *e,
                                          const char *blob_src);
 
-int log_sink_perfschema(void *instance MY_ATTRIBUTE((unused)), log_line *ll);
+int log_sink_perfschema(void *instance [[maybe_unused]], log_line *ll);
 
 #endif /* LOG_SINK_PERFSCHEMA_H */

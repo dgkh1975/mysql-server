@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,12 +23,9 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "cluster_metadata_dynamic_state.h"
-#include "mysql/harness/dynamic_state.h"
+#include "mysqlrouter/cluster_metadata_dynamic_state.h"
 
 #ifdef RAPIDJSON_NO_SIZETYPEDEFINE
-// if we build within the server, it will set RAPIDJSON_NO_SIZETYPEDEFINE
-// globally and require to include my_rapidjson_size_t.h
 #include "my_rapidjson_size_t.h"
 #endif
 
@@ -38,9 +36,7 @@
 #include <rapidjson/schema.h>
 #include <rapidjson/stringbuffer.h>
 
-#include "common.h"
-#include "dim.h"
-#include "utils.h"
+#include "mysql/harness/dynamic_state.h"
 
 namespace {
 constexpr const char kSectionName[] = "metadata-cache";
@@ -66,12 +62,20 @@ ClusterMetadataDynamicState::~ClusterMetadataDynamicState() = default;
 void ClusterMetadataDynamicState::save_section() {
   JsonValue section(rapidjson::kObjectType);
 
-  // write cluster name
+  // write cluster id
   JsonAllocator allocator;
   JsonValue val;
-  val.SetString(cluster_type_specific_id_.c_str(),
-                cluster_type_specific_id_.length());
-  section.AddMember("group-replication-id", val, allocator);
+
+  if (!cluster_type_specific_id_.empty()) {
+    val.SetString(cluster_type_specific_id_.c_str(),
+                  cluster_type_specific_id_.length());
+    section.AddMember("group-replication-id", val, allocator);
+  }
+
+  if (!clusterset_id_.empty()) {
+    val.SetString(clusterset_id_.c_str(), clusterset_id_.length());
+    section.AddMember("clusterset-id", val, allocator);
+  }
 
   // write metadata servers
   JsonValue metadata_servers(rapidjson::kArrayType);
@@ -81,9 +85,9 @@ void ClusterMetadataDynamicState::save_section() {
   }
   section.AddMember("cluster-metadata-servers", metadata_servers, allocator);
 
-  // if this is ReplicaSet cluster write view_id
-  if (cluster_type_ == ClusterType::RS_V2) {
-    val.SetUint(view_id_);
+  // if this is ReplicaSet cluster or ClusterSet write view_id
+  if (view_id_ > 0) {
+    val.SetUint64(view_id_);
     section.AddMember("view-id", val, allocator);
   }
 
@@ -93,7 +97,7 @@ void ClusterMetadataDynamicState::save_section() {
 bool ClusterMetadataDynamicState::save(std::ostream &state_stream) {
   save_section();
 
-  if (pimpl_->base_state_->save_to_stream(state_stream)) {
+  if (pimpl_->base_state_->save_to_stream(state_stream, is_clusterset())) {
     changed_ = false;
     return true;
   }
@@ -104,7 +108,7 @@ bool ClusterMetadataDynamicState::save(std::ostream &state_stream) {
 bool ClusterMetadataDynamicState::save() {
   save_section();
 
-  if (pimpl_->base_state_->save()) {
+  if (pimpl_->base_state_->save(is_clusterset())) {
     changed_ = false;
     return true;
   }
@@ -119,29 +123,50 @@ void ClusterMetadataDynamicState::load() {
   JsonValue &section = *pimpl_->section_;
 
   metadata_servers_.clear();
-  if (pimpl_->section_->HasMember("cluster-metadata-servers")) {
-    const auto &md_servers = section["cluster-metadata-servers"];
-    assert(md_servers.IsArray());
 
-    for (size_t i = 0; i < md_servers.Size(); ++i) {
-      auto &server = md_servers[i];
-      assert(server.IsString());
-      metadata_servers_.push_back(server.GetString());
+  {
+    const auto it = section.FindMember("cluster-metadata-servers");
+
+    if (it != section.MemberEnd()) {
+      const auto &md_servers = it->value;
+      assert(md_servers.IsArray());
+
+      for (size_t i = 0; i < md_servers.Size(); ++i) {
+        auto &server = md_servers[i];
+        assert(server.IsString());
+        metadata_servers_.emplace_back(server.GetString());
+      }
     }
   }
 
   cluster_type_specific_id_.clear();
-  if (pimpl_->section_->HasMember("group-replication-id")) {
-    const auto &cluster_type_specific_id = section["group-replication-id"];
-    assert(cluster_type_specific_id.IsString());
-    cluster_type_specific_id_ = cluster_type_specific_id.GetString();
+  {
+    const auto it = section.FindMember("group-replication-id");
+
+    if (it != section.MemberEnd()) {
+      const auto &cluster_type_specific_id = it->value;
+      assert(cluster_type_specific_id.IsString());
+      cluster_type_specific_id_ = cluster_type_specific_id.GetString();
+    }
+  }
+
+  {
+    const auto it = section.FindMember("clusterset-id");
+    if (it != section.MemberEnd()) {
+      const auto &clusterset_id = it->value;
+      assert(clusterset_id.IsString());
+      clusterset_id_ = clusterset_id.GetString();
+    }
   }
 
   view_id_ = 0;
-  if (pimpl_->section_->HasMember("view-id")) {
-    const auto &view_id = section["view-id"];
-    assert(view_id.IsUint());
-    view_id_ = view_id.GetUint();
+  {
+    const auto it = section.FindMember("view-id");
+    if (it != section.MemberEnd()) {
+      const auto &view_id = it->value;
+      assert(view_id.IsUint64());
+      view_id_ = view_id.GetUint64();
+    }
   }
 
   changed_ = false;
@@ -164,6 +189,14 @@ std::string ClusterMetadataDynamicState::get_cluster_type_specific_id() const {
   return cluster_type_specific_id_;
 }
 
+std::string ClusterMetadataDynamicState::get_clusterset_id() const {
+  return clusterset_id_;
+}
+
+bool ClusterMetadataDynamicState::is_clusterset() const {
+  return !clusterset_id_.empty();
+}
+
 void ClusterMetadataDynamicState::set_cluster_type_specific_id(
     const std::string &cluster_type_specific_id) {
   if (cluster_type_specific_id_ != cluster_type_specific_id) {
@@ -172,7 +205,7 @@ void ClusterMetadataDynamicState::set_cluster_type_specific_id(
   }
 }
 
-void ClusterMetadataDynamicState::set_view_id(const unsigned view_id) {
+void ClusterMetadataDynamicState::set_view_id(const uint64_t view_id) {
   if (view_id_ != view_id) {
     view_id_ = view_id;
     changed_ = true;
@@ -180,3 +213,11 @@ void ClusterMetadataDynamicState::set_view_id(const unsigned view_id) {
 }
 
 unsigned ClusterMetadataDynamicState::get_view_id() const { return view_id_; }
+
+void ClusterMetadataDynamicState::set_clusterset_id(
+    const std::string &clusterset_id) {
+  if (clusterset_id_ != clusterset_id) {
+    clusterset_id_ = clusterset_id;
+    changed_ = true;
+  }
+}

@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -191,19 +192,16 @@ void Rpl_transaction_write_set_ctx::set_local_allow_drop_write_set(
 
 Transaction_write_set *get_transaction_write_set(unsigned long m_thread_id) {
   DBUG_TRACE;
-  THD *thd = nullptr;
   Transaction_write_set *result_set = nullptr;
   Find_thd_with_id find_thd_with_id(m_thread_id);
 
-  thd = Global_THD_manager::get_instance()->find_thd(&find_thd_with_id);
-  if (thd) {
+  THD_ptr thd_ptr =
+      Global_THD_manager::get_instance()->find_thd(&find_thd_with_id);
+  if (thd_ptr) {
     Rpl_transaction_write_set_ctx *transaction_write_set_ctx =
-        thd->get_transaction()->get_transaction_write_set_ctx();
+        thd_ptr->get_transaction()->get_transaction_write_set_ctx();
     int write_set_size = transaction_write_set_ctx->get_write_set()->size();
-    if (write_set_size == 0) {
-      mysql_mutex_unlock(&thd->LOCK_thd_data);
-      return nullptr;
-    }
+    if (write_set_size == 0) return nullptr;
 
     result_set = (Transaction_write_set *)my_malloc(
         key_memory_write_set_extraction, sizeof(Transaction_write_set), MYF(0));
@@ -218,7 +216,6 @@ Transaction_write_set *get_transaction_write_set(unsigned long m_thread_id) {
       uint64 temp = *it;
       result_set->write_set[result_set_index++] = temp;
     }
-    mysql_mutex_unlock(&thd->LOCK_thd_data);
   }
   return result_set;
 }

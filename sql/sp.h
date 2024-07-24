@@ -1,15 +1,16 @@
-/* Copyright (c) 2002, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2002, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,12 +27,12 @@
 #include <assert.h>
 #include <stddef.h>
 #include <sys/types.h>
+
 #include <string>
 
 #include "field_types.h"
 #include "lex_string.h"
 #include "map_helpers.h"
-
 #include "my_inttypes.h"
 #include "mysql/udf_registration_types.h"
 #include "sql/item.h"     // Item::Type
@@ -55,7 +56,7 @@ class Sroutine_hash_entry;
 class String;
 class sp_cache;
 struct TABLE;
-struct TABLE_LIST;
+class Table_ref;
 
 typedef ulonglong sql_mode_t;
 template <typename T>
@@ -195,7 +196,7 @@ enum_sp_return_code sp_cache_routine(THD *thd, enum_sp_type type,
                                      const sp_name *name, bool lookup_only,
                                      sp_head **sp);
 
-bool sp_exist_routines(THD *thd, TABLE_LIST *procs, bool is_proc);
+bool sp_exist_routines(THD *thd, Table_ref *procs, bool is_proc);
 
 bool sp_show_create_routine(THD *thd, enum_sp_type type, sp_name *name);
 
@@ -207,7 +208,8 @@ enum_sp_return_code db_load_routine(
     const char *definer_host, longlong created, longlong modified,
     Stored_program_creation_ctx *creation_ctx);
 
-bool sp_create_routine(THD *thd, sp_head *sp, const LEX_USER *definer);
+bool sp_create_routine(THD *thd, sp_head *sp, const LEX_USER *definer,
+                       bool if_not_exists, bool &sp_already_exists);
 
 bool sp_update_routine(THD *thd, enum_sp_type type, sp_name *name,
                        st_sp_chistics *chistics);
@@ -320,7 +322,7 @@ class Sroutine_hash_entry {
     0 if routine is not used in view. Note that it also can be 0 if
     statement uses routine both via view and directly.
   */
-  TABLE_LIST *belong_to_view;
+  Table_ref *belong_to_view;
   /**
     This is for prepared statement validation purposes.
     A statement looks up and pre-loads all its stored functions
@@ -352,7 +354,7 @@ bool sp_add_used_routine(Query_tables_list *prelocking_ctx, Query_arena *arena,
                          size_t db_length, const char *name, size_t name_length,
                          bool lowercase_db,
                          Sp_name_normalize_type name_normalize_type,
-                         bool own_routine, TABLE_LIST *belong_to_view);
+                         bool own_routine, Table_ref *belong_to_view);
 
 /**
   Convenience wrapper around sp_add_used_routine() for most common case -
@@ -376,16 +378,12 @@ void sp_remove_not_own_routines(Query_tables_list *prelocking_ctx);
 void sp_update_stmt_used_routines(
     THD *thd, Query_tables_list *prelocking_ctx,
     malloc_unordered_map<std::string, Sroutine_hash_entry *> *src,
-    TABLE_LIST *belong_to_view);
+    Table_ref *belong_to_view);
 void sp_update_stmt_used_routines(THD *thd, Query_tables_list *prelocking_ctx,
                                   SQL_I_List<Sroutine_hash_entry> *src,
-                                  TABLE_LIST *belong_to_view);
+                                  Table_ref *belong_to_view);
 
 const uchar *sp_sroutine_key(const uchar *ptr, size_t *plen);
-
-sp_head *sp_load_for_information_schema(THD *thd, LEX_CSTRING db_name,
-                                        const dd::Routine *routine,
-                                        bool *free_sp_head);
 
 bool load_charset(MEM_ROOT *mem_root, Field *field, const CHARSET_INFO *dflt_cs,
                   const CHARSET_INFO **cs);
@@ -407,8 +405,8 @@ uint sp_get_flags_for_command(LEX *lex);
 
 bool sp_check_name(LEX_STRING *ident);
 
-TABLE_LIST *sp_add_to_query_tables(THD *thd, LEX *lex, const char *db,
-                                   const char *name);
+Table_ref *sp_add_to_query_tables(THD *thd, LEX *lex, const char *db,
+                                  const char *name);
 
 Item *sp_prepare_func_item(THD *thd, Item **it_addr);
 

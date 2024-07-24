@@ -1357,3 +1357,60 @@ EXECUTE ps;
 GROUP_CONCAT(o_id)
 NULL
 DROP TABLE t1;
+#
+# Bug #33521497 result of GROUP_CONCAT is inconsistent
+#               when group_concat_max_len becomes larger
+#
+SELECT LENGTH(t.value) FROM (SELECT
+GROUP_CONCAT('32689,34068,34370,34930,37034,37638,38478,38643,38925,39889,40497,41729,43085,43115,43500,44781,46344,46411,47173,47228,47623,48576,50293,50653,51794,54177,55347,55398,59492,59598,59804,59969,60612,62024,62754,62796,64647,68679,68974,69482,69625,70162,71100000') AS value ) t;
+LENGTH(t.value)
+260
+SET SESSION group_concat_max_len=1073741832;
+SELECT LENGTH(t.value) FROM (SELECT
+GROUP_CONCAT('32689,34068,34370,34930,37034,37638,38478,38643,38925,39889,40497,41729,43085,43115,43500,44781,46344,46411,47173,47228,47623,48576,50293,50653,51794,54177,55347,55398,59492,59598,59804,59969,60612,62024,62754,62796,64647,68679,68974,69482,69625,70162,71100000') AS value ) t;
+LENGTH(t.value)
+260
+SET SESSION group_concat_max_len=default;
+# Bug#34703610: Create view with subquery assertion error
+CREATE VIEW v(c0) AS SELECT group_concat((SELECT 1), 1);
+DROP VIEW v;
+# Bug#35730982: GROUP_CONCAT results were displayed as NULL before 8.0.23
+CREATE TABLE customer (
+c_id int NOT NULL,
+c_name varchar(255) NOT NULL,
+PRIMARY KEY (c_id)
+);
+INSERT INTO customer VALUES (1,'Messi'),(2,'Pele'),(3,'Maradona');
+CREATE TABLE employee (
+seq_id bigint NOT NULL,
+c_id int NOT NULL,
+emp_id int NOT NULL,
+emp_name varchar(30) DEFAULT NULL,
+PRIMARY KEY (seq_id)
+);
+INSERT INTO employee VALUES (1,1,10,'Zico'),(2,3,30,'Ronaldo');
+SELECT mc.c_id,
+GROUP_CONCAT(e.emp_name order by e.emp_id separator ',') AS gc
+FROM customer AS mc LEFT JOIN employee AS e
+ON mc.c_id = e.c_id AND e.seq_id = 2
+WHERE mc.c_id = 2
+GROUP BY mc.c_id;
+c_id	gc
+2	NULL
+PREPARE ps FROM
+"SELECT mc.c_id,
+       GROUP_CONCAT(e.emp_name order by e.emp_id separator ',') AS gc
+FROM customer AS mc LEFT JOIN employee AS e
+     ON mc.c_id = e.c_id AND e.seq_id = ?
+WHERE mc.c_id = ?
+GROUP BY mc.c_id";
+SET @seq_id = 2;
+SET @c_id = 2;
+EXECUTE ps USING @seq_id, @c_id;
+c_id	gc
+2	NULL
+SET @c_id = 3;
+EXECUTE ps USING @seq_id, @c_id;
+c_id	gc
+3	Ronaldo
+DROP TABLE customer, employee;

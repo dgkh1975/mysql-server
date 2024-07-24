@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -58,7 +59,7 @@ Plugin_table table_replication_applier_global_filters::m_table_def(
     "  FILTER_RULE LONGTEXT not null,\n"
     "  CONFIGURED_BY ENUM('STARTUP_OPTIONS',\n"
     "                     'CHANGE_REPLICATION_FILTER') not null,\n"
-    "  ACTIVE_SINCE TIMESTAMP(6) NOT NULL default 0\n",
+    "  ACTIVE_SINCE TIMESTAMP(6) not null\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
     /* Tablespace */
@@ -94,20 +95,20 @@ table_replication_applier_global_filters::
 table_replication_applier_global_filters::
     ~table_replication_applier_global_filters() = default;
 
-void table_replication_applier_global_filters::reset_position(void) {
+void table_replication_applier_global_filters::reset_position() {
   m_pos.m_index = 0;
   m_next_pos.m_index = 0;
 }
 
 ha_rows table_replication_applier_global_filters::get_row_count() {
   rpl_global_filter.rdlock();
-  uint count = rpl_global_filter.get_filter_count();
+  const uint count = rpl_global_filter.get_filter_count();
   rpl_global_filter.unlock();
 
   return count;
 }
 
-int table_replication_applier_global_filters::rnd_next(void) {
+int table_replication_applier_global_filters::rnd_next() {
   int res = HA_ERR_END_OF_FILE;
   Rpl_pfs_filter *rpl_pfs_filter = nullptr;
 
@@ -118,11 +119,10 @@ int table_replication_applier_global_filters::rnd_next(void) {
 
     if (rpl_pfs_filter == nullptr) {
       break;
-    } else {
-      make_row(rpl_pfs_filter);
-      m_next_pos.set_after(&m_pos);
-      res = 0;
     }
+    make_row(rpl_pfs_filter);
+    m_next_pos.set_after(&m_pos);
+    res = 0;
   }
   rpl_global_filter.unlock();
 
@@ -183,7 +183,8 @@ int table_replication_applier_global_filters::read_row_values(
     if (read_all || bitmap_is_set(table->read_set, f->field_index())) {
       switch (f->field_index()) {
         case 0: /* filter_name */
-          set_field_char_utf8(f, m_row.filter_name, m_row.filter_name_length);
+          set_field_char_utf8mb4(f, m_row.filter_name,
+                                 m_row.filter_name_length);
           break;
         case 1: /* filter_rule */
           if (!m_row.filter_rule.is_empty())

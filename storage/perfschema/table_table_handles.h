@@ -1,15 +1,16 @@
-/* Copyright (c) 2012, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2012, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -68,7 +69,8 @@ struct row_table_handles {
 
 class PFS_index_table_handles : public PFS_engine_index {
  public:
-  PFS_index_table_handles(PFS_engine_key *key_1) : PFS_engine_index(key_1) {}
+  explicit PFS_index_table_handles(PFS_engine_key *key_1)
+      : PFS_engine_index(key_1) {}
 
   PFS_index_table_handles(PFS_engine_key *key_1, PFS_engine_key *key_2)
       : PFS_engine_index(key_1, key_2) {}
@@ -92,7 +94,7 @@ class PFS_index_table_handles_by_object : public PFS_index_table_handles {
 
   ~PFS_index_table_handles_by_object() override = default;
 
-  bool match(PFS_table *table) override;
+  bool match(PFS_table *pfs) override;
 
  private:
   PFS_key_object_type m_key_1;
@@ -107,7 +109,7 @@ class PFS_index_table_handles_by_instance : public PFS_index_table_handles {
 
   ~PFS_index_table_handles_by_instance() override = default;
 
-  bool match(PFS_table *table) override;
+  bool match(PFS_table *pfs) override;
 
  private:
   PFS_key_object_instance m_key;
@@ -122,7 +124,7 @@ class PFS_index_table_handles_by_owner : public PFS_index_table_handles {
 
   ~PFS_index_table_handles_by_owner() override = default;
 
-  bool match(PFS_table *table) override;
+  bool match(PFS_table *pfs) override;
 
  private:
   PFS_key_thread_id m_key_1;
@@ -137,7 +139,7 @@ class table_table_handles : public PFS_engine_table {
   static PFS_engine_table *create(PFS_engine_table_share *);
   static ha_rows get_row_count();
 
-  void reset_position(void) override;
+  void reset_position() override;
 
   int rnd_init(bool scan) override;
   int rnd_next() override;

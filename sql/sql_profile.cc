@@ -1,15 +1,16 @@
-/* Copyright (c) 2007, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2007, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -78,9 +79,9 @@ static const size_t MAX_QUERY_LENGTH = 300;
 /**
   Connects Information_Schema and Profiling.
 */
-int fill_query_profile_statistics_info(
-    THD *thd MY_ATTRIBUTE((unused)), TABLE_LIST *tables MY_ATTRIBUTE((unused)),
-    Item *) {
+int fill_query_profile_statistics_info(THD *thd [[maybe_unused]],
+                                       Table_ref *tables [[maybe_unused]],
+                                       Item *) {
 #if defined(ENABLED_PROFILING)
   const char *old = thd->lex->sql_command == SQLCOM_SHOW_PROFILE
                         ? "SHOW PROFILE"
@@ -497,7 +498,7 @@ void PROFILING::set_query_source(const char *query_source_arg,
   There are two ways to get to this function:  Selecting from the information
   schema, and a SHOW command.
 */
-int PROFILING::fill_statistics_info(THD *thd_arg, TABLE_LIST *tables) {
+int PROFILING::fill_statistics_info(THD *thd_arg, Table_ref *tables) {
   DBUG_TRACE;
   TABLE *table = tables->table;
   ulonglong row_number = 0;

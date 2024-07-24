@@ -1,15 +1,16 @@
-# Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -21,8 +22,12 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 
 
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/storage/ndb/src/mgmapi)
-INCLUDE(${CMAKE_SOURCE_DIR}/storage/ndb/config/type_kernel.cmake)
+INCLUDE_DIRECTORIES(
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CMAKE_SOURCE_DIR}/storage/ndb/src/kernel
+  ${CMAKE_SOURCE_DIR}/storage/ndb/src/kernel/blocks
+  ${CMAKE_SOURCE_DIR}/storage/ndb/src/kernel/error
+  ${CMAKE_SOURCE_DIR}/storage/ndb/src/mgmapi)
 
 ADD_LIBRARY(ndbkernel STATIC
   ArenaPool.cpp
@@ -33,7 +38,6 @@ ADD_LIBRARY(ndbkernel STATIC
   LockQueue.cpp
   Mutex.cpp
   Ndbinfo.cpp
-  NdbinfoTables.cpp
   Pool.cpp
   Rope.cpp
   SafeCounter.cpp
@@ -49,8 +53,12 @@ ADD_LIBRARY(ndbkernel STATIC
   ndbd_malloc.cpp
   ndbd_malloc_impl.cpp
 )
-#    WOPool.cpp
-#    RWPool.cpp
+
+# 'sbrk' is deprecated [-Wdeprecated-declarations]
+IF(APPLE)
+  ADD_COMPILE_FLAGS(ndbd_malloc_impl.cpp COMPILE_FLAGS
+    " -Wno-error=deprecated-declarations")
+ENDIF()
 
 ADD_LIBRARY(ndbsched STATIC
   FastScheduler.cpp
@@ -79,7 +87,6 @@ ADD_LIBRARY(ndbtest STATIC
   ../blocks/dbtup/tuppage.cpp
 )
 
-NDB_ADD_TEST(mt_thr_config-t mt_thr_config.cpp LIBS ndbgeneral ndbportlib)
 NDB_ADD_TEST(RefConvert-t RefConvert.cpp LIBS ndbgeneral ndbportlib)
 
 # ${ALL_UNIT_TEST_LIBS} may be listed twice in the linker command due
@@ -103,10 +110,16 @@ FOREACH(testprog
     LHLevel
     Rope
     SegmentList
+    TransientPagePool
+    TransientSlotPool
+    testDataBuffer
+    testSimplePropertiesSection
     )
   NDB_ADD_TEST("${testprog}-t" "${testprog}.cpp"
     LIBS ${ALL_UNIT_TEST_LIBS} ${ALL_UNIT_TEST_LIBS})
 ENDFOREACH(testprog)
+
+NDB_ADD_EXECUTABLE(testCopy testCopy.cpp NDBCLIENT SKIP_INSTALL)
 
 NDB_ADD_TEST(ndbd_malloc-t ndbd_malloc_impl.cpp LIBS ${ALL_UNIT_TEST_LIBS} ${ALL_UNIT_TEST_LIBS})
 

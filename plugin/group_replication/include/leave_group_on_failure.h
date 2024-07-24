@@ -1,15 +1,16 @@
-/* Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,8 +26,8 @@
 
 #include <bitset>
 
+#include "my_inttypes.h"
 #include "plugin/group_replication/include/services/notification/notification.h"
-#include "plugin/group_replication/include/sql_service/sql_service_command.h"
 
 /**
   Structure that holds the actions taken by the plugin when the
@@ -57,10 +58,6 @@ struct leave_group_on_failure {
                   Actions performed.
     @param[in]  error_to_log
                   Error logged into error log.
-    @param[in]  session_isolation
-                  Session creation requirements: use current thread,
-                  use thread but initialize it or create it in a
-                  dedicated thread.
     @param[in]  caller_notification_context
                   If defined the member state change notification
                   will update this notification context and the
@@ -73,7 +70,6 @@ struct leave_group_on_failure {
                   that function is called.
   */
   static void leave(const mask &actions, longlong error_to_log,
-                    enum_plugin_con_isolation session_isolation,
                     Notification_context *caller_notification_context,
                     const char *exit_state_action_abort_log_message);
 };

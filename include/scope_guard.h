@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -61,4 +62,25 @@ Scope_guard<TLambda> create_scope_guard(const TLambda rollback_lambda) {
   return Scope_guard<TLambda>(rollback_lambda);
 }
 
+/**
+  Template class to scope guard variables.
+*/
+template <typename T>
+class Variable_scope_guard {
+ public:
+  Variable_scope_guard() = delete;
+  Variable_scope_guard(T &var) : m_var_ref(var), m_var_val(var) {}
+
+  Variable_scope_guard(const Variable_scope_guard &) = delete;
+  Variable_scope_guard(Variable_scope_guard &&) = delete;
+
+  Variable_scope_guard &operator=(const Variable_scope_guard &) = delete;
+  Variable_scope_guard &operator=(Variable_scope_guard &&) = delete;
+
+  ~Variable_scope_guard() { m_var_ref = m_var_val; }
+
+ private:
+  T &m_var_ref;
+  T m_var_val;
+};
 #endif /* SCOPE_GUARD_H */

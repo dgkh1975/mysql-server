@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -107,7 +108,7 @@ ReturnValueOrError<const dd::Tablespace *> fetch_tablespace(
   }
   if (tblspc_ == nullptr) {
     // When dropping a table in an implicit tablespace, the
-    // refrenced tablespace may already have been removed. This
+    // referenced tablespace may already have been removed. This
     // is ok since this means that the sdis in the tablespace
     // have been removed also. Note that since tsids is only used
     // to check for duplicates, it makes sense to leave tsid
@@ -133,7 +134,7 @@ namespace dd {
 namespace sdi_tablespace {
 bool store_tbl_sdi(THD *thd, handlerton *hton, const dd::Sdi_type &sdi,
                    const dd::Table &table,
-                   const dd::Schema &schema MY_ATTRIBUTE((unused))) {
+                   const dd::Schema &schema [[maybe_unused]]) {
   auto res = fetch_tablespace(thd, fetch_first_tablespace_id(table));
   if (res.error) {
     return true;
@@ -166,7 +167,7 @@ bool store_tsp_sdi(handlerton *hton, const Sdi_type &sdi,
 }
 
 bool drop_tbl_sdi(THD *thd, const handlerton &hton, const Table &table,
-                  const Schema &schema MY_ATTRIBUTE((unused))) {
+                  const Schema &schema [[maybe_unused]]) {
   DBUG_PRINT("ddsdi",
              ("drop_tbl_sdi(Schema" ENTITY_FMT ", Table" ENTITY_FMT ")",
               ENTITY_VAL(schema), ENTITY_VAL(table)));

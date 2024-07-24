@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -78,6 +79,7 @@ static const std::set<String_type> default_valid_option_keys = {
     "plugin_version",
     "row_type",
     "secondary_engine",
+    "secondary_load",
     "server_i_s_table",
     "server_p_s_table",
     "stats_auto_recalc",
@@ -86,7 +88,8 @@ static const std::set<String_type> default_valid_option_keys = {
     "storage",
     "tablespace",
     "timestamp",
-    "view_valid"};
+    "view_valid",
+    "gipk"};
 
 ///////////////////////////////////////////////////////////////////////////
 // Abstract_table_impl implementation.
@@ -267,6 +270,18 @@ Column *Abstract_table_impl::add_column() {
   Column_impl *c = new (std::nothrow) Column_impl(this);
   m_columns.push_back(c);
   return c;
+}
+
+bool Abstract_table_impl::drop_column(const String_type &name) {
+  for (Column *c : m_columns) {
+    if (my_strcasecmp(system_charset_info, name.c_str(), c->name().c_str()) ==
+        0) {
+      m_columns.remove(down_cast<Column_impl *>(c));
+      return true;
+    }
+  }
+
+  return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////

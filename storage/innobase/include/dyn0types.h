@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2013, 2021, Oracle and/or its affiliates.
+Copyright (c) 2013, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -33,14 +34,17 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #ifndef dyn0types_h
 #define dyn0types_h
 
+#include <stdint.h>
+#include <cstddef>
+
 /** Value of dyn_block_t::magic_n */
-#define DYN_BLOCK_MAGIC_N 375767
+constexpr uint32_t DYN_BLOCK_MAGIC_N = 375767;
 
 /** This is the initial 'payload' size of a dynamic array;
 this must be > MLOG_BUF_MARGIN + 30! */
-#define DYN_ARRAY_DATA_SIZE 512
+constexpr uint32_t DYN_ARRAY_DATA_SIZE = 512;
 
 /** Flag for dyn_block_t::used that indicates a full block */
-#define DYN_BLOCK_FULL_FLAG 0x1000000UL
+constexpr uint32_t DYN_BLOCK_FULL_FLAG = 0x1000000UL;
 
 #endif /* dyn0types_h */

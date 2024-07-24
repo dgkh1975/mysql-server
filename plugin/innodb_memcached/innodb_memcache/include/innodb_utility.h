@@ -1,17 +1,18 @@
 /***********************************************************************
 
-Copyright (c) 2012, 2021, Oracle and/or its affiliates.
+Copyright (c) 2012, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -119,7 +120,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
  Extracted from ut0rnd.h and ut0rnd.ic.
  @return folded value */
 
-ib_ulint_t ut_fold_string(
+uint64_t ut_fold_string(
     /*===========*/
     const char *str); /*!< in: null-terminated string */
 
@@ -128,7 +129,7 @@ typedef struct hash_cell_struct {
 } hash_cell_t;
 
 typedef struct hash_table_struct {
-  ib_ulint_t n_cells; /* number of cells in the hash table */
+  uint64_t n_cells;   /* number of cells in the hash table */
   hash_cell_t *array; /*!< pointer to cell array */
 } hash_table_t;
 
@@ -184,7 +185,7 @@ typedef struct hash_table_struct {
  Cleanup items in a hash table */
 #define HASH_CLEANUP(TABLE, TYPE)                         \
   do {                                                    \
-    ib_ulint_t i;                                         \
+    uint64_t i;                                           \
     TYPE data;                                            \
                                                           \
     for (i = 0; i < TABLE->n_cells; i++) {                \
@@ -209,7 +210,7 @@ typedef struct hash_table_struct {
 hash_cell_t *hash_get_nth_cell(
     /*==============*/
     hash_table_t *table, /*!< in: hash table */
-    ib_ulint_t n);       /*!< in: cell index */
+    uint64_t n);         /*!< in: cell index */
 
 /*************************************************************/ /**
  Creates a hash table with >= n array cells. The actual number
@@ -217,14 +218,14 @@ hash_cell_t *hash_get_nth_cell(
  @return own: created table */
 hash_table_t *hash_create(
     /*========*/
-    ib_ulint_t n); /*!< in: number of array cells */
+    uint64_t n); /*!< in: number of array cells */
 
 /**************************************************************/ /**
  Calculates the hash value from a folded value.
  @return hashed value */
-ib_ulint_t hash_calc_hash(
+uint64_t hash_calc_hash(
     /*===========*/
-    ib_ulint_t fold,      /*!< in: folded value */
+    uint64_t fold,        /*!< in: folded value */
     hash_table_t *table); /*!< in: hash table */
 
 #endif /* INNODB_UTILITY_H */

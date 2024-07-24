@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2012, 2021, Oracle and/or its affiliates.
+Copyright (c) 2012, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -47,10 +48,12 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ut0new.h"
 
 /** Minimum time interval between stats recalc for a given table */
-#define MIN_RECALC_INTERVAL 10 /* seconds */
+constexpr std::chrono::seconds MIN_RECALC_INTERVAL{10};
 
-#define SHUTTING_DOWN() \
-  (srv_shutdown_state.load() >= SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS)
+static inline bool SHUTTING_DOWN() {
+  return srv_shutdown_state.load() >=
+         SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS;
+}
 
 /** Event to wake up the stats thread */
 os_event_t dict_stats_event = nullptr;
@@ -70,7 +73,7 @@ it is enlarged */
 static const ulint RECALC_POOL_INITIAL_SLOTS = 128;
 
 /** Allocator type, used by std::vector */
-typedef ut_allocator<table_id_t> recalc_pool_allocator_t;
+typedef ut::allocator<table_id_t> recalc_pool_allocator_t;
 
 /** The multitude of tables whose stats are to be automatically
 recalculated - an STL vector */
@@ -90,7 +93,8 @@ static void dict_stats_recalc_pool_init() {
 
   const PSI_memory_key key = mem_key_dict_stats_bg_recalc_pool_t;
 
-  recalc_pool = UT_NEW(recalc_pool_t(recalc_pool_allocator_t(key)), key);
+  recalc_pool = ut::new_withkey<recalc_pool_t>(ut::make_psi_memory_key(key),
+                                               recalc_pool_allocator_t(key));
 
   recalc_pool->reserve(RECALC_POOL_INITIAL_SLOTS);
 }
@@ -102,7 +106,7 @@ static void dict_stats_recalc_pool_deinit() {
 
   recalc_pool->clear();
 
-  UT_DELETE(recalc_pool);
+  ut::delete_(recalc_pool);
   recalc_pool = nullptr;
 }
 
@@ -197,7 +201,7 @@ void dict_stats_wait_bg_to_stop_using_table(
                          unlocking/locking the data dict */
 {
   while (!dict_stats_stop_bg(table)) {
-    DICT_STATS_BG_YIELD(trx);
+    DICT_STATS_BG_YIELD(trx, UT_LOCATION_HERE);
   }
 }
 
@@ -254,7 +258,7 @@ void dict_stats_thread_deinit() {
 
 /** Get the first table that has been added for auto recalc and eventually
 update its stats.
-@param[in,out]	thd	current thread */
+@param[in,out]  thd     current thread */
 static void dict_stats_process_entry_from_recalc_pool(THD *thd) {
   table_id_t table_id;
 
@@ -303,7 +307,8 @@ static void dict_stats_process_entry_from_recalc_pool(THD *thd) {
   be replaced with something else, though a time interval is the natural
   approach. */
 
-  if (ut_time_monotonic() - table->stats_last_recalc < MIN_RECALC_INTERVAL) {
+  if (std::chrono::steady_clock::now() - table->stats_last_recalc <
+      MIN_RECALC_INTERVAL) {
     /* Stats were (re)calculated not long ago. To avoid
     too frequent stats updates we put back the table on
     the auto recalc list and do nothing. */
@@ -327,13 +332,7 @@ static void dict_stats_process_entry_from_recalc_pool(THD *thd) {
 }
 
 #ifdef UNIV_DEBUG
-/** Disables dict stats thread. It's used by:
-        SET GLOBAL innodb_dict_stats_disabled_debug = 1 (0).
-@param[in]	thd		thread handle
-@param[in]	var		pointer to system variable
-@param[out]	var_ptr		where the formal string goes
-@param[in]	save		immediate result from check function */
-void dict_stats_disabled_debug_update(THD *thd, SYS_VAR *var, void *var_ptr,
+void dict_stats_disabled_debug_update(THD *, SYS_VAR *, void *,
                                       const void *save) {
   /* This method is protected by mutex, as every SET GLOBAL .. */
   ut_ad(dict_stats_disabled_event != nullptr);
@@ -356,7 +355,7 @@ the auto recalc list and proceeds them, eventually recalculating their
 statistics. */
 void dict_stats_thread() {
   ut_a(!srv_read_only_mode);
-  THD *thd = create_thd(false, true, true, 0);
+  THD *thd = create_internal_thd();
 
   while (!SHUTTING_DOWN()) {
     /* Wake up periodically even if not signaled. This is
@@ -364,7 +363,7 @@ void dict_stats_thread() {
     dict_stats_process_entry_from_recalc_pool() puts the entry back
     in the list, the os_event_set() will be lost by the subsequent
     os_event_reset(). */
-    os_event_wait_time(dict_stats_event, MIN_RECALC_INTERVAL * 1000000);
+    os_event_wait_time(dict_stats_event, MIN_RECALC_INTERVAL);
 
 #ifdef UNIV_DEBUG
     while (innodb_dict_stats_disabled_debug) {
@@ -372,7 +371,7 @@ void dict_stats_thread() {
       if (SHUTTING_DOWN()) {
         break;
       }
-      os_event_wait_time(dict_stats_event, 100000);
+      os_event_wait_time(dict_stats_event, std::chrono::milliseconds{100});
     }
 #endif /* UNIV_DEBUG */
 
@@ -385,7 +384,7 @@ void dict_stats_thread() {
     os_event_reset(dict_stats_event);
   }
 
-  destroy_thd(thd);
+  destroy_internal_thd(thd);
 }
 
 /** Shutdown the dict stats thread. */

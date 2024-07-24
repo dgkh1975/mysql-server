@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -54,17 +55,6 @@
 #include "my_config.h"
 
 ////////////////////////////////////////
-// Harness include files
-#include "exception.h"
-#include "lifecycle.h"
-#include "mysql/harness/filesystem.h"
-#include "mysql/harness/loader.h"
-#include "mysql/harness/logging/registry.h"
-#include "mysql/harness/plugin.h"
-#include "test/helpers.h"
-#include "utilities.h"
-
-////////////////////////////////////////
 // Third-party include files
 #include <gmock/gmock-matchers.h>
 #include <gmock/gmock.h>
@@ -86,10 +76,19 @@
 #include <thread>
 #include <vector>
 
-// see loader.cc for more info on this define
-#ifndef _WIN32
-#define USE_POSIX_SIGNALS
-#endif
+////////////////////////////////////////
+// Harness include files
+#include "exception.h"
+#include "lifecycle.h"
+#include "mysql/harness/filesystem.h"
+#include "mysql/harness/loader.h"
+#include "mysql/harness/logging/registry.h"
+#include "mysql/harness/plugin.h"
+#include "mysql/harness/process_state_component.h"
+#include "mysql/harness/signal_handler.h"
+#include "mysql/harness/utility/string.h"
+#include "test/helpers.h"
+#include "utilities.h"
 
 #define USE_DLCLOSE 1
 
@@ -162,7 +161,11 @@ class TestLoader : public Loader {
  public:
   TestLoader(const std::string &program, mysql_harness::LoaderConfig &config)
       : Loader(program, config) {
-    unittest_backdoor::set_shutdown_pending(false);
+    // unittest_backdoor::set_shutdown_pending(false);
+    mysql_harness::ProcessStateComponent::get_instance().shutdown_pending()(
+        [](auto &pending) {
+          pending.reason(mysql_harness::ShutdownPending::Reason::NONE);
+        });
   }
 
   void read(std::istream &stream) {
@@ -170,9 +173,19 @@ class TestLoader : public Loader {
     config_.fill_and_check();
   }
 
+  void load_all() { Loader::load_all(); }
+
+  std::exception_ptr main_loop() { return Loader::main_loop(); }
+  std::exception_ptr init_all() { return Loader::init_all(); }
+  void start_all() { return Loader::start_all(); }
+  std::exception_ptr run() { return Loader::run(); }
+  std::exception_ptr deinit_all() { return Loader::deinit_all(); }
+
+  std::list<std::string> order() const { return this->order_; }
+
   // Loader::load_all() with ability to disable functions
   void load_all(int switches) {
-    Loader::load_all();
+    load_all();
     init_lifecycle_plugin(switches);
   }
 
@@ -282,7 +295,7 @@ class LifecycleTest : public BasicConsoleOutputTest {
 
   void init_test_without_lifecycle_plugin(std::istream &config_text) {
     loader_.read(config_text);
-    loader_.Loader::load_all();
+    loader_.load_all();
     clear_log();
   }
 
@@ -329,7 +342,8 @@ class LifecycleTest : public BasicConsoleOutputTest {
 
 void delayed_shutdown() {
   std::this_thread::sleep_for(ch::milliseconds(kSleepShutdown));
-  request_application_shutdown();
+  mysql_harness::ProcessStateComponent::get_instance()
+      .request_application_shutdown();
 }
 
 int time_diff(const ch::time_point<ch::steady_clock> &t0,
@@ -450,7 +464,7 @@ TEST_F(LifecycleTest, Simple_None) {
 
   const std::list<std::string> initialized = {
       "logger", kPluginNameMagic, kPluginNameLifecycle3, kPluginNameLifecycle};
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -481,7 +495,7 @@ TEST_F(LifecycleTest, Simple_AllFunctions) {
 
   const std::list<std::string> initialized = {
       "logger", kPluginNameMagic, kPluginNameLifecycle3, kPluginNameLifecycle};
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -549,7 +563,7 @@ TEST_F(LifecycleTest, Simple_Init) {
 
   const std::list<std::string> initialized = {
       "logger", kPluginNameMagic, kPluginNameLifecycle3, kPluginNameLifecycle};
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -582,7 +596,7 @@ TEST_F(LifecycleTest, Simple_StartStop) {
 
   const std::list<std::string> initialized = {
       "logger", kPluginNameMagic, kPluginNameLifecycle3, kPluginNameLifecycle};
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -640,7 +654,7 @@ TEST_F(LifecycleTest, Simple_StartStopBlocking) {
 
   const std::list<std::string> initialized = {
       "logger", kPluginNameMagic, kPluginNameLifecycle3, kPluginNameLifecycle};
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -697,7 +711,7 @@ TEST_F(LifecycleTest, Simple_Start) {
 
   const std::list<std::string> initialized = {
       "logger", kPluginNameMagic, kPluginNameLifecycle3, kPluginNameLifecycle};
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -747,7 +761,7 @@ TEST_F(LifecycleTest, Simple_Stop) {
 
   const std::list<std::string> initialized = {
       "logger", kPluginNameMagic, kPluginNameLifecycle3, kPluginNameLifecycle};
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -793,7 +807,7 @@ TEST_F(LifecycleTest, Simple_Deinit) {
 
   const std::list<std::string> initialized = {
       "logger", kPluginNameMagic, kPluginNameLifecycle3, kPluginNameLifecycle};
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -855,7 +869,7 @@ TEST_F(LifecycleTest, ThreeInstances_NoError) {
       kPluginNameLifecycle3,
       kPluginNameLifecycle,
   };
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -929,7 +943,7 @@ TEST_F(LifecycleTest, BothLifecycles_NoError) {
       kPluginNameLifecycle,
       kPluginNameLifecycle2,
   };
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -1112,7 +1126,7 @@ TEST_F(LifecycleTest, ThreeInstances_InitFails) {
       kPluginNameMagic,
       kPluginNameLifecycle3,
   };
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -1175,7 +1189,7 @@ TEST_F(LifecycleTest, BothLifecycles_InitFails) {
       kPluginNameMagic,
       kPluginNameLifecycle3,
   };
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -1243,7 +1257,7 @@ TEST_F(LifecycleTest, ThreeInstances_Start1Fails) {
 
   const std::list<std::string> initialized = {
       "logger", kPluginNameMagic, kPluginNameLifecycle3, kPluginNameLifecycle};
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -1312,7 +1326,7 @@ TEST_F(LifecycleTest, ThreeInstances_Start2Fails) {
 
   const std::list<std::string> initialized = {
       "logger", kPluginNameMagic, kPluginNameLifecycle3, kPluginNameLifecycle};
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -1387,7 +1401,7 @@ TEST_F(LifecycleTest, ThreeInstances_Start3Fails) {
 
   const std::list<std::string> initialized = {
       "logger", kPluginNameMagic, kPluginNameLifecycle3, kPluginNameLifecycle};
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -1467,7 +1481,7 @@ TEST_F(LifecycleTest, ThreeInstances_2StartsFail) {
       kPluginNameLifecycle3,
       kPluginNameLifecycle,
   };
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -1671,7 +1685,7 @@ TEST_F(LifecycleTest, ThreeInstances_StartStopDeinitFail) {
       kPluginNameLifecycle3,
       kPluginNameLifecycle,
   };
-  EXPECT_EQ(initialized, loader_.order_);
+  EXPECT_EQ(initialized, loader_.order());
 
   refresh_log();
 
@@ -1736,16 +1750,19 @@ TEST_F(LifecycleTest, NoInstances) {
 
   EXPECT_THAT(log_lines_, IsSupersetOf({
                               has_init_plugins(init_plugins),
-                              HasSubstr("Waiting for readiness of: "),
+                              HasSubstr("Service ready!"),
                               HasSubstr("Shutting down."),
                           }));
 
-  EXPECT_THAT(log_lines_,
-              Not(IsSupersetOf({
-                  HasSubstr("Starting:"),  // no plugin with a start() method
-                  HasSubstr("Deinitializing"),  // no plugin with a deinit()
-                  HasSubstr("failed"),
-              })));
+  EXPECT_THAT(
+      log_lines_,
+      Not(IsSupersetOf({
+          HasSubstr("Starting:"),       // no plugin with a start() method
+          HasSubstr("Deinitializing"),  // no plugin with a deinit()
+          HasSubstr("Waiting for readiness of:"),  // no service that announces
+                                                   // readiness
+          HasSubstr("failed"),
+      })));
 }
 
 // note: we don't test an equivalent scenario when the plugin throws (an empty
@@ -1860,81 +1877,6 @@ TEST_F(LifecycleTest, set_error_exception) {
   EXPECT_THROW({ std::rethrow_exception(eptr); }, std::runtime_error);
 }
 
-#ifdef USE_POSIX_SIGNALS  // these don't make sense on Windows
-TEST_F(LifecycleTest, send_signals) {
-  // this test verifies that:
-  // - sending SIGINT or SIGTERM will trigger shutdown
-  //   (we only test SIGINT here, and SIGTERM in the next test)
-  // - sending any other signal will do nothing
-
-  config_text_ << "init   = exit           \n"
-               << "start  = exitonstop     \n"
-               << "stop   = exit           \n"
-               << "deinit = exit           \n";
-  using namespace mysql_harness::test::PluginDescriptorFlags;
-  ASSERT_NO_FATAL_FAILURE(init_test(config_text_, 0));
-  LifecyclePluginSyncBus &bus = msg_bus("instance1");
-
-  EXPECT_EQ(loader_.init_all(), nullptr);
-  freeze_bus(bus);
-  loader_.start_all();
-  unfreeze_and_wait_for_msg(
-      bus, "lifecycle:instance1 start():EXIT_ON_STOP:sleeping");
-
-  // nothing should happen - all signals but the ones we care
-  // about should be ignored (here we only test a few, the rest
-  // is assumed to behave the same)
-  kill(getpid(), SIGUSR1);
-  kill(getpid(), SIGALRM);
-
-  // signal shutdown after 10ms, main_loop() should block until
-  // then
-  auto call_SIGINT = []() {
-    std::this_thread::sleep_for(ch::milliseconds(kSleepShutdown));
-    kill(getpid(), SIGINT);
-  };
-  std::thread(call_SIGINT).detach();
-  EXPECT_EQ(loader_.main_loop(), nullptr);
-
-  refresh_log();
-
-  EXPECT_THAT(log_lines_,
-              IsSupersetOf({HasSubstr("Shutting down. Signaling stop to:")}));
-}
-
-TEST_F(LifecycleTest, send_signals2) {
-  // continuation of the previous test (test SIGTERM this time)
-
-  config_text_ << "init   = exit           \n"
-               << "start  = exitonstop     \n"
-               << "stop   = exit           \n"
-               << "deinit = exit           \n";
-  using namespace mysql_harness::test::PluginDescriptorFlags;
-  ASSERT_NO_FATAL_FAILURE(init_test(config_text_, 0));
-  LifecyclePluginSyncBus &bus = msg_bus("instance1");
-
-  EXPECT_EQ(loader_.init_all(), nullptr);
-  freeze_bus(bus);
-  loader_.start_all();
-  unfreeze_and_wait_for_msg(
-      bus, "lifecycle:instance1 start():EXIT_ON_STOP:sleeping");
-
-  // signal shutdown after 10ms, main_loop() should block until
-  // then
-  auto call_SIGTERM = []() {
-    std::this_thread::sleep_for(ch::milliseconds(kSleepShutdown));
-    kill(getpid(), SIGTERM);
-  };
-  std::thread(call_SIGTERM).detach();
-  EXPECT_EQ(loader_.main_loop(), nullptr);
-
-  refresh_log();
-
-  EXPECT_THAT(log_lines_,
-              IsSupersetOf({HasSubstr("Shutting down. Signaling stop to:")}));
-}
-#endif
-
 /**
  * @test
  * This test verifies operation of Harness API function wait_for_stop().
@@ -1967,7 +1909,7 @@ TEST_F(LifecycleTest, wait_for_stop) {
   //   will be called. stop() makes a call to wait_for_stop(<big
   //   timeout value>). Since this time around, Router is
   //   already in the "stopping" state, the function SHOULD exit
-  //   immediately, returing control back to stop(), which just
+  //   immediately, returning control back to stop(), which just
   //   exits after.
   config_text_ << "stop  = exitonstop_longtimeout\n";
 
@@ -2062,7 +2004,7 @@ TEST_F(LifecycleTest, wait_for_stop) {
     //
     // We don't bother #ifdef-ing the timeout for OSX, because
     // in principle, many/all non-RT OSes probably have no tight
-    // guarrantees for wait_for() just like OSX, and an
+    // guarantees for wait_for() just like OSX, and an
     // excessive timeout value does not slow down the test run
     // time.
 

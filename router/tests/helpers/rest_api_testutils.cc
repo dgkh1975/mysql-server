@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,14 +28,16 @@
 #include <thread>
 
 #include <gmock/gmock.h>
+
+#define RAPIDJSON_HAVE_STDSTRING
+
 #ifdef RAPIDJSON_NO_SIZETYPEDEFINE
-// if we build within the server, it will set RAPIDJSON_NO_SIZETYPEDEFINE
-// globally and require to include my_rapidjson_size_t.h
 #include "my_rapidjson_size_t.h"
 #endif
-
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
+#include <rapidjson/writer.h>
+
 #include "mysqlrouter/rest_client.h"
 
 #include "rest_api_testutils.h"
@@ -236,11 +239,18 @@ std::string RestApiComponentTest::create_password_file() {
   const std::string userfile =
       mysql_harness::Path(conf_dir_.name()).join("users").str();
   {
+    ProcessWrapper::OutputResponder responder{
+        [](const std::string &line) -> std::string {
+          if (line == "Please enter password: ")
+            return std::string(kRestApiPassword) + "\n";
+
+          return "";
+        }};
+
     auto &cmd =
         launch_command(get_origin().join("mysqlrouter_passwd").str(),
-                       {"set", userfile, kRestApiUsername}, EXIT_SUCCESS, true);
-    cmd.register_response("Please enter password",
-                          std::string(kRestApiPassword) + "\n");
+                       {"set", userfile, kRestApiUsername}, EXIT_SUCCESS, true,
+                       std::chrono::milliseconds(-1), responder);
     check_exit_code(cmd, EXIT_SUCCESS);
   }
 
@@ -364,6 +374,15 @@ static void verify_swagger_content(
   }
 }
 
+static std::string to_string(const JsonDocument &json_doc) {
+  rapidjson::StringBuffer buffer;
+  rapidjson::PrettyWriter writer(buffer);
+
+  json_doc.Accept(writer);
+
+  return buffer.GetString();
+}
+
 void RestApiComponentTest::fetch_and_validate_schema_and_resource(
     const RestApiTestParams &test_params, ProcessWrapper &http_server,
     const std::string &http_hostname) {
@@ -391,7 +410,8 @@ void RestApiComponentTest::fetch_and_validate_schema_and_resource(
   ASSERT_TRUE(wait_for_rest_endpoint_ready(test_params.uri, http_port_,
                                            test_params.user_name,
                                            test_params.user_password))
-      << http_server.get_full_output() << http_server.get_full_logfile();
+      << http_server.get_full_output()
+      << http_server.get_logfile_content("", "", 500);
 
   for (HttpMethod::pos_type ndx = 0; ndx < HttpMethod::Pos::_LAST; ++ndx) {
     if (test_params.methods.test(ndx)) {
@@ -458,39 +478,53 @@ void RestApiComponentTest::fetch_and_validate_schema_and_resource(
       }
 
       SCOPED_TRACE("// validating values");
-      for (const auto &kv : test_params.value_checks) {
-        validate_value(json_doc, kv.first, kv.second);
+      // HEAD does not return a body
+      if (method != HttpMethod::Head) {
+        for (const auto &kv : test_params.value_checks) {
+          ASSERT_NO_FATAL_FAILURE(validate_value(json_doc, kv.first, kv.second))
+              << to_string(json_doc);
+        }
       }
     }
   }
 }
 
-/*static*/ const std::vector<
-    std::pair<std::string, RestApiTestParams::value_check_func>>
-    RestApiComponentTest::kProblemJsonMethodNotAllowed{
-        {"/status",
-         [](const JsonValue *value) -> void {
-           ASSERT_NE(value, nullptr);
+RestApiComponentTest::json_verifiers_t
+RestApiComponentTest::get_json_method_not_allowed_verifiers() {
+  static const RestApiComponentTest::json_verifiers_t result{
+      {"/status",
+       [](const JsonValue *value) -> void {
+         ASSERT_NE(value, nullptr);
 
-           ASSERT_TRUE(value->IsInt());
-           ASSERT_EQ(value->GetInt(), HttpStatusCode::MethodNotAllowed);
-         }},
-        {"/title",
-         [](const JsonValue *value) -> void {
-           ASSERT_NE(value, nullptr);
+         ASSERT_TRUE(value->IsInt());
+         ASSERT_EQ(value->GetInt(), HttpStatusCode::MethodNotAllowed);
+       }},
+      {"/title",
+       [](const JsonValue *value) -> void {
+         ASSERT_NE(value, nullptr);
 
+         ASSERT_TRUE(value->IsString());
+         // CONNECT returns "Method Not Allowed"
+         const std::vector<std::string> msgs{"HTTP Method not allowed",
+                                             "Method Not Allowed"};
+         ASSERT_THAT(msgs, ::testing::Contains(value->GetString()));
+       }},
+      {"/detail",
+       [](const JsonValue *value) -> void {
+         // there is no /detail field for CONNECT
+         if (value != nullptr) {
            ASSERT_TRUE(value->IsString());
-           ASSERT_STREQ(value->GetString(), "HTTP Method not allowed");
-         }},
-        {"/detail",
-         [](const JsonValue *value) -> void {
-           ASSERT_NE(value, nullptr);
+           // swagger.json allows HEAD
+           const std::vector<std::string> msgs{
+               "only HTTP Methods GET are supported",
+               "only HTTP Methods GET,HEAD are supported"};
+           ASSERT_THAT(msgs, ::testing::Contains(value->GetString()));
+         }
+       }},
+  };
 
-           ASSERT_TRUE(value->IsString());
-           ASSERT_STREQ(value->GetString(),
-                        "only HTTP Methods GET,HEAD are supported");
-         }},
-    };
+  return result;
+}
 
 void RestApiComponentTest::validate_value(
     const JsonDocument &json_doc, const std::string &value_json_pointer,

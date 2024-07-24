@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -36,7 +37,7 @@
 #include "sql/current_thd.h"
 #include "sql/protocol_classic.h"
 #include "sql/sql_class.h"
-#include "sql/sql_thd_internal_api.h"  // create_thd
+#include "sql/sql_thd_internal_api.h"  // create_internal_thd
 
 #define MY_SVC_TRUE 1
 #define MY_SVC_FALSE 0
@@ -85,6 +86,9 @@ my_svc_bool thd_set_security_context(MYSQL_THD _thd,
       in_ctx->set_thd(thd);
       // Turn ON the flag in THD iff the user is granted SYSTEM_USER privilege
       set_system_user_flag(thd);
+      // Update the flag in THD based on if the user is granted CONNECTION_ADMIN
+      // privilege
+      set_connection_admin_flag(thd);
     }
     return MY_SVC_FALSE;
   } catch (...) {
@@ -176,7 +180,7 @@ my_svc_bool security_context_lookup(MYSQL_SECURITY_CONTEXT ctx,
   THD *tmp_thd = nullptr;
   bool retval;
   if (current_thd == nullptr) {
-    tmp_thd = create_thd(false, true, false, PSI_NOT_INSTRUMENTED);
+    tmp_thd = create_internal_thd();
     if (!tmp_thd) return true;
   }
 
@@ -185,20 +189,23 @@ my_svc_bool security_context_lookup(MYSQL_SECURITY_CONTEXT ctx,
                : false;
   /*
     If it is not a new security context then update the
-    system_user flag in its referenced THD.
+    system_user and connection_admin flags in its referenced THD.
   */
   THD *sctx_thd = ctx->get_thd();
-  if (sctx_thd) set_system_user_flag(sctx_thd);
+  if (sctx_thd) {
+    set_system_user_flag(sctx_thd);
+    set_connection_admin_flag(sctx_thd);
+  }
 
   if (tmp_thd) {
-    destroy_thd(tmp_thd);
+    destroy_internal_thd(tmp_thd);
     tmp_thd = nullptr;
   }
   return retval;
 }
 
 /**
-  Reads a named security context attribute and retuns its value.
+  Reads a named security context attribute and returns its value.
   Currently defined names are:
 
   - user        MYSQL_LEX_CSTRING *  login user (a.k.a. the user's part of
@@ -217,6 +224,8 @@ my_svc_bool security_context_lookup(MYSQL_SECURITY_CONTEXT ctx,
   0 otherwise
   - privilege_execute my_svc_bool *  1 if the user account has execute
   privilege, 0 otherwise
+  - is_skip_grants_user bool      *  true if user account has skip-grants
+  privilege, false otherwise
 
   @param[in]  ctx   The handle of the security context to read from
   @param[in]  name  The option name to read
@@ -253,6 +262,8 @@ my_svc_bool security_context_get_option(MYSQL_SECURITY_CONTEXT ctx,
       } else if (!strcmp(name, "privilege_execute")) {
         bool checked = ctx->check_access(EXECUTE_ACL);
         *((my_svc_bool *)inout_pvalue) = checked ? MY_SVC_TRUE : MY_SVC_FALSE;
+      } else if (!strcmp(name, "is_skip_grants_user")) {
+        *((bool *)inout_pvalue) = ctx->is_skip_grants_user();
       } else
         return MY_SVC_TRUE; /* invalid option */
     }

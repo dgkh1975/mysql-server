@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -68,7 +69,7 @@ typedef std::map<std::string, Rpl_filter *> filter_map;
   i) Master_info and Relay_log_info (replica_parallel_workers == 0)
   ii) Master_info, Relay_log_info and Slave_worker(replica_parallel_workers >0 )
 
-  Master_info is always assosiated with a Relay_log_info per channel.
+  Master_info is always associated with a Relay_log_info per channel.
   So, it is enough to store Master_infos and call the corresponding
   Relay_log_info by mi->rli;
 
@@ -183,7 +184,7 @@ class Multisource_info {
     @param[in]  channel_name      channel name
     @param[in]  mi                pointer to master info corresponding
                                   to this channel
-    @retval      false       succesfully added
+    @retval      false       successfully added
     @retval      true        couldn't add channel
   */
   bool add_mi(const char *channel_name, Master_info *mi);
@@ -215,10 +216,17 @@ class Multisource_info {
     replication_channel_map and sets index in the  multisource_mi to 0;
     And also delete the {mi, rli} pair corresponding to this channel
 
+    @note this requires the caller to hold the mi->channel_wrlock.
+    If the method succeeds the master info object is deleted and the lock
+    is released. If the an error occurs and the method return true, the {mi}
+    object won't be deleted and the caller should release the channel_wrlock.
+
     @param[in]    channel_name     Name of the channel for a Master_info
                                    object which must exist.
+
+    @return true if an error occurred, false otherwise
   */
-  void delete_mi(const char *channel_name);
+  bool delete_mi(const char *channel_name);
 
   /**
     Get the default channel for this multisourced_slave;
@@ -451,9 +459,9 @@ class Multisource_info {
   all the warnings about the filters configured for non-existent channels, we
   can forget about its global object rpl_channel_filters and rely only on the
   global and per channel Rpl_filter objects. But to avoid holding the
-  channel_map.rdlock() when quering P_S.replication_applier_filters table,
+  channel_map.rdlock() when querying P_S.replication_applier_filters table,
   we keep the rpl_channel_filters. So that we just need to hold the small
-  rpl_channel_filters.rdlock() when quering P_S.replication_applier_filters
+  rpl_channel_filters.rdlock() when querying P_S.replication_applier_filters
   table. Many operations (RESET SLAVE [FOR CHANNEL], START SLAVE, INIT SLAVE,
   END SLAVE, CHANGE MASTER TO, FLUSH RELAY LOGS, START CHANNEL, PURGE CHANNEL,
   and so on) hold the channel_map.wrlock().
@@ -524,7 +532,7 @@ class Rpl_channel_filters {
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 
   /**
-    This member function is called everytime a filter is created or deleted,
+    This member function is called every time a filter is created or deleted,
     or its filter rules are changed. Once that happens the PFS view is
     recreated.
   */

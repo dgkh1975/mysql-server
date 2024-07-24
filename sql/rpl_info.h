@@ -1,15 +1,16 @@
-/* Copyright (c) 2010, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2010, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -28,9 +29,9 @@
 
 #include "my_inttypes.h"
 #include "my_psi_config.h"
-#include "mysql/components/services/mysql_cond_bits.h"
-#include "mysql/components/services/mysql_mutex_bits.h"
-#include "mysql/components/services/psi_mutex_bits.h"
+#include "mysql/components/services/bits/mysql_cond_bits.h"
+#include "mysql/components/services/bits/mysql_mutex_bits.h"
+#include "mysql/components/services/bits/psi_mutex_bits.h"
 #include "mysql_com.h"             // NAME_LEN
 #include "sql/rpl_info_handler.h"  // Rpl_info_handler
 #include "sql/rpl_reporting.h"     // Slave_reporting_capability
@@ -148,12 +149,12 @@ class Rpl_info : public Slave_reporting_capability {
   Rpl_info_handler *handler;
 
   /**
-    Uniquely and internaly identifies an info entry (.e.g. a row or
+    Uniquely and internally identifies an info entry (.e.g. a row or
     file). This information is completely transparent to users and
     is used only during startup to retrieve information from the
     repositories.
 
-    @todo, This is not anymore required for Master_info and
+    @todo, This is not required any longer for Master_info and
            Relay_log_info, since Channel can be used to uniquely
            identify this. To preserve backward compatibility,
            we keep this for Master_info and Relay_log_info.

@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -130,6 +131,17 @@ class mysql_persistent_dynamic_loader_imp {
   */
   static DEFINE_BOOL_METHOD(unload, (void *thd_ptr, const char *urns[],
                                      int component_count));
+
+  /**
+    @brief Removes the entries from the in-memory cache
+
+    This is a "private method" of the persisted loader that's used in the
+    same component.
+    @param urns the entries to remove
+    @param component_count  the count of entries to remove.
+    @retval number of entried actually erased from the memory cache
+  */
+  static int remove_from_cache(const char *urns[], int component_count);
 
  private:
   /**

@@ -1,16 +1,17 @@
 /*
- * Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+ * Copyright (c) 2015, 2024, Oracle and/or its affiliates.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2.0,
  * as published by the Free Software Foundation.
  *
- * This program is also distributed with certain software (including
+ * This program is designed to work with certain software (including
  * but not limited to OpenSSL) that is licensed under separate terms,
  * as designated in a particular file or component or in included license
  * documentation.  The authors of MySQL hereby grant you an additional
  * permission to link the program and your derivative works with the
- * separately licensed software that they have included with MySQL.
+ * separately licensed software that they have either included with
+ * the program or referenced in the documentation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -140,9 +141,10 @@ class Command_delegate {
     true  an error occurred, server will abort the command
     false ok
   */
-  virtual int start_result_metadata(
-      uint32_t num_cols, uint32_t flags MY_ATTRIBUTE((unused)),
-      const CHARSET_INFO *resultcs MY_ATTRIBUTE((unused))) {
+  virtual int start_result_metadata(uint32_t num_cols,
+                                    uint32_t flags [[maybe_unused]],
+                                    const CHARSET_INFO *resultcs
+                                    [[maybe_unused]]) {
     m_field_types.clear();
 
     /*
@@ -184,8 +186,7 @@ class Command_delegate {
     false ok
   */
   virtual int field_metadata(struct st_send_field *field,
-                             const CHARSET_INFO *charset
-                                 MY_ATTRIBUTE((unused))) {
+                             const CHARSET_INFO *charset [[maybe_unused]]) {
     Field_type type = {field->type, field->flags};
     m_field_types.push_back(type);
 
@@ -199,8 +200,8 @@ class Command_delegate {
     true  an error occurred, server will abort the command
     false ok
   */
-  virtual int end_result_metadata(uint server_status MY_ATTRIBUTE((unused)),
-                                  uint warn_count MY_ATTRIBUTE((unused))) {
+  virtual int end_result_metadata(uint server_status [[maybe_unused]],
+                                  uint warn_count [[maybe_unused]]) {
     return false;
   }
 
@@ -264,9 +265,7 @@ class Command_delegate {
     true  an error occurred, server will abort the command
     false ok
   */
-  virtual int get_integer(longlong value MY_ATTRIBUTE((unused))) {
-    return false;
-  }
+  virtual int get_integer(longlong value [[maybe_unused]]) { return false; }
 
   /*
     Get LONGLONG value from server
@@ -278,8 +277,8 @@ class Command_delegate {
     true  an error occurred, server will abort the command
     false ok
   */
-  virtual int get_longlong(longlong value MY_ATTRIBUTE((unused)),
-                           uint unsigned_flag MY_ATTRIBUTE((unused))) {
+  virtual int get_longlong(longlong value [[maybe_unused]],
+                           uint unsigned_flag [[maybe_unused]]) {
     return false;
   }
 
@@ -292,7 +291,7 @@ class Command_delegate {
     true  an error occurred, server will abort the command
     false ok
   */
-  virtual int get_decimal(const decimal_t *value MY_ATTRIBUTE((unused))) {
+  virtual int get_decimal(const decimal_t *value [[maybe_unused]]) {
     return false;
   }
 
@@ -309,8 +308,8 @@ class Command_delegate {
     true  an error occurred, server will abort the command
     false ok
   */
-  virtual int get_double(double value MY_ATTRIBUTE((unused)),
-                         uint32 decimals MY_ATTRIBUTE((unused))) {
+  virtual int get_double(double value [[maybe_unused]],
+                         uint32 decimals [[maybe_unused]]) {
     return false;
   }
 
@@ -323,7 +322,7 @@ class Command_delegate {
     true  an error occurred during storing, server will abort the command
     false ok
   */
-  virtual int get_date(const MYSQL_TIME *value MY_ATTRIBUTE((unused))) {
+  virtual int get_date(const MYSQL_TIME *value [[maybe_unused]]) {
     return false;
   }
 
@@ -337,8 +336,8 @@ class Command_delegate {
     true  an error occurred during storing, server will abort the command
     false ok
   */
-  virtual int get_time(const MYSQL_TIME *value MY_ATTRIBUTE((unused)),
-                       uint decimals MY_ATTRIBUTE((unused))) {
+  virtual int get_time(const MYSQL_TIME *value [[maybe_unused]],
+                       uint decimals [[maybe_unused]]) {
     return false;
   }
 
@@ -352,8 +351,8 @@ class Command_delegate {
     true  an error occurred during storing, server will abort the command
     false ok
   */
-  virtual int get_datetime(const MYSQL_TIME *value MY_ATTRIBUTE((unused)),
-                           uint decimals MY_ATTRIBUTE((unused))) {
+  virtual int get_datetime(const MYSQL_TIME *value [[maybe_unused]],
+                           uint decimals [[maybe_unused]]) {
     return false;
   }
 
@@ -368,10 +367,9 @@ class Command_delegate {
     true  an error occurred, server will abort the command
     false ok
   */
-  virtual int get_string(const char *const value MY_ATTRIBUTE((unused)),
-                         size_t length MY_ATTRIBUTE((unused)),
-                         const CHARSET_INFO *const valuecs
-                             MY_ATTRIBUTE((unused))) {
+  virtual int get_string(const char *const value [[maybe_unused]],
+                         size_t length [[maybe_unused]],
+                         const CHARSET_INFO *const valuecs [[maybe_unused]]) {
     return false;
   }
 
@@ -414,7 +412,7 @@ class Command_delegate {
    Session was shutdown while command was running
 
   */
-  virtual void shutdown(int flag MY_ATTRIBUTE((unused))) { m_killed = true; }
+  virtual void shutdown(int flag [[maybe_unused]]) { m_killed = true; }
 
   /*
    Check if connection bound to this srv_session is alive

@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -158,7 +159,11 @@
     {"tls-version",
      OPT_TLS_VERSION,
      "TLS version to use, "
-     "permitted values are: TLSv1, TLSv1.1, TLSv1.2, TLSv1.3",
+#ifdef HAVE_TLSv13
+     "permitted values are: TLSv1.2, TLSv1.3",
+#else
+     "permitted values are: TLSv1.2",
+#endif
      &opt_tls_version,
      &opt_tls_version,
      nullptr,
@@ -193,6 +198,35 @@
      nullptr,
      GET_STR,
      REQUIRED_ARG,
+     0,
+     0,
+     0,
+     nullptr,
+     0,
+     nullptr},
+    {"ssl-session-data",
+     OPT_SSL_SESSION_DATA,
+     "Session data file to use to enable ssl session reuse",
+     &opt_ssl_session_data,
+     &opt_ssl_session_data,
+     nullptr,
+     GET_STR,
+     REQUIRED_ARG,
+     0,
+     0,
+     0,
+     nullptr,
+     0,
+     nullptr},
+    {"ssl-session-data-continue-on-failed-reuse",
+     OPT_SSL_SESSION_DATA_CONTINUE_ON_FAILED_REUSE,
+     "If set to ON, this option will allow connection to succeed even if "
+     "session data cannot be reused.",
+     &opt_ssl_session_data_continue_on_failed_reuse,
+     &opt_ssl_session_data_continue_on_failed_reuse,
+     nullptr,
+     GET_BOOL,
+     OPT_ARG,
      0,
      0,
      0,

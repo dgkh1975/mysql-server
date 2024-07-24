@@ -1,15 +1,16 @@
-# Copyright (c) 2010, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2010, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,11 +34,6 @@ SET(JTIE_TEST_UNLOAD_JAR "${CMAKE_CURRENT_BINARY_DIR}/jtie-test-unload-${JAR}")
 GET_FILENAME_COMPONENT(PARENT ${CMAKE_CURRENT_BINARY_DIR} PATH)
 SET(JTIE_MYJAPI_DIR "${PARENT}/myjapi")
 SET(JTIE_MYJAPI_JAR "${JTIE_MYJAPI_DIR}/jtie-test-myjapi-${JAR}")
-
-IF(WITH_ASAN)
-  MESSAGE(STATUS "Skipping java tests for ASAN builds")
-  RETURN()
-ENDIF()
 
 ADD_TEST(
   NAME test_jtie_unload

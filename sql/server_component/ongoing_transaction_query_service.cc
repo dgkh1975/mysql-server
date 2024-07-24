@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,6 +24,7 @@
 #include <sql/current_thd.h>
 #include <sql/mysqld_thd_manager.h>
 #include <sql/sql_lex.h>
+#include "mutex_lock.h"  // MUTEX_LOCK
 #include "mysql_ongoing_transaction_query_imp.h"
 #include "sql/sql_class.h"  // THD
 
@@ -38,14 +40,17 @@ class Get_running_transactions : public Do_THD_Impl {
   void operator()(THD *thd) override {
     if (thd->is_killed() || thd->is_error()) return;
 
+    MUTEX_LOCK(lock_thd_data, &thd->LOCK_thd_data);
+    if (thd->is_being_disposed()) return;
+
     TX_TRACKER_GET(tst);
 
     /*
       Show we're at least as restrictive detecting transactions as the
       original code for BUG#28327838 that we're replacing!!
     */
-    assert(((tst->get_trx_state() & TX_EXPLICIT) > 0) >=
-           (thd->in_active_multi_stmt_transaction() > 0));
+    assert(((tst->get_trx_state() & TX_EXPLICIT)) ||
+           !(thd->in_active_multi_stmt_transaction()));
 
     /*
       Show we're detecting DML at least in all cases the original code does.

@@ -1,15 +1,16 @@
-/* Copyright (c) 2013, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2013, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -28,6 +29,7 @@
 #include <stddef.h>
 #include <algorithm>
 #include <iterator>
+#include <optional>
 #include <type_traits>
 
 /**
@@ -151,7 +153,7 @@ struct ReturnValueOrError {
   /** Value returned from function in the normal case. */
   VALUE_TYPE value;
 
-  /** True if an error occured. */
+  /** True if an error occurred. */
   bool error;
 };
 
@@ -195,7 +197,7 @@ inline void Split(InputIt first, InputIt last, Pred &&pred, Action &&action) {
 }
 
 /**
-  Search backwards for the first occurence of an element which does not satisfy
+  Search backwards for the first occurrence of an element which does not satisfy
   the trimming predicate, and return an InputIt to the element after it.
 
   @param first Beginning of the range to search.

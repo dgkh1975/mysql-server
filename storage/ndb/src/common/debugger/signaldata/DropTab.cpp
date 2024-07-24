@@ -1,17 +1,18 @@
 /*
-   Copyright (c) 2003, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2003, 2024, Oracle and/or its affiliates.
     Use is subject to license terms.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,10 +26,14 @@
 
 #include <signaldata/DropTab.hpp>
 
-bool 
-printDROP_TAB_REQ(FILE* output, const Uint32* theData, Uint32 len, Uint16)
-{
-  const DropTabReq* sig = (const DropTabReq*)theData;
+bool printDROP_TAB_REQ(FILE *output, const Uint32 *theData, Uint32 len,
+                       Uint16) {
+  if (len < DropTabReq::SignalLength) {
+    assert(false);
+    return false;
+  }
+
+  const DropTabReq *sig = (const DropTabReq *)theData;
   fprintf(output, " senderRef: 0x%x", sig->senderRef);
   fprintf(output, " senderData: %u", sig->senderData);
   fprintf(output, " requestType: %u", sig->requestType);
@@ -39,10 +44,14 @@ printDROP_TAB_REQ(FILE* output, const Uint32* theData, Uint32 len, Uint16)
   return true;
 }
 
-bool
-printDROP_TAB_CONF(FILE* output, const Uint32* theData, Uint32 len, Uint16)
-{
-  const DropTabConf* sig = (const DropTabConf*)theData;
+bool printDROP_TAB_CONF(FILE *output, const Uint32 *theData, Uint32 len,
+                        Uint16) {
+  if (len < DropTabConf::SignalLength) {
+    assert(false);
+    return false;
+  }
+
+  const DropTabConf *sig = (const DropTabConf *)theData;
   fprintf(output, " senderRef: 0x%x", sig->senderRef);
   fprintf(output, " senderData: %u", sig->senderData);
   fprintf(output, "\n");
@@ -51,10 +60,14 @@ printDROP_TAB_CONF(FILE* output, const Uint32* theData, Uint32 len, Uint16)
   return true;
 }
 
-bool
-printDROP_TAB_REF(FILE* output, const Uint32* theData, Uint32 len, Uint16)
-{
-  const DropTabRef* sig = (const DropTabRef*)theData;
+bool printDROP_TAB_REF(FILE *output, const Uint32 *theData, Uint32 len,
+                       Uint16) {
+  if (len < DropTabRef::SignalLength) {
+    assert(false);
+    return false;
+  }
+
+  const DropTabRef *sig = (const DropTabRef *)theData;
   fprintf(output, " senderRef: 0x%x", sig->senderRef);
   fprintf(output, " senderData: %u", sig->senderData);
   fprintf(output, "\n");

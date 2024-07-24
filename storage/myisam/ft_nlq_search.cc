@@ -1,15 +1,16 @@
-/* Copyright (c) 2001, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2001, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -307,8 +308,12 @@ int ft_nlq_read_next(FT_INFO *handler_base, char *record) {
   st_ft_info_nlq *handler = (st_ft_info_nlq *)handler_base;
   MI_INFO *info = (MI_INFO *)handler->info;
 
-  if (++handler->curdoc >= handler->ndocs) {
-    --handler->curdoc;
+  // Move to the next document that has a non-zero score.
+  while (++handler->curdoc < handler->ndocs &&
+         ft_nlq_get_relevance(handler) == 0.0) {
+  }
+
+  if (handler->curdoc >= handler->ndocs) {
     return HA_ERR_END_OF_FILE;
   }
 
@@ -323,8 +328,8 @@ int ft_nlq_read_next(FT_INFO *handler_base, char *record) {
 }
 
 float ft_nlq_find_relevance(FT_INFO *handler_base,
-                            uchar *record MY_ATTRIBUTE((unused)),
-                            uint length MY_ATTRIBUTE((unused))) {
+                            uchar *record [[maybe_unused]],
+                            uint length [[maybe_unused]]) {
   st_ft_info_nlq *handler = (st_ft_info_nlq *)handler_base;
   int a, b, c;
   FT_DOC *docs = handler->doc;

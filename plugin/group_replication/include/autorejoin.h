@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -98,7 +99,7 @@ class Autorejoin_thread {
   /**
     Starts the process of auto-rejoin, launches the thread that will call
     attempt_rejoin() until it succeeds or until it reaches a given
-    ammount of maximum retries, waiting on a conditional variable each
+    amount of maximum retries, waiting on a conditional variable each
     iteration with a given timeout.
 
     An auto-rejoin can only start if it isn't already running or if the
@@ -129,9 +130,9 @@ class Autorejoin_thread {
 
     @param[in] arg a pointer to an Autorejoin_thread instance.
 
-    @return nullptr, since the return value is not used.
+    @return Does not return.
   */
-  [[noreturn]] static void *launch_thread(void *arg);
+  static void *launch_thread(void *arg);
 
   /**
     The thread handle, i.e. setups and tearsdown the infrastructure for this

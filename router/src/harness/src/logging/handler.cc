@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,15 +26,7 @@
 /** @file
  * Module for implementing the Logger functionality.
  */
-
 #include "mysql/harness/logging/handler.h"
-#include "mysql/harness/logging/logging.h"
-
-#include "common.h"
-#include "mysql/harness/config_parser.h"
-#include "mysql/harness/filesystem.h"
-#include "mysql/harness/plugin.h"
-#include "utilities.h"  // string_format()
 
 #include <algorithm>
 #include <cerrno>
@@ -48,17 +41,13 @@
 #include <unistd.h>
 #endif
 
+#include "mysql/harness/config_parser.h"
+#include "mysql/harness/filesystem.h"
+#include "mysql/harness/logging/logging.h"
+#include "mysql/harness/plugin.h"
+#include "mysql/harness/utility/string.h"  // string_format
+
 using mysql_harness::Path;
-
-#if defined(_MSC_VER) && defined(logger_EXPORTS)
-/* We are building this library */
-#define LOGGER_API __declspec(dllexport)
-#else
-#define LOGGER_API
-#endif
-
-using std::ofstream;
-using std::ostringstream;
 
 using namespace std::chrono_literals;
 
@@ -144,9 +133,6 @@ std::string Handler::format(const Record &record) const {
 
 void Handler::handle(const Record &record) { do_log(record); }
 
-// satisfy ODR
-constexpr const char *StreamHandler::kDefaultName;
-
 ////////////////////////////////////////////////////////////////
 // class StreamHandler
 
@@ -158,6 +144,8 @@ StreamHandler::StreamHandler(std::ostream &out, bool format_messages,
 void StreamHandler::do_log(const Record &record) {
   std::lock_guard<std::mutex> lock(stream_mutex_);
   stream_ << format(record) << std::endl;
+
+  has_logged(true);
 }
 
 ////////////////////////////////////////////////////////////////
@@ -168,9 +156,6 @@ NullHandler::NullHandler(bool format_messages, LogLevel level,
     : Handler(format_messages, level, timestamp_precision) {}
 
 void NullHandler::do_log(const Record & /*record*/) {}
-
-// satisfy ODR
-constexpr const char *NullHandler::kDefaultName;
 
 ////////////////////////////////////////////////////////////////
 // class FileHandler
@@ -258,7 +243,7 @@ void FileHandler::reopen(const std::string dst) {  // namespace logging
 #ifdef _WIN32
   const bool created = !file_path_.exists();
 #endif
-  fstream_.open(file_path_.str(), ofstream::app);
+  fstream_.open(file_path_.str(), std::ofstream::app);
   if (fstream_.fail()) {
     // get the last-error early as with VS2015 it has been seen
     // that something in std::system_error() called SetLastError(0)
@@ -291,7 +276,7 @@ void FileHandler::reopen(const std::string dst) {  // namespace logging
   }
 #endif
 
-  // After reopening the logfile, is it safe to throw earlier execptions
+  // After reopening the logfile, is it safe to throw earlier exceptions
   if (eptr) {
     std::rethrow_exception(eptr);
   }
@@ -302,11 +287,12 @@ void FileHandler::do_log(const Record &record) {
   stream_ << format(record) << std::endl;
   // something is wrong with the logging file, let's at least log it on the
   // std error as a fallback
-  if (stream_.fail()) std::cerr << format(record) << std::endl;
+  if (stream_.fail()) {
+    std::cerr << format(record) << std::endl;
+  } else {
+    has_logged(true);
+  }
 }
-
-// satisfy ODR
-constexpr const char *FileHandler::kDefaultName;
 
 FileHandler::~FileHandler() = default;
 

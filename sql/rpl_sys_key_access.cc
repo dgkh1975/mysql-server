@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -42,8 +43,8 @@ int Rpl_sys_key_access::init(TABLE *table, enum_key_type ktype) {
       if ((m_key_init = !table->file->ha_index_init(0, true))) {
         key_copy(m_key, m_table->record[0], m_table->key_info,
                  m_table->key_info->key_length);
-        m_error = m_table->file->ha_index_read_idx_map(
-            m_table->record[0], 0, m_key, HA_WHOLE_KEY, HA_READ_KEY_EXACT);
+        m_error = m_table->file->ha_index_read_map(
+            m_table->record[0], m_key, HA_WHOLE_KEY, HA_READ_KEY_EXACT);
       }
       break;
 
@@ -73,8 +74,8 @@ int Rpl_sys_key_access::init(TABLE *table, uint index, bool sorted,
   if ((m_key_init = !table->file->ha_index_init(index, sorted))) {
     KEY *key_info = table->key_info + index;
     key_copy(m_key, m_table->record[0], key_info, key_info->key_length);
-    m_error = m_table->file->ha_index_read_idx_map(
-        m_table->record[0], index, m_key, keypart_map, find_flag);
+    m_error = m_table->file->ha_index_read_map(m_table->record[0], m_key,
+                                               keypart_map, find_flag);
   }
 
   return m_error;

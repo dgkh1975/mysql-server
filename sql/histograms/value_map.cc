@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -73,13 +74,12 @@ bool Histogram_comparator::operator()(const my_decimal &lhs,
 }
 
 Value_map_base::Value_map_base(const CHARSET_INFO *charset,
-                               double sampling_rate, Value_map_type data_type)
-    : m_sampling_rate(sampling_rate),
+                               Value_map_type data_type)
+    : m_sampling_rate(1.0),
       m_charset(charset),
       m_num_null_values(0),
-      m_data_type(data_type) {
-  init_alloc_root(key_memory_histograms, &m_mem_root, 256, 0);
-}
+      m_data_type(data_type),
+      m_mem_root(key_memory_histograms, 256) {}
 
 template <class T>
 bool Value_map_base::add_values(const T &value, const ha_rows count) {
@@ -102,7 +102,7 @@ bool Value_map<T>::add_values(const T &value, const ha_rows count) {
 template <>
 bool Value_map<String>::add_values(const String &value, const ha_rows count) {
   /*
-    We only consider the susbtring. That is, if the strings differs after
+    We only consider the substring. That is, if the strings differs after
     character number HISTOGRAM_MAX_COMPARE_LENGTH, they will be considered
     equal.
 

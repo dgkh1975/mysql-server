@@ -1,14 +1,16 @@
-/* Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
+   but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -19,16 +21,14 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-#include <random>
-
+#include "plugin/group_replication/include/plugin_handlers/remote_clone_handler.h"
 #include "plugin/group_replication/include/leave_group_on_failure.h"
 #include "plugin/group_replication/include/plugin.h"
-#include "plugin/group_replication/include/plugin_handlers/remote_clone_handler.h"
 #include "plugin/group_replication/include/plugin_variables/recovery_endpoints.h"
 
-[[noreturn]] void *Remote_clone_handler::launch_thread(void *arg) {
+void *Remote_clone_handler::launch_thread(void *arg) {
   Remote_clone_handler *thd = static_cast<Remote_clone_handler *>(arg);
-  thd->clone_thread_handle();
+  thd->clone_thread_handle();  // Does not return.
 }
 
 Remote_clone_handler::Remote_clone_handler(ulonglong threshold,
@@ -101,9 +101,9 @@ int Remote_clone_handler::after_view_change(
   return 0;
 }
 
-int Remote_clone_handler::after_primary_election(std::string, bool,
-                                                 enum_primary_election_mode,
-                                                 int) {
+int Remote_clone_handler::after_primary_election(
+    std::string, enum_primary_election_primary_change_status,
+    enum_primary_election_mode, int) {
   return 0;
 }
 
@@ -158,7 +158,7 @@ int Remote_clone_handler::extract_donor_info(
   uint valid_recovering_donors = 0;
   bool clone_activation_threshold_breach = false;
 
-  std::vector<Group_member_info *> *all_members_info =
+  Group_member_info_list *all_members_info =
       group_member_mgr->get_all_members();
 
   Sid_map local_sid_map(nullptr);
@@ -182,34 +182,28 @@ int Remote_clone_handler::extract_donor_info(
 
   for (Group_member_info *member : *all_members_info) {
     std::string m_uuid = member->get_uuid();
-    bool is_online =
+    const bool not_self = m_uuid.compare(local_member_info->get_uuid());
+    const bool is_online =
         member->get_recovery_status() == Group_member_info::MEMBER_ONLINE;
-    bool not_self = m_uuid.compare(local_member_info->get_uuid());
-    // We can only clone from our own version.
-    bool supports_clone =
-        member->get_member_version().get_version() >=
-            CLONE_GR_SUPPORT_VERSION &&
-        member->get_member_version().get_version() ==
-            local_member_info->get_member_version().get_version();
+    const bool valid_donor_version =
+        (member->get_member_version().get_version() >=
+         CLONE_GR_SUPPORT_VERSION);
 
     std::string member_exec_set_str = member->get_gtid_executed();
     std::string applier_ret_set_str = member->get_gtid_retrieved();
 
-    if (is_online) {
-      if (not_self) {
-        // Check if it support cloning looking at the server version
-        if (supports_clone) valid_clone_donors++;
+    if (is_online && not_self && valid_donor_version) {
+      valid_clone_donors++;
 
-        if (group_set.add_gtid_text(member_exec_set_str.c_str()) !=
-                RETURN_STATUS_OK ||
-            group_set.add_gtid_text(applier_ret_set_str.c_str()) !=
-                RETURN_STATUS_OK) {
-          /* purecov: begin inspected */
-          LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_LOCAL_GTID_SETS_PROCESS_ERROR);
-          error = 1;
-          goto cleaning;
-          /* purecov: end */
-        }
+      if (group_set.add_gtid_text(member_exec_set_str.c_str()) !=
+              RETURN_STATUS_OK ||
+          group_set.add_gtid_text(applier_ret_set_str.c_str()) !=
+              RETURN_STATUS_OK) {
+        /* purecov: begin inspected */
+        LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_LOCAL_GTID_SETS_PROCESS_ERROR);
+        error = 1;
+        goto cleaning;
+        /* purecov: end */
       }
     }
   }
@@ -345,26 +339,22 @@ end:
 
 void Remote_clone_handler::get_clone_donors(
     std::list<Group_member_info *> &suitable_donors) {
-  std::vector<Group_member_info *> *all_members_info =
+  Group_member_info_list *all_members_info =
       group_member_mgr->get_all_members();
   if (all_members_info->size() > 1) {
-    std::random_device rng;
-    std::mt19937 urng(rng());
-    std::shuffle(all_members_info->begin(), all_members_info->end(), urng);
+    vector_random_shuffle(all_members_info);
   }
 
   for (Group_member_info *member : *all_members_info) {
     std::string m_uuid = member->get_uuid();
-    bool is_online =
+    const bool not_self = m_uuid.compare(local_member_info->get_uuid());
+    const bool is_online =
         member->get_recovery_status() == Group_member_info::MEMBER_ONLINE;
-    bool not_self = m_uuid.compare(local_member_info->get_uuid());
-    bool supports_clone =
-        member->get_member_version().get_version() >=
-            CLONE_GR_SUPPORT_VERSION &&
-        member->get_member_version().get_version() ==
-            local_member_info->get_member_version().get_version();
+    const bool valid_donor_version =
+        (member->get_member_version().get_version() >=
+         CLONE_GR_SUPPORT_VERSION);
 
-    if (is_online && not_self && supports_clone) {
+    if (is_online && not_self && valid_donor_version) {
       suitable_donors.push_back(member);
     } else {
       delete member;
@@ -402,23 +392,21 @@ int Remote_clone_handler::set_clone_ssl_options(
   return error;
 }
 
-int Remote_clone_handler::fallback_to_recovery_or_leave(
-    Sql_service_command_interface *sql_command_interface, bool critical_error) {
+int Remote_clone_handler::fallback_to_recovery_or_leave(bool critical_error) {
   // Do nothing if the server is shutting down.
   // The stop process will leave the group
   if (get_server_shutdown_status()) return 0;
 
   Replication_thread_api applier_channel("group_replication_applier");
   if (!critical_error && !applier_channel.is_applier_thread_running() &&
-      applier_channel.start_threads(false, true, NULL, false)) {
+      applier_channel.start_threads(false, true, nullptr, false)) {
     abort_plugin_process(
         "The plugin was not able to start the group_replication_applier "
         "channel.");
     return 1;
   }
   // If it failed to (re)connect to the server or the set read only query
-  if (!sql_command_interface->is_session_valid() ||
-      sql_command_interface->set_super_read_only()) {
+  if (enable_server_read_mode()) {
     abort_plugin_process(
         "Cannot re-enable the super read only after clone failure.");
     return 1;
@@ -450,9 +438,9 @@ int Remote_clone_handler::fallback_to_recovery_or_leave(
     leave_group_on_failure::mask leave_actions;
     leave_actions.set(leave_group_on_failure::SKIP_SET_READ_ONLY, true);
     leave_actions.set(leave_group_on_failure::HANDLE_EXIT_STATE_ACTION, true);
-    leave_group_on_failure::leave(
-        leave_actions, ER_GRP_RPL_RECOVERY_STRAT_NO_FALLBACK,
-        PSESSION_INIT_THREAD, nullptr, exit_state_action_abort_log_message);
+    leave_group_on_failure::leave(leave_actions,
+                                  ER_GRP_RPL_RECOVERY_STRAT_NO_FALLBACK,
+                                  nullptr, exit_state_action_abort_log_message);
     return 1;
   }
 }
@@ -727,7 +715,7 @@ void Remote_clone_handler::gr_clone_debug_point() {
 
   /* The clone operation does not work with read mode so we have to disable it
    * here */
-  if (sql_command_interface->reset_read_only()) {
+  if (disable_server_read_mode()) {
     /* purecov: begin inspected */
     LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_CLONE_PROCESS_PREPARE_ERROR,
                  "Could not disable the server read only mode for cloning.");
@@ -769,6 +757,7 @@ void Remote_clone_handler::gr_clone_debug_point() {
 #endif /* NDEBUG */
   // Ignore any channel stop error and confirm channel is stopped or not.
   // Since we will clone next.
+  applier_module->ignore_errors_during_stop(true);
   applier_channel.stop_threads(false, true);
   if (applier_channel.is_applier_thread_running()) {
     /* purecov: begin inspected */
@@ -836,7 +825,7 @@ void Remote_clone_handler::gr_clone_debug_point() {
 
       if (m_being_terminated) goto thd_end;
 
-      terminate_wait_on_start_process(true);
+      terminate_wait_on_start_process(WAIT_ON_START_PROCESS_ABORT_ON_CLONE);
 
       error = run_clone_query(sql_command_interface, hostname, port, username,
                               password, use_ssl);
@@ -878,9 +867,10 @@ void Remote_clone_handler::gr_clone_debug_point() {
 thd_end:
 
   declare_plugin_cloning(false);
+  applier_module->ignore_errors_during_stop(false);
 
   if (error && !m_being_terminated) {
-    fallback_to_recovery_or_leave(sql_command_interface, critical_error);
+    fallback_to_recovery_or_leave(critical_error);
   }
 
   delete sql_command_interface;
@@ -896,10 +886,10 @@ thd_end:
   delete thd;
   m_clone_thd = nullptr;
   thd = nullptr;
+  my_thread_end();
   m_clone_process_thd_state.set_terminated();
   mysql_cond_broadcast(&m_run_cond);
   mysql_mutex_unlock(&m_run_lock);
 
-  my_thread_end();
   my_thread_exit(nullptr);
 }

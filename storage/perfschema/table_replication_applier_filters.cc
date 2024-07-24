@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -60,8 +61,8 @@ Plugin_table table_replication_applier_filters::m_table_def(
     "  CONFIGURED_BY ENUM('STARTUP_OPTIONS','CHANGE_REPLICATION_FILTER',\n"
     "                     'STARTUP_OPTIONS_FOR_CHANNEL',\n"
     "                     'CHANGE_REPLICATION_FILTER_FOR_CHANNEL') not null,\n"
-    "  ACTIVE_SINCE TIMESTAMP(6) NOT NULL default 0,\n"
-    "  COUNTER bigint(20) unsigned NOT NULL default 0\n",
+    "  ACTIVE_SINCE TIMESTAMP(6) not null,\n"
+    "  COUNTER bigint(20) unsigned not null default 0\n",
     /* Options */
     " ENGINE=PERFORMANCE_SCHEMA",
     /* Tablespace */
@@ -96,20 +97,20 @@ table_replication_applier_filters::table_replication_applier_filters()
 table_replication_applier_filters::~table_replication_applier_filters() =
     default;
 
-void table_replication_applier_filters::reset_position(void) {
+void table_replication_applier_filters::reset_position() {
   m_pos.m_index = 0;
   m_next_pos.m_index = 0;
 }
 
 ha_rows table_replication_applier_filters::get_row_count() {
   rpl_channel_filters.rdlock();
-  uint count = rpl_channel_filters.get_filter_count();
+  const uint count = rpl_channel_filters.get_filter_count();
   rpl_channel_filters.unlock();
 
   return count;
 }
 
-int table_replication_applier_filters::rnd_next(void) {
+int table_replication_applier_filters::rnd_next() {
   int res = HA_ERR_END_OF_FILE;
   Rpl_pfs_filter *rpl_pfs_filter = nullptr;
 
@@ -120,11 +121,10 @@ int table_replication_applier_filters::rnd_next(void) {
 
     if (rpl_pfs_filter == nullptr) {
       break;
-    } else {
-      make_row(rpl_pfs_filter);
-      m_next_pos.set_after(&m_pos);
-      res = 0;
     }
+    make_row(rpl_pfs_filter);
+    m_next_pos.set_after(&m_pos);
+    res = 0;
   }
   rpl_channel_filters.unlock();
 
@@ -161,9 +161,7 @@ void table_replication_applier_filters::make_row(
   memcpy(m_row.filter_name, rpl_pfs_filter->get_filter_name(),
          m_row.filter_name_length);
 
-  if (!rpl_pfs_filter->get_filter_rule().is_empty()) {
-    m_row.filter_rule.copy(rpl_pfs_filter->get_filter_rule());
-  }
+  m_row.filter_rule.copy(rpl_pfs_filter->get_filter_rule());
 
   m_row.configured_by =
       rpl_pfs_filter->get_rpl_filter_statistics()->get_configured_by();
@@ -194,10 +192,12 @@ int table_replication_applier_filters::read_row_values(TABLE *table,
     if (read_all || bitmap_is_set(table->read_set, f->field_index())) {
       switch (f->field_index()) {
         case 0: /* channel_name */
-          set_field_char_utf8(f, m_row.channel_name, m_row.channel_name_length);
+          set_field_char_utf8mb4(f, m_row.channel_name,
+                                 m_row.channel_name_length);
           break;
         case 1: /* filter_name */
-          set_field_char_utf8(f, m_row.filter_name, m_row.filter_name_length);
+          set_field_char_utf8mb4(f, m_row.filter_name,
+                                 m_row.filter_name_length);
           break;
         case 2: /* filter_rule */
           if (!m_row.filter_rule.is_empty())

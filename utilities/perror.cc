@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -56,7 +57,7 @@ static struct my_option my_long_options[] = {
     {nullptr, 0, nullptr, nullptr, nullptr, nullptr, GET_NO_ARG, NO_ARG, 0, 0,
      0, nullptr, 0, nullptr}};
 
-static void usage(void) {
+static void usage() {
   print_version();
   puts(ORACLE_WELCOME_COPYRIGHT_NOTICE("2000"));
   printf(
@@ -71,8 +72,8 @@ static void usage(void) {
 }
 
 static bool get_one_option(int optid,
-                           const struct my_option *opt MY_ATTRIBUTE((unused)),
-                           char *argument MY_ATTRIBUTE((unused))) {
+                           const struct my_option *opt [[maybe_unused]],
+                           char *argument [[maybe_unused]]) {
   switch (optid) {
     case 's':
       verbose = false;
@@ -185,7 +186,7 @@ static bool print_win_error_msg(DWORD error, bool verbose) {
   if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM,
                     NULL, error, 0, (LPTSTR)&s, 0, NULL)) {
     if (verbose)
-      printf("Win32 error code %d: %s", error, s);
+      printf("Win32 error code %lu: %s", error, s);
     else
       puts(s);
     LocalFree(s);
@@ -220,7 +221,7 @@ void my_handler_error_register() {
                     HA_ERR_FIRST + array_elements(handler_error_messages) - 1);
 }
 
-void my_handler_error_unregister(void) {
+void my_handler_error_unregister() {
   my_error_unregister(
       HA_ERR_FIRST, HA_ERR_FIRST + array_elements(handler_error_messages) - 1);
 }

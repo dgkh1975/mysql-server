@@ -1,15 +1,16 @@
-/* Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -86,6 +87,9 @@ class Mem_root_array_YY {
     m_size = 0;
     m_capacity = 0;
   }
+
+  Element_type *data() { return m_array; }
+  const Element_type *data() const { return m_array; }
 
   Element_type &at(size_t n) {
     assert(n < size());
@@ -179,16 +183,7 @@ class Mem_root_array_YY {
     @param  element Object to copy.
     @retval true if out-of-memory, false otherwise.
   */
-  bool push_back(const Element_type &element) {
-    const size_t min_capacity = 20;
-    const size_t expansion_factor = 2;
-    if (0 == m_capacity && reserve(min_capacity)) return true;
-    if (m_size == m_capacity && reserve(m_capacity * expansion_factor))
-      return true;
-    Element_type *p = &m_array[m_size++];
-    ::new (p) Element_type(element);
-    return false;
-  }
+  bool push_back(const Element_type &element) { return emplace_back(element); }
 
   /**
     Adds a new element at the end of the array, after its current last
@@ -199,13 +194,26 @@ class Mem_root_array_YY {
     @retval true if out-of-memory, false otherwise.
   */
   bool push_back(Element_type &&element) {
-    const size_t min_capacity = 20;
-    const size_t expansion_factor = 2;
-    if (0 == m_capacity && reserve(min_capacity)) return true;
-    if (m_size == m_capacity && reserve(m_capacity * expansion_factor))
-      return true;
+    return emplace_back(std::move(element));
+  }
+
+  /**
+    Constructs an element at the back of the array in-place.
+
+    @param  args Arguments to pass to the constructor.
+    @return true if out-of-memory, false otherwise.
+  */
+  template <typename... Args>
+  bool emplace_back(Args &&... args) {
+    constexpr size_t min_capacity = 20;
+    constexpr size_t expansion_factor = 2;
+    if (m_size == m_capacity) {
+      if (reserve(std::max(min_capacity, m_capacity * expansion_factor))) {
+        return true;
+      }
+    }
     Element_type *p = &m_array[m_size++];
-    ::new (p) Element_type(std::move(element));
+    ::new (p) Element_type(std::forward<Args>(args)...);
     return false;
   }
 

@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -32,10 +33,29 @@
 */
 class Async_conn_failover_manager {
  public:
-  enum enum_do_auto_conn_failover_error {
-    ACF_NO_ERROR = 0,
-    ACF_RETRIABLE_ERROR,
-    ACF_NO_SOURCES_ERROR
+  enum class DoAutoConnFailoverError {
+    /* Success. */
+    no_error = 0,
+
+    /* Failed to set/reset network configuration details. */
+    retriable_error,
+
+    /* Failed to find alternative source to connect. */
+    no_sources_error
+  };
+
+  enum class SourceQuorumStatus {
+    /* Success. */
+    no_error = 0,
+
+    /* Failed to detect if the source belongs to the group majority. */
+    fatal_error,
+
+    /* Transient network error connecting to source. */
+    transient_network_error,
+
+    /* No Quorum. Source does not belong to the group majority. */
+    no_quorum_error
   };
 
   Async_conn_failover_manager() = delete;
@@ -55,9 +75,9 @@ class Async_conn_failover_manager {
     @param[in] force_highest_weight When true, sender with highest weight is
     chosen, otherwise the next sender from the current one is chosen.
 
-    @retval Please see enum_do_auto_conn_failover_error.
- */
-  static enum_do_auto_conn_failover_error do_auto_conn_failover(
+    @retval Please see DoAutoConnFailoverError.
+  */
+  static DoAutoConnFailoverError do_auto_conn_failover(
       Master_info *mi, bool force_highest_weight);
 
   /*
@@ -66,11 +86,10 @@ class Async_conn_failover_manager {
     @param  mysql MYSQL to request uuid from source.
     @param  mi    Master_info to set master_uuid
 
-    @return 0: Success,
-            1: Fatal error,
-            2: Transient network error.
+    @retval Please see SourceQuorumStatus.
   */
-  static int get_source_quorum_status(MYSQL *mysql, Master_info *mi);
+  static SourceQuorumStatus get_source_quorum_status(MYSQL *mysql,
+                                                     Master_info *mi);
 
  private:
   /**

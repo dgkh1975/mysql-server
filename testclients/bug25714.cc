@@ -1,15 +1,16 @@
-/* Copyright (c) 2007, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2007, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,7 +31,7 @@
 
 int main(int argc, char **argv) {
   MYSQL conn;
-  int OK MY_ATTRIBUTE((unused));
+  int OK [[maybe_unused]];
 
   const char *query4 = "INSERT INTO federated.t1 SET Value=54";
   const char *query5 = "INSERT INTO federated.t1 SET Value=55";
@@ -50,9 +51,8 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Failed to connect to database: Error: %s\n",
             mysql_error(&conn));
     return 1;
-  } else {
-    printf("%s\n", mysql_error(&conn));
   }
+  printf("%s\n", mysql_error(&conn));
 
   OK = mysql_real_query(&conn, query4, (ulong)strlen(query4));
 

@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,9 +28,9 @@
 
 #include "my_byteorder.h"
 #include "my_inttypes.h"
+#include "sql-common/json_binary.h"
+#include "sql-common/json_dom.h"
 #include "sql/error_handler.h"
-#include "sql/json_binary.h"
-#include "sql/json_dom.h"
 #include "sql/sql_class.h"
 #include "sql/sql_time.h"
 #include "sql_string.h"
@@ -62,7 +63,9 @@ static my_decimal create_decimal(double d) {
 }
 
 static Json_dom_ptr parse_json(const char *json_text) {
-  auto dom = Json_dom::parse(json_text, strlen(json_text), nullptr, nullptr);
+  auto dom = Json_dom::parse(
+      json_text, strlen(json_text), [](const char *, size_t) {},
+      [] { ASSERT_TRUE(false); });
   EXPECT_NE(nullptr, dom);
   return dom;
 }
@@ -75,9 +78,10 @@ TEST_F(JsonBinaryTest, BasicTest) {
   Value val1 = parse_binary(buf.ptr(), buf.length());
   EXPECT_TRUE(val1.is_valid());
   EXPECT_EQ(Value::LITERAL_FALSE, val1.type());
-  EXPECT_FALSE(val1.to_std_string(&std_string));
+  EXPECT_FALSE(val1.to_std_string(&std_string, [] { ASSERT_TRUE(false); }));
   EXPECT_STREQ("false", std_string.c_str());
-  EXPECT_FALSE(val1.to_pretty_std_string(&std_string));
+  EXPECT_FALSE(
+      val1.to_pretty_std_string(&std_string, [] { ASSERT_TRUE(false); }));
   EXPECT_STREQ("false", std_string.c_str());
 
   dom = parse_json("-123");
@@ -86,9 +90,10 @@ TEST_F(JsonBinaryTest, BasicTest) {
   EXPECT_TRUE(val2.is_valid());
   EXPECT_EQ(Value::INT, val2.type());
   EXPECT_EQ(-123LL, val2.get_int64());
-  EXPECT_FALSE(val2.to_std_string(&std_string));
+  EXPECT_FALSE(val2.to_std_string(&std_string, [] { ASSERT_TRUE(false); }));
   EXPECT_STREQ("-123", std_string.c_str());
-  EXPECT_FALSE(val2.to_pretty_std_string(&std_string));
+  EXPECT_FALSE(
+      val2.to_pretty_std_string(&std_string, [] { ASSERT_TRUE(false); }));
   EXPECT_STREQ("-123", std_string.c_str());
 
   dom = parse_json("3.14");
@@ -125,9 +130,10 @@ TEST_F(JsonBinaryTest, BasicTest) {
     EXPECT_EQ(i + 1, v.get_int64());
   }
   EXPECT_EQ(Value::ERROR, val6.element(3).type());
-  EXPECT_FALSE(val6.to_std_string(&std_string));
+  EXPECT_FALSE(val6.to_std_string(&std_string, [] { ASSERT_TRUE(false); }));
   EXPECT_STREQ("[1, 2, 3]", std_string.c_str());
-  EXPECT_FALSE(val6.to_pretty_std_string(&std_string));
+  EXPECT_FALSE(
+      val6.to_pretty_std_string(&std_string, [] { ASSERT_TRUE(false); }));
   EXPECT_STREQ("[\n  1,\n  2,\n  3\n]", std_string.c_str());
 
   dom = parse_json("[ 1, [ \"a\", [ 3.14 ] ] ]");
@@ -162,7 +168,7 @@ TEST_F(JsonBinaryTest, BasicTest) {
   EXPECT_TRUE(v7_5.is_valid());
   EXPECT_EQ(Value::DOUBLE, v7_5.type());
   EXPECT_EQ(3.14, v7_5.get_double());
-  EXPECT_FALSE(val7.to_std_string(&std_string));
+  EXPECT_FALSE(val7.to_std_string(&std_string, [] { ASSERT_TRUE(false); }));
   EXPECT_STREQ("[1, [\"a\", [3.14]]]", std_string.c_str());
 
   dom = parse_json("{\"key\" : \"val\"}");
@@ -182,7 +188,8 @@ TEST_F(JsonBinaryTest, BasicTest) {
   EXPECT_EQ("val", get_string(val8_v));
   EXPECT_EQ(Value::ERROR, val8.key(1).type());
   EXPECT_EQ(Value::ERROR, val8.element(1).type());
-  EXPECT_FALSE(val8.to_pretty_std_string(&std_string));
+  EXPECT_FALSE(
+      val8.to_pretty_std_string(&std_string, [] { ASSERT_TRUE(false); }));
   EXPECT_STREQ("{\n  \"key\": \"val\"\n}", std_string.c_str());
 
   Value v8_v1 = val8.lookup("key");
@@ -980,7 +987,7 @@ TEST_P(SpaceNeededTest, SpaceNeeded) {
   EXPECT_FALSE(space_needed(thd(), &param.m_value, true, &needed));
   EXPECT_EQ(param.m_needed_large, needed);
 
-  const auto dom = param.m_value.to_dom(thd());
+  const auto dom = param.m_value.to_dom();
 
   if (param.m_needed_small > 0) {
     /*

@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2004, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2004, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -205,8 +206,9 @@ static void print_tz_as_sql(const char *tz_name, const TIME_ZONE_INFO *sp) {
         "INSERT INTO time_zone_transition \
 (Time_zone_id, Transition_time, Transition_type_id) VALUES\n");
     for (i = 0; i < sp->timecnt; i++)
-      printf("%s(@time_zone_id, %ld, %u)\n", (i == 0 ? " " : ","), sp->ats[i],
-             (uint)sp->types[i]);
+      printf("%s(@time_zone_id, %lld, %u)\n", (i == 0 ? " " : ","),
+             static_cast<long long int>(sp->ats[i]),
+             static_cast<uint>(sp->types[i]));
     printf(";\n");
   }
 
@@ -248,7 +250,8 @@ static void print_tz_leaps_as_sql(const TIME_ZONE_INFO *sp) {
         "INSERT INTO time_zone_leap_second \
 (Transition_time, Correction) VALUES\n");
     for (i = 0; i < sp->leapcnt; i++)
-      printf("%s(%ld, %ld)\n", (i == 0 ? " " : ","), sp->lsis[i].ls_trans,
+      printf("%s(%lld, %ld)\n", (i == 0 ? " " : ","),
+             static_cast<long long int>(sp->lsis[i].ls_trans),
              sp->lsis[i].ls_corr);
     printf(";\n");
   }
@@ -305,14 +308,14 @@ static bool scan_tz_dir(char *name_end) {
           return true;
         }
       } else if (MY_S_ISREG(cur_dir->dir_entry[i].mystat->st_mode)) {
-        init_alloc_root(PSI_NOT_INSTRUMENTED, &tz_storage, 32768, 0);
+        ::new ((void *)&tz_storage) MEM_ROOT(PSI_NOT_INSTRUMENTED, 32768);
         if (!tz_load(fullname, &tz_info, &tz_storage))
           print_tz_as_sql(root_name_end + 1, &tz_info);
         else
           fprintf(stderr,
                   "Warning: Unable to load '%s' as time zone. Skipping it.\n",
                   fullname);
-        free_root(&tz_storage, MYF(0));
+        tz_storage.Clear();
       } else
         fprintf(stderr, "Warning: '%s' is not regular file or directory\n",
                 fullname);
@@ -323,6 +326,8 @@ static bool scan_tz_dir(char *name_end) {
 
   return false;
 }
+
+extern "C" void sql_alloc_error_handler() {}
 
 int main(int argc, char **argv) {
   MY_INIT(argv[0]);
@@ -354,7 +359,7 @@ int main(int argc, char **argv) {
     }
     printf("COMMIT;\n");
   } else {
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &tz_storage, 32768, 0);
+    ::new ((void *)&tz_storage) MEM_ROOT(PSI_NOT_INSTRUMENTED, 32768);
 
     if (strcmp(argv[1], "--leap") == 0) {
       if (tz_load(argv[2], &tz_info, &tz_storage)) {
@@ -372,7 +377,7 @@ int main(int argc, char **argv) {
       printf("COMMIT;\n");
     }
 
-    free_root(&tz_storage, MYF(0));
+    tz_storage.Clear();
   }
 
   return 0;

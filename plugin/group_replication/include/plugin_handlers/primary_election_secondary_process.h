@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -59,7 +60,7 @@ class Primary_election_secondary_process : public Group_event_observer {
   */
   int launch_secondary_election_process(
       enum_primary_election_mode election_mode, std::string &primary_to_elect,
-      std::vector<Group_member_info *> *group_members_info);
+      Group_member_info_list *group_members_info);
 
   /**
     Is the election process running?
@@ -85,12 +86,6 @@ class Primary_election_secondary_process : public Group_event_observer {
   void set_stop_wait_timeout(ulong timeout);
 
  private:
-  enum enum_election_read_mode_status {
-    SECONDARY_ELECTION_READ_MODE_NOT_SET = 0,    // Read only mode not set
-    SECONDARY_ELECTION_READ_MODE_BEING_SET = 1,  // Read only mode being set
-    SECONDARY_ELECTION_READ_MODE_IS_SET = 2,     // Read only mode is set
-  };
-
   // The listeners for group events
 
   int after_view_change(const std::vector<Gcs_member_identifier> &joining,
@@ -99,9 +94,10 @@ class Primary_election_secondary_process : public Group_event_observer {
                         bool is_leaving, bool *skip_election,
                         enum_primary_election_mode *election_mode,
                         std::string &suggested_primary) override;
-  int after_primary_election(std::string primary_uuid, bool primary_changed,
-                             enum_primary_election_mode election_mode,
-                             int error) override;
+  int after_primary_election(
+      std::string primary_uuid,
+      enum_primary_election_primary_change_status primary_change_status,
+      enum_primary_election_mode election_mode, int error) override;
   int before_message_handling(const Plugin_gcs_message &message,
                               const std::string &message_origin,
                               bool *skip_message) override;
@@ -111,12 +107,6 @@ class Primary_election_secondary_process : public Group_event_observer {
     @return false in case of success, or true otherwise
   */
   bool enable_read_mode_on_server();
-
-  /**
-    Kills the current read mode query that might be stuck
-    @return false in case of success, or true otherwise
-  */
-  bool kill_read_mode_query();
 
   /**
      Signal that the read mode is ready on this member
@@ -137,10 +127,6 @@ class Primary_election_secondary_process : public Group_event_observer {
   bool group_in_read_mode;
   /** Process is waiting on read mode - stage related var*/
   bool is_waiting_on_read_mode_group;
-  /** The session id that is set the read mode*/
-  unsigned long read_mode_session_id;
-  /** What is the status on the read only mode enabling query */
-  enum_election_read_mode_status is_read_mode_set;
 
   /** The election invocation context */
   enum_primary_election_mode election_mode;

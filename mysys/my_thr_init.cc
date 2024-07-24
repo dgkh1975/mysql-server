@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    Without limiting anything contained in the foregoing, this file,
    which is part of C Driver for MySQL (Connector/C), is also subject to the
@@ -271,7 +272,7 @@ extern "C" bool my_thread_init() {
 #endif
 
   if (!my_thread_global_init_done)
-    return true; /* cannot proceed with unintialized library */
+    return true; /* cannot proceed with uninitialized library */
 
 #ifdef _WIN32
   install_sigabrt_handler();
@@ -369,7 +370,7 @@ CODE_STATE **my_thread_var_dbug() {
   EXCEPTION_BREAKPOINT and then handle_segfault will do its magic.
 */
 
-static void my_sigabrt_handler(int sig) { __debugbreak(); }
+static void my_sigabrt_handler(int sig [[maybe_unused]]) { __debugbreak(); }
 
 static void install_sigabrt_handler() {
   /*abort() should not override our exception filter*/

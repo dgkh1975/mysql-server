@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -85,7 +86,7 @@ class Gcs_xcom_node_address {
    A Gcs_xcom_node_address holds the representation IP:PORT of an XCom node.
    It is initialized with default values for IP = null and PORT = 0.
 
-   This method checks if this address contains valid values after a sucessfull
+   This method checks if this address contains valid values after a successful
    initialization or if it still contains the default ones.
 
    @return true if this contains values other than the default values
@@ -515,7 +516,8 @@ class Gcs_xcom_nodes {
     interpreted by XCOM to boot, add or remove nodes.
   */
 
-  bool encode(unsigned int *ptr_size, char ***ptr_addrs, blob **ptr_uuids);
+  bool encode(unsigned int *ptr_size, char const ***ptr_addrs,
+              blob **ptr_uuids);
 
  private:
   /*
@@ -543,7 +545,7 @@ class Gcs_xcom_nodes {
   /*
     Memory allocated to encode addresses.
   */
-  char **m_addrs;
+  char const **m_addrs;
 
   /*
     Memory allocated to encode uuids.

@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -71,6 +72,10 @@ class Global_shared_latch_guard : private ut::Non_copyable {
  public:
   Global_shared_latch_guard(ut::Location location);
   ~Global_shared_latch_guard();
+  /** Checks if there is a thread requesting the global_latch in exclusive mode
+  blocked by our thread.
+  @return true iff there is an x-latcher blocked by our s-latch. */
+  bool is_x_blocked_by_us();
 };
 
 /**
@@ -89,7 +94,7 @@ class Shard_naked_latch_guard : private ut::Non_copyable {
 
  public:
   explicit Shard_naked_latch_guard(ut::Location location,
-                                   const dict_table_t &table);
+                                   const table_id_t &table_id);
 
   explicit Shard_naked_latch_guard(ut::Location location,
                                    const page_id_t &page_id);
@@ -114,7 +119,7 @@ class Shard_latch_guard {
  public:
   explicit Shard_latch_guard(ut::Location location, const dict_table_t &table)
       : m_global_shared_latch_guard{location},
-        m_shard_naked_latch_guard{location, table} {}
+        m_shard_naked_latch_guard{location, table.id} {}
 
   explicit Shard_latch_guard(ut::Location location, const page_id_t &page_id)
       : m_global_shared_latch_guard{location},

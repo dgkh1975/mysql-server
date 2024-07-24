@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,18 +26,18 @@
 #ifndef MYSQL_PROTOCOL_AUTHENTICATION_INCLUDED
 #define MYSQL_PROTOCOL_AUTHENTICATION_INCLUDED
 
+#include <cstdint>
+#include <optional>
+#include <string_view>
 #include <vector>
-
-#include "mysql/harness/stdx/expected.h"
-#include "mysql/harness/stdx/string_view.h"
 
 class MySQLNativePassword {
  public:
   static constexpr char name[] = "mysql_native_password";
 
   // client-side scrambling of the password
-  static stdx::expected<std::vector<uint8_t>, void> scramble(
-      stdx::string_view nonce, stdx::string_view password);
+  static std::optional<std::vector<uint8_t>> scramble(
+      std::string_view nonce, std::string_view password);
 };
 
 class CachingSha2Password {
@@ -44,8 +45,8 @@ class CachingSha2Password {
   static constexpr char name[] = "caching_sha2_password";
 
   // client-side scrambling of the password
-  static stdx::expected<std::vector<uint8_t>, void> scramble(
-      stdx::string_view nonce, stdx::string_view password);
+  static std::optional<std::vector<uint8_t>> scramble(
+      std::string_view nonce, std::string_view password);
 };
 
 class ClearTextPassword {
@@ -53,8 +54,8 @@ class ClearTextPassword {
   static constexpr char name[] = "mysql_clear_password";
 
   // client-side scrambling of the password
-  static stdx::expected<std::vector<uint8_t>, void> scramble(
-      stdx::string_view nonce, stdx::string_view password);
+  static std::optional<std::vector<uint8_t>> scramble(
+      std::string_view nonce, std::string_view password);
 };
 
 #endif

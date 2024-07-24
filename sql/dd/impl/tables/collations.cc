@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -55,7 +56,7 @@ const Collations &Collations::instance() {
 ///////////////////////////////////////////////////////////////////////////
 
 const CHARSET_INFO *Collations::name_collation() {
-  return &my_charset_utf8_general_ci;
+  return &my_charset_utf8mb3_general_ci;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -67,7 +68,7 @@ Collations::Collations() {
                          "id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT");
   m_target_def.add_field(FIELD_NAME, "FIELD_NAME",
                          "name VARCHAR(64) NOT NULL COLLATE " +
-                             String_type(name_collation()->name));
+                             String_type(name_collation()->m_coll_name));
   m_target_def.add_field(FIELD_CHARACTER_SET_ID, "FIELD_CHARACTER_SET_ID",
                          "character_set_id BIGINT UNSIGNED NOT NULL");
   m_target_def.add_field(FIELD_IS_COMPILED, "FIELD_IS_COMPILED",
@@ -136,9 +137,9 @@ bool Collations::populate(THD *thd) const {
           // Remove the id from the set of non-updated old ids.
           prev_coll_ids.erase(cl->number);
 
-          // Preapre the new collation object.
+          // Prepare the new collation object.
           new_collation->set_id(cl->number);
-          new_collation->set_name(cl->name);
+          new_collation->set_name(cl->m_coll_name);
 
           // The id of the primary collation is used as the character set id
           new_collation->set_charset_id(cs->number);

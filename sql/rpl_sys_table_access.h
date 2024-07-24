@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -44,7 +45,7 @@ class Rpl_sys_table_access {
   /**
     Construction.
     @param[in]  schema_name   Database where the table resides
-    @param[in]  table_name    Table to be openned
+    @param[in]  table_name    Table to be opened
     @param[in]  max_num_field Maximum number of fields
   */
   Rpl_sys_table_access(const std::string &schema_name,
@@ -211,13 +212,21 @@ class Rpl_sys_table_access {
   }
 
   /**
+    Delete all rows on `m_schema_name.m_table_name`.
+
+    @retval true  if there is error
+    @retval false if there is no error
+  */
+  bool delete_all_rows();
+
+  /**
     Return the version stored on `m_schema_version_name.m_table_version_name`
     for the `m_schema_name.m_table_name` table.
 
     @retval 0  if there is error
     @retval >0 if there is no error
   */
-  longlong get_version();
+  ulonglong get_version();
 
   /**
     Increment the version stored on `m_schema_version_name.m_table_version_name`
@@ -237,7 +246,30 @@ class Rpl_sys_table_access {
     @retval true  if there is error
     @retval false if there is no error
   */
-  bool update_version(longlong version);
+  bool update_version(ulonglong version);
+
+  /**
+    Delete the version stored on `m_schema_version_name.m_table_version_name`
+    for the `m_schema_name.m_table_name` table.
+
+    @retval true  if there is error
+    @retval false if there is no error
+  */
+  bool delete_version();
+
+  /**
+    Get database name of table accessed.
+
+    @return database name.
+  */
+  std::string get_db_name() { return m_schema_name; }
+
+  /**
+    Get table name of table accessed.
+
+    @return table name.
+  */
+  std::string get_table_name() { return m_table_name; }
 
  private:
   /* THD created for TableAccess object purpose. */
@@ -249,8 +281,8 @@ class Rpl_sys_table_access {
   /* The variable determine if table is opened or closed successfully. */
   bool m_error{false};
 
-  /* TABLE_LIST object */
-  TABLE_LIST *m_table_list{nullptr};
+  /* Table_ref object */
+  Table_ref *m_table_list{nullptr};
   enum thr_lock_type m_lock_type;
 
   std::string m_schema_name;

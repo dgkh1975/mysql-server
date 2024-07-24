@@ -1,15 +1,16 @@
-/* Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +40,7 @@ class set_var_base;
 class sp_head;
 class sp_printable;
 struct CHARSET_INFO;
-struct TABLE_LIST;
+class Table_ref;
 template <class T>
 class List;
 
@@ -646,7 +647,7 @@ class Opt_trace_struct {
      Helper to put the database/table name in an object.
      @param  tab  TABLE* pointer
   */
-  Opt_trace_struct &add_utf8_table(const TABLE_LIST *tab) {
+  Opt_trace_struct &add_utf8_table(const Table_ref *tab) {
     if (likely(!started)) return *this;
     return do_add_utf8_table(tab);
   }
@@ -655,10 +656,7 @@ class Opt_trace_struct {
      @param  select_number  number of query_block
   */
   Opt_trace_struct &add_select_number(uint select_number) {
-    return unlikely(select_number >= INT_MAX) ?
-                                              // Clearer than any huge number.
-               add_alnum("select#", "fake")
-                                              : add("select#", select_number);
+    return add("select#", select_number);
   }
   /**
      Add a value to the structure.
@@ -751,7 +749,7 @@ class Opt_trace_struct {
   Opt_trace_struct &do_add(const char *key, ulonglong value);
   Opt_trace_struct &do_add(const char *key, double value);
   Opt_trace_struct &do_add_null(const char *key);
-  Opt_trace_struct &do_add_utf8_table(const TABLE_LIST *tab);
+  Opt_trace_struct &do_add_utf8_table(const Table_ref *tab);
   Opt_trace_struct &do_add(const char *key, const Cost_estimate &value);
 
   Opt_trace_struct(const Opt_trace_struct &);             ///< not defined
@@ -945,7 +943,7 @@ class Opt_trace_start {
     @note Each sub-statement is responsible for ending the trace which it
     has started; this class achieves this by keeping some memory inside.
   */
-  Opt_trace_start(THD *thd_arg, TABLE_LIST *tbl,
+  Opt_trace_start(THD *thd_arg, Table_ref *tbl,
                   enum enum_sql_command sql_command,
                   List<set_var_base> *set_vars, const char *query,
                   size_t query_length, sp_printable *instr,
@@ -1022,8 +1020,8 @@ void opt_trace_disable_if_no_security_context_access(THD *thd);
    @param view              view to check
    @param underlying_tables underlying tables/views of 'view'
  */
-void opt_trace_disable_if_no_view_access(THD *thd, TABLE_LIST *view,
-                                         TABLE_LIST *underlying_tables);
+void opt_trace_disable_if_no_view_access(THD *thd, Table_ref *view,
+                                         Table_ref *underlying_tables);
 
 /**
   If tracing is on, checks additional privileges on a stored routine, to make
@@ -1048,7 +1046,7 @@ void opt_trace_disable_if_no_stored_proc_func_access(THD *thd, sp_head *sp);
    @retval 0 ok
    @retval 1 error
 */
-int fill_optimizer_trace_info(THD *thd, TABLE_LIST *tables, Item *);
+int fill_optimizer_trace_info(THD *thd, Table_ref *tables, Item *);
 
 //@}
 

@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,10 +25,10 @@
 #define DD__EVENT_INCLUDED
 
 #include "my_inttypes.h"
+#include "my_time_t.h"                    // my_time_t
 #include "sql/dd/impl/raw/object_keys.h"  // IWYU pragma: keep
 #include "sql/dd/types/entity_object.h"   // dd::Entity_object
 
-typedef long my_time_t;
 struct MDL_key;
 
 namespace dd {
@@ -261,7 +262,7 @@ class Event : virtual public Entity_object {
   virtual void set_schema_collation_id(Object_id schema_collation_id) = 0;
 
   /**
-    Allocate a new object graph and invoke the copy contructor for
+    Allocate a new object graph and invoke the copy constructor for
     each object. Only used in unit testing.
 
     @return pointer to dynamically allocated copy

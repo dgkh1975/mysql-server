@@ -1,15 +1,16 @@
-/* Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -75,9 +76,7 @@ struct row_events_waits {
   /** Length in bytes of @c m_object_type. */
   uint m_object_type_length;
   /** Column OBJECT_SCHEMA. */
-  char m_object_schema[COL_OBJECT_SCHEMA_SIZE];
-  /** Length in bytes of @c m_object_schema. */
-  uint m_object_schema_length;
+  PFS_schema_name m_object_schema;
   /** Column OBJECT_NAME. */
   char m_object_name[COL_OBJECT_NAME_EXTENDED_SIZE];
   /** Length in bytes of @c m_object_name. */
@@ -104,12 +103,12 @@ struct row_events_waits {
 struct pos_events_waits_current : public PFS_double_index {
   pos_events_waits_current() : PFS_double_index(0, 0) {}
 
-  inline void reset(void) {
+  inline void reset() {
     m_index_1 = 0;
     m_index_2 = 0;
   }
 
-  inline void next_thread(void) {
+  inline void next_thread() {
     m_index_1++;
     m_index_2 = 0;
   }
@@ -119,12 +118,12 @@ struct pos_events_waits_current : public PFS_double_index {
 struct pos_events_waits_history : public PFS_double_index {
   pos_events_waits_history() : PFS_double_index(0, 0) {}
 
-  inline void reset(void) {
+  inline void reset() {
     m_index_1 = 0;
     m_index_2 = 0;
   }
 
-  inline void next_thread(void) {
+  inline void next_thread() {
     m_index_1++;
     m_index_2 = 0;
   }
@@ -186,7 +185,7 @@ class table_events_waits_current : public table_events_waits_common {
   int rnd_next() override;
   int rnd_pos(const void *pos) override;
   int index_next() override;
-  void reset_position(void) override;
+  void reset_position() override;
 
  protected:
   table_events_waits_current();
@@ -223,7 +222,7 @@ class table_events_waits_history : public table_events_waits_common {
   static int delete_all_rows();
   static ha_rows get_row_count();
 
-  void reset_position(void) override;
+  void reset_position() override;
 
   int index_init(uint idx, bool sorted) override;
   int index_next() override;
@@ -265,7 +264,7 @@ class table_events_waits_history_long : public table_events_waits_common {
 
   int rnd_next() override;
   int rnd_pos(const void *pos) override;
-  void reset_position(void) override;
+  void reset_position() override;
 
  protected:
   table_events_waits_history_long();

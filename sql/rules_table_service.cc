@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -56,7 +57,10 @@ const char *table_name = "rewrite_rules";
 
 int Cursor::read() {
   TABLE *table = m_table_list->table;
-  m_last_read_status = table->file->ha_rnd_next(table->record[0]);
+  // Read the next non-deleted record.
+  do {
+    m_last_read_status = table->file->ha_rnd_next(table->record[0]);
+  } while (m_last_read_status == HA_ERR_RECORD_DELETED);
   if (m_last_read_status != 0) m_is_finished = true;
   return m_last_read_status;
 }
@@ -72,8 +76,8 @@ Cursor::Cursor(THD *mysql_thd)
       m_table_list(nullptr),
       m_is_finished(true),
       m_table_is_malformed(true) {
-  m_table_list = new TABLE_LIST(db_name, strlen(db_name), table_name,
-                                strlen(table_name), "alias", TL_WRITE_DEFAULT);
+  m_table_list = new Table_ref(db_name, strlen(db_name), table_name,
+                               strlen(table_name), "alias", TL_WRITE_DEFAULT);
   if (m_table_list == nullptr) return;  // Error
 
   m_table_list->updating = true;
@@ -161,7 +165,7 @@ void Cursor::set(int colno, const char *str, size_t length) {
   TABLE *table = m_table_list->table;
   Field *field = table->field[colno];
 
-  const CHARSET_INFO *charset = &my_charset_utf8_unicode_ci;
+  const CHARSET_INFO *charset = &my_charset_utf8mb3_unicode_ci;
   if (str == nullptr)
     field->set_null(0);
   else {

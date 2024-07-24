@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -54,7 +55,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <vector>
 
 /* Node Sequence Number. Only updated when page splits */
-typedef ib_uint32_t node_seq_t;
+typedef uint32_t node_seq_t;
 
 /* RTree internal non-leaf Nodes to be searched, from root to leaf */
 typedef struct node_visit {
@@ -71,14 +72,14 @@ typedef struct node_visit {
                       enlarged for insertion */
 } node_visit_t;
 
-typedef std::vector<node_visit_t, ut_allocator<node_visit_t>> rtr_node_path_t;
+typedef std::vector<node_visit_t, ut::allocator<node_visit_t>> rtr_node_path_t;
 
 typedef struct rtr_rec {
   rec_t *r_rec; /*!< matched record */
   bool locked;  /*!< whether the record locked */
 } rtr_rec_t;
 
-typedef std::vector<rtr_rec_t, ut_allocator<rtr_rec_t>> rtr_rec_vector;
+typedef std::vector<rtr_rec_t, ut::allocator<rtr_rec_t>> rtr_rec_vector;
 
 /* Structure for matched records on the leaf page */
 typedef struct matched_rec {
@@ -97,12 +98,12 @@ typedef struct matched_rec {
 } matched_rec_t;
 
 /* Maximum index level for R-Tree, this is consistent with BTR_MAX_LEVELS */
-#define RTR_MAX_LEVELS 100
+constexpr uint32_t RTR_MAX_LEVELS = 100;
 
 /* Number of pages we latch at leaf level when there is possible Tree
 modification (split, shrink), we always latch left, current
 and right pages */
-#define RTR_LEAF_LATCH_NUM 3
+constexpr uint32_t RTR_LEAF_LATCH_NUM = 3;
 
 /** Vectors holding the matching internal pages/nodes and leaf records */
 typedef struct rtr_info {
@@ -145,7 +146,7 @@ typedef struct rtr_info {
   /*!< whether the current rec is a duplicate record. */
 } rtr_info_t;
 
-typedef std::list<rtr_info_t *, ut_allocator<rtr_info_t *>> rtr_info_active;
+typedef std::list<rtr_info_t *, ut::allocator<rtr_info_t *>> rtr_info_active;
 
 /* Tracking structure for all onoging search for an index */
 typedef struct rtr_info_track {

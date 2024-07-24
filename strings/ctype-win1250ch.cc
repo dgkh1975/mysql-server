@@ -1,15 +1,16 @@
-/* Copyright (c) 2002, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2002, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    Without limiting anything contained in the foregoing, this file,
    which is part of C Driver for MySQL (Connector/C), is also subject to the
@@ -400,7 +401,7 @@ static struct wordvalue doubles[] = {
   ((pointer_cast<const char *>(p) - pointer_cast<const char *>(src)) >= (len))
 
 extern "C" {
-static int my_strnncoll_win1250ch(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
+static int my_strnncoll_win1250ch(const CHARSET_INFO *cs [[maybe_unused]],
                                   const uchar *s1, size_t len1, const uchar *s2,
                                   size_t len2, bool s2_is_prefix) {
   int v1, v2;
@@ -434,10 +435,11 @@ static int my_strnncollsp_win1250ch(const CHARSET_INFO *cs, const uchar *s,
   return my_strnncoll_win1250ch(cs, s, slen, t, tlen, false);
 }
 
-static size_t my_strnxfrm_win1250ch(
-    const CHARSET_INFO *cs MY_ATTRIBUTE((unused)), uchar *dest, size_t len,
-    uint nweights_arg MY_ATTRIBUTE((unused)), const uchar *src, size_t srclen,
-    uint flags) {
+static size_t my_strnxfrm_win1250ch(const CHARSET_INFO *cs [[maybe_unused]],
+                                    uchar *dest, size_t len,
+                                    uint nweights_arg [[maybe_unused]],
+                                    const uchar *src, size_t srclen,
+                                    uint flags) {
   int value;
   const uchar *p;
   int pass = 0;
@@ -599,7 +601,7 @@ CHARSET_INFO my_charset_cp1250_czech_ci = {
     0,                                              /* number    */
     MY_CS_COMPILED | MY_CS_STRNXFRM | MY_CS_CSSORT, /* state     */
     "cp1250",                                       /* cs name   */
-    "cp1250_czech_cs",                              /* name      */
+    "cp1250_czech_cs",                              /* m_coll_name */
     "Windows Central European",                     /* comment   */
     nullptr,                                        /* tailoring */
     nullptr,                                        /* coll_param */

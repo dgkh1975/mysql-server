@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,9 +27,9 @@
 #include <thread>
 
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #ifdef RAPIDJSON_NO_SIZETYPEDEFINE
-// if we build within the server, it will set RAPIDJSON_NO_SIZETYPEDEFINE
-// globally and require to include my_rapidjson_size_t.h
 #include "my_rapidjson_size_t.h"
 #endif
 #include <rapidjson/document.h>
@@ -42,12 +43,14 @@
 #include "mock_server_testutils.h"
 #include "mysql/harness/logging/registry.h"
 #include "mysql/harness/utility/string.h"  // ::join
-#include "mysql_session.h"
+#include "mysqlrouter/mysql_session.h"
 #include "mysqlrouter/rest_client.h"
 #include "rest_api_testutils.h"
 #include "router_component_test.h"
+#include "router_component_testutils.h"  // make_bad_connection
 #include "tcp_port_pool.h"
-#include "temp_dir.h"
+#include "test/helpers.h"
+#include "test/temp_directory.h"
 
 using namespace std::string_literals;
 
@@ -171,7 +174,7 @@ TEST_P(RestRoutingApiTest, ensure_openapi) {
   init_keyring(default_section, conf_dir_.name());
 
   const std::string conf_file{create_config_file(
-      conf_dir_.name(), mysql_harness::join(config_sections, "\n"),
+      conf_dir_.name(), mysql_harness::join(config_sections, ""),
       &default_section, "mysqlrouter.conf", "connect_timeout=1")};
 
   SCOPED_TRACE("// starting router");
@@ -212,7 +215,7 @@ TEST_P(RestRoutingApiTest, ensure_openapi) {
   // call wait_port_ready a few times on "123" to trigger blocked client
   // on that route (we set max_connect_errors to 2)
   for (size_t i = 0; i < 3; ++i) {
-    ASSERT_TRUE(wait_for_port_ready(routing_ports_[2], 500ms));
+    ASSERT_NO_FATAL_FAILURE(make_bad_connection(routing_ports_[2]));
   }
 
   // wait until we see that the Router has blocked the host
@@ -222,11 +225,29 @@ TEST_P(RestRoutingApiTest, ensure_openapi) {
       fetch_and_validate_schema_and_resource(GetParam(), http_server));
 }
 
-static const std::vector<
-    std::pair<std::string, RestApiTestParams::value_check_func>>
-get_expected_status_fields(const int expected_active_connections,
-                           const int expected_total_connections,
-                           const int expected_blocked_hosts) {
+static const RestApiComponentTest::json_verifiers_t get_expected_status_fields(
+    const int expected_max_total_connections,
+    const int expected_current_total_connections) {
+  return {
+      {"/maxTotalConnections",
+       [=](const JsonValue *value) {
+         ASSERT_TRUE(value != nullptr);
+         ASSERT_TRUE(value->IsInt());
+         ASSERT_EQ(value->GetInt(), expected_max_total_connections);
+       }},
+      {"/currentTotalConnections",
+       [=](const JsonValue *value) {
+         ASSERT_TRUE(value != nullptr);
+         ASSERT_TRUE(value->IsInt());
+         ASSERT_EQ(value->GetInt(), expected_current_total_connections);
+       }},
+  };
+}
+
+static const RestApiComponentTest::json_verifiers_t
+get_expected_routes_status_fields(const int expected_active_connections,
+                                  const int expected_total_connections,
+                                  const int expected_blocked_hosts) {
   return {
       {"/activeConnections",
        [=](const JsonValue *value) {
@@ -249,8 +270,7 @@ get_expected_status_fields(const int expected_active_connections,
   };
 }
 
-static const std::vector<
-    std::pair<std::string, RestApiTestParams::value_check_func>>
+static const RestApiComponentTest::json_verifiers_t
 get_expected_config_fields() {
   return {
       {"/bindAddress",
@@ -303,9 +323,8 @@ get_expected_config_fields() {
   };
 }
 
-static const std::vector<
-    std::pair<std::string, RestApiTestParams::value_check_func>>
-get_expected_health_fields(const bool expected_alive) {
+static const RestApiComponentTest::json_verifiers_t get_expected_health_fields(
+    const bool expected_alive) {
   return {
       {"/isAlive",
        [=](const JsonValue *value) {
@@ -315,18 +334,16 @@ get_expected_health_fields(const bool expected_alive) {
   };
 }
 
-static const std::vector<
-    std::pair<std::string, RestApiTestParams::value_check_func>>
+static const RestApiComponentTest::json_verifiers_t
 get_expected_destinations_fields(int expected_destinations_num) {
-  std::vector<std::pair<std::string, RestApiTestParams::value_check_func>>
-      result{
-          {"/items",
-           [=](const JsonValue *value) {
-             ASSERT_NE(value, nullptr);
-             ASSERT_TRUE(value->IsArray());
-             ASSERT_EQ(value->GetArray().Size(), expected_destinations_num);
-           }},
-      };
+  RestApiComponentTest::json_verifiers_t result{
+      {"/items",
+       [=](const JsonValue *value) {
+         ASSERT_NE(value, nullptr);
+         ASSERT_TRUE(value->IsArray());
+         ASSERT_EQ(value->GetArray().Size(), expected_destinations_num);
+       }},
+  };
 
   for (int i = 0; i < expected_destinations_num; ++i) {
     result.emplace_back("/items/0/address", [](const JsonValue *value) {
@@ -343,15 +360,14 @@ get_expected_destinations_fields(int expected_destinations_num) {
   return result;
 }
 
-static const std::vector<
-    std::pair<std::string, RestApiTestParams::value_check_func>>
-get_expected_blocked_hosts_fields(const int expected_blocked_hosts) {
-  std::vector<std::pair<std::string, RestApiTestParams::value_check_func>>
-      result{{"/items", [=](const JsonValue *value) {
-                ASSERT_NE(value, nullptr);
-                ASSERT_TRUE(value->IsArray());
-                ASSERT_EQ(value->GetArray().Size(), expected_blocked_hosts);
-              }}};
+static RestApiComponentTest::json_verifiers_t get_expected_blocked_hosts_fields(
+    const int expected_blocked_hosts) {
+  RestApiComponentTest::json_verifiers_t result{
+      {"/items", [=](const JsonValue *value) {
+         ASSERT_NE(value, nullptr);
+         ASSERT_TRUE(value->IsArray());
+         ASSERT_EQ(value->GetArray().Size(), expected_blocked_hosts);
+       }}};
 
   for (int i = 0; i < expected_blocked_hosts; ++i) {
     result.emplace_back(
@@ -364,20 +380,19 @@ get_expected_blocked_hosts_fields(const int expected_blocked_hosts) {
   return result;
 }
 
-static const std::vector<
-    std::pair<std::string, RestApiTestParams::value_check_func>>
+static const RestApiComponentTest::json_verifiers_t
 get_expected_connections_fields_fields(const int expected_connection_qty) {
-  std::vector<std::pair<std::string, RestApiTestParams::value_check_func>>
-      result{{"/items", [=](const JsonValue *value) {
-                ASSERT_NE(value, nullptr);
-                ASSERT_TRUE(value->IsArray());
-                // -1 means that we don't really know how many connections are
-                // there, we did wait_for_port_ready on a socket and this can
-                // still be accounted for
-                if (expected_connection_qty >= 0) {
-                  ASSERT_EQ(value->GetArray().Size(), expected_connection_qty);
-                }
-              }}};
+  RestApiComponentTest::json_verifiers_t result{
+      {"/items", [=](const JsonValue *value) {
+         ASSERT_NE(value, nullptr);
+         ASSERT_TRUE(value->IsArray());
+         // -1 means that we don't really know how many connections are
+         // there, we did wait_for_port_ready on a socket and this can
+         // still be accounted for
+         if (expected_connection_qty >= 0) {
+           ASSERT_EQ(value->GetArray().Size(), expected_connection_qty);
+         }
+       }}};
 
   for (int i = 0; i < expected_connection_qty; ++i) {
     result.emplace_back("/items/" + std::to_string(i) + "/bytesToServer",
@@ -422,41 +437,51 @@ get_expected_connections_fields_fields(const int expected_connection_qty) {
 // ****************************************************************************
 
 static const RestApiTestParams rest_api_valid_methods[]{
-    {"routing_status_ro", std::string(rest_api_basepath) + "/routes/ro/status",
+    {"routing_status", std::string(rest_api_basepath) + "/routing/status",
+     "/routing/status", HttpMethod::Get, HttpStatusCode::Ok, kContentTypeJson,
+     kRestApiUsername, kRestApiPassword,
+     /*request_authentication =*/true,
+     get_expected_status_fields(
+         /*expected_max_total_connections=*/512,
+         /*expected_current_total_connections=*/3 + 1),
+     kRoutingSwaggerPaths},
+    {"routing_routes_status_ro",
+     std::string(rest_api_basepath) + "/routes/ro/status",
      "/routes/{routeName}/status", HttpMethod::Get, HttpStatusCode::Ok,
      kContentTypeJson, kRestApiUsername, kRestApiPassword,
      /*request_authentication =*/true,
-     get_expected_status_fields(/*expected_active_connections=*/3,
-                                /*expected_total_connections=*/3,
-                                /*expected_blocked_hosts*=*/0),
+     get_expected_routes_status_fields(/*expected_active_connections=*/3,
+                                       /*expected_total_connections=*/3,
+                                       /*expected_blocked_hosts*=*/0),
      kRoutingSwaggerPaths},
-    {"routing_status__", std::string(rest_api_basepath) + "/routes/_/status",
+    {"routing_routes_status__",
+     std::string(rest_api_basepath) + "/routes/_/status",
      "/routes/{routeName}/status", HttpMethod::Get, HttpStatusCode::Ok,
      kContentTypeJson, kRestApiUsername, kRestApiPassword,
      /*request_authentication =*/true,
-     get_expected_status_fields(/*expected_active_connections=*/0,
-                                /*expected_total_connections=*/0,
-                                /*expected_blocked_hosts*=*/0),
+     get_expected_routes_status_fields(/*expected_active_connections=*/0,
+                                       /*expected_total_connections=*/0,
+                                       /*expected_blocked_hosts*=*/0),
      kRoutingSwaggerPaths},
-    {"routing_status_Aaz",
+    {"routing_routes_status_Aaz",
      std::string(rest_api_basepath) + "/routes/Aaz/status",
      "/routes/{routeName}/status", HttpMethod::Get, HttpStatusCode::Ok,
      kContentTypeJson, kRestApiUsername, kRestApiPassword,
      /*request_authentication =*/true,
-     get_expected_status_fields(/*expected_active_connections=*/1,
-                                /*expected_total_connections=*/1,
-                                /*expected_blocked_hosts*=*/0),
+     get_expected_routes_status_fields(/*expected_active_connections=*/1,
+                                       /*expected_total_connections=*/1,
+                                       /*expected_blocked_hosts*=*/0),
      kRoutingSwaggerPaths},
-    {"routing_status_123",
+    {"routing_routes_status_123",
      std::string(rest_api_basepath) + "/routes/123/status",
      "/routes/{routeName}/status", HttpMethod::Get, HttpStatusCode::Ok,
      kContentTypeJson, kRestApiUsername, kRestApiPassword,
      /*request_authentication =*/true,
-     get_expected_status_fields(/*expected_active_connections=*/0,
-                                /*expected_total_connections=*/3,
-                                /*expected_blocked_hosts*=*/1),
+     get_expected_routes_status_fields(/*expected_active_connections=*/0,
+                                       /*expected_total_connections=*/3,
+                                       /*expected_blocked_hosts*=*/1),
      kRoutingSwaggerPaths},
-    {"routing_status_nonexistent",
+    {"routing_routes_status_nonexistent",
      std::string(rest_api_basepath) + "/routes/nonexistent/status",
      "/routes/{routeName}/status",
      HttpMethod::Get,
@@ -467,7 +492,7 @@ static const RestApiTestParams rest_api_valid_methods[]{
      /*request_authentication =*/true,
      {},
      kRoutingSwaggerPaths},
-    {"routing_status_params",
+    {"routing_routes_status_params",
      std::string(rest_api_basepath) + "/routes/123/status?someparam",
      "/routes/{routeName}/status",
      HttpMethod::Get,
@@ -847,71 +872,71 @@ static const RestApiTestParams rest_api_invalid_methods_params[]{
      std::string(rest_api_basepath) + "/routes/ro/status",
      "/routes/{routeName}/status",
      HttpMethod::Post | HttpMethod::Delete | HttpMethod::Patch |
-         HttpMethod::Trace | HttpMethod::Options | HttpMethod::Connect |
-         HttpMethod::Head,
+         HttpMethod::Trace | HttpMethod::Options | HttpMethod::Head,
      HttpStatusCode::MethodNotAllowed, kContentTypeJsonProblem,
      kRestApiUsername, kRestApiPassword,
      /*request_authentication =*/true,
-     RestApiComponentTest::kProblemJsonMethodNotAllowed, kRoutingSwaggerPaths},
+     RestApiComponentTest::get_json_method_not_allowed_verifiers(),
+     kRoutingSwaggerPaths},
     {"routes_invalid_methods", std::string(rest_api_basepath) + "/routes",
      "/routes",
      HttpMethod::Post | HttpMethod::Delete | HttpMethod::Patch |
-         HttpMethod::Trace | HttpMethod::Options | HttpMethod::Connect |
-         HttpMethod::Head,
+         HttpMethod::Trace | HttpMethod::Options | HttpMethod::Head,
      HttpStatusCode::MethodNotAllowed, kContentTypeJsonProblem,
      kRestApiUsername, kRestApiPassword,
      /*request_authentication =*/true,
-     RestApiComponentTest::kProblemJsonMethodNotAllowed, kRoutingSwaggerPaths},
+     RestApiComponentTest::get_json_method_not_allowed_verifiers(),
+     kRoutingSwaggerPaths},
     {"routes_config_invalid_methods",
      std::string(rest_api_basepath) + "/routes/ro/config",
      "/routes/{routeName}/config",
      HttpMethod::Post | HttpMethod::Delete | HttpMethod::Patch |
-         HttpMethod::Head | HttpMethod::Trace | HttpMethod::Options |
-         HttpMethod::Connect,
+         HttpMethod::Head | HttpMethod::Trace | HttpMethod::Options,
      HttpStatusCode::MethodNotAllowed, kContentTypeJsonProblem,
      kRestApiUsername, kRestApiPassword,
      /*request_authentication =*/true,
-     RestApiComponentTest::kProblemJsonMethodNotAllowed, kRoutingSwaggerPaths},
+     RestApiComponentTest::get_json_method_not_allowed_verifiers(),
+     kRoutingSwaggerPaths},
     {"routes_health_invalid_methods",
      std::string(rest_api_basepath) + "/routes/ro/health",
      "/routes/{routeName}/health",
      HttpMethod::Post | HttpMethod::Delete | HttpMethod::Patch |
-         HttpMethod::Head | HttpMethod::Trace | HttpMethod::Options |
-         HttpMethod::Connect,
+         HttpMethod::Head | HttpMethod::Trace | HttpMethod::Options,
      HttpStatusCode::MethodNotAllowed, kContentTypeJsonProblem,
      kRestApiUsername, kRestApiPassword,
      /*request_authentication =*/true,
-     RestApiComponentTest::kProblemJsonMethodNotAllowed, kRoutingSwaggerPaths},
+     RestApiComponentTest::get_json_method_not_allowed_verifiers(),
+     kRoutingSwaggerPaths},
     {"routes_destinations_invalid_methods",
      std::string(rest_api_basepath) + "/routes/ro/destinations",
      "/routes/{routeName}/destinations",
      HttpMethod::Post | HttpMethod::Delete | HttpMethod::Patch |
-         HttpMethod::Head | HttpMethod::Trace | HttpMethod::Options |
-         HttpMethod::Connect,
+         HttpMethod::Head | HttpMethod::Trace | HttpMethod::Options,
      HttpStatusCode::MethodNotAllowed, kContentTypeJsonProblem,
      kRestApiUsername, kRestApiPassword,
      /*request_authentication =*/true,
-     RestApiComponentTest::kProblemJsonMethodNotAllowed, kRoutingSwaggerPaths},
+     RestApiComponentTest::get_json_method_not_allowed_verifiers(),
+     kRoutingSwaggerPaths},
     {"routes_blockedhosts_invalid_methods",
      std::string(rest_api_basepath) + "/routes/ro/blockedHosts",
      "/routes/{routeName}/blockedHosts",
      HttpMethod::Post | HttpMethod::Delete | HttpMethod::Patch |
-         HttpMethod::Head | HttpMethod::Trace | HttpMethod::Options |
-         HttpMethod::Connect,
+         HttpMethod::Head | HttpMethod::Trace | HttpMethod::Options,
      HttpStatusCode::MethodNotAllowed, kContentTypeJsonProblem,
      kRestApiUsername, kRestApiPassword,
      /*request_authentication =*/true,
-     RestApiComponentTest::kProblemJsonMethodNotAllowed, kRoutingSwaggerPaths},
+     RestApiComponentTest::get_json_method_not_allowed_verifiers(),
+     kRoutingSwaggerPaths},
     {"routes_connections_invalid_methods",
      std::string(rest_api_basepath) + "/routes/ro/connections",
      "/routes/{routeName}/connections",
      HttpMethod::Post | HttpMethod::Delete | HttpMethod::Patch |
-         HttpMethod::Head | HttpMethod::Trace | HttpMethod::Options |
-         HttpMethod::Connect,
+         HttpMethod::Head | HttpMethod::Trace | HttpMethod::Options,
      HttpStatusCode::MethodNotAllowed, kContentTypeJsonProblem,
      kRestApiUsername, kRestApiPassword,
      /*request_authentication =*/true,
-     RestApiComponentTest::kProblemJsonMethodNotAllowed, kRoutingSwaggerPaths},
+     RestApiComponentTest::get_json_method_not_allowed_verifiers(),
+     kRoutingSwaggerPaths},
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -940,13 +965,13 @@ TEST_F(RestRoutingApiTest, routing_api_no_auth) {
   auto &router =
       launch_router({"-c", conf_file}, EXIT_FAILURE, true, false, -1s);
 
-  check_exit_code(router, EXIT_FAILURE, 10000ms);
+  check_exit_code(router, EXIT_FAILURE, 10s);
 
-  const std::string router_output = router.get_full_logfile();
-  EXPECT_THAT(router_output, ::testing::HasSubstr(
-                                 "  init 'rest_routing' failed: option "
-                                 "require_realm in [rest_routing] is required"))
-      << router_output;
+  const std::string router_output = router.get_logfile_content();
+  EXPECT_THAT(
+      router_output,
+      ::testing::HasSubstr("  init 'rest_routing' failed: option "
+                           "require_realm in [rest_routing] is required"));
 }
 
 /**
@@ -964,9 +989,9 @@ TEST_F(RestRoutingApiTest, invalid_realm) {
   auto &router =
       launch_router({"-c", conf_file}, EXIT_FAILURE, true, false, -1s);
 
-  check_exit_code(router, EXIT_FAILURE, 10000ms);
+  check_exit_code(router, EXIT_FAILURE, 10s);
 
-  const std::string router_output = router.get_full_logfile();
+  const std::string router_output = router.get_logfile_content();
   EXPECT_THAT(
       router_output,
       ::testing::HasSubstr(
@@ -1008,7 +1033,7 @@ TEST_F(RestRoutingApiTest, rest_routing_section_twice) {
   auto &router =
       launch_router({"-c", conf_file}, EXIT_FAILURE, true, false, -1s);
 
-  check_exit_code(router, EXIT_FAILURE, 10000ms);
+  check_exit_code(router, EXIT_FAILURE, 10s);
 
   const std::string router_output = router.get_full_output();
   EXPECT_THAT(router_output,
@@ -1032,9 +1057,9 @@ TEST_F(RestRoutingApiTest, rest_routing_section_has_key) {
   auto &router =
       launch_router({"-c", conf_file}, EXIT_FAILURE, true, false, -1s);
 
-  check_exit_code(router, EXIT_FAILURE, 10000ms);
+  check_exit_code(router, EXIT_FAILURE, 10s);
 
-  const std::string router_output = router.get_full_logfile();
+  const std::string router_output = router.get_logfile_content();
   EXPECT_THAT(router_output, ::testing::HasSubstr(
                                  "  init 'rest_routing' failed: [rest_routing] "
                                  "section does not expect a key, found 'A'"))
@@ -1088,7 +1113,9 @@ TEST_P(RestRoutingApiTestCluster, ensure_openapi_cluster) {
   ASSERT_TRUE(MockServerRestClient(first_node_http_port)
                   .wait_for_rest_endpoint_ready());
 
-  set_mock_metadata(first_node_http_port, "", node_classic_ports);
+  set_mock_metadata(first_node_http_port, "",
+                    classic_ports_to_gr_nodes(node_classic_ports), 0,
+                    classic_ports_to_cluster_nodes(node_classic_ports));
 
   SCOPED_TRACE("// start the router with rest_routing enabled");
   for (size_t i = 0; i < 2; ++i) {
@@ -1134,7 +1161,7 @@ TEST_P(RestRoutingApiTestCluster, ensure_openapi_cluster) {
   init_keyring(default_section, conf_dir_.name());
 
   const std::string conf_file{create_config_file(
-      conf_dir_.name(), mysql_harness::join(config_sections, "\n"),
+      conf_dir_.name(), mysql_harness::join(config_sections, ""),
       &default_section)};
 
   ProcessWrapper &http_server =
@@ -1160,29 +1187,37 @@ TEST_P(RestRoutingApiTestCluster, ensure_openapi_cluster) {
   EXPECT_NO_THROW(client_rw_2.connect("127.0.0.1", routing_ports_[1], "root",
                                       "fake-pass", "", ""));
 
-  EXPECT_NO_FATAL_FAILURE(
+  ASSERT_NO_FATAL_FAILURE(
       fetch_and_validate_schema_and_resource(GetParam(), http_server));
 }
 
 static const RestApiTestParams rest_api_valid_methods_params_cluster[]{
-    {"routing_rw_status",
+    {"routing_status", std::string(rest_api_basepath) + "/routing/status",
+     "/routing/status", HttpMethod::Get, HttpStatusCode::Ok, kContentTypeJson,
+     kRestApiUsername, kRestApiPassword,
+     /*request_authentication =*/true,
+     get_expected_status_fields(
+         /*expected_max_total_connections=*/512,
+         /*expected_current_total_connections=*/2 + 1),
+     kRoutingSwaggerPaths},
+    {"routing_routes_rw_status",
      std::string(rest_api_basepath) + "/routes/cluster_rw/status",
      "/routes/{routeName}/status", HttpMethod::Get, HttpStatusCode::Ok,
      kContentTypeJson, kRestApiUsername, kRestApiPassword,
      /*request_authentication =*/true,
-     get_expected_status_fields(/*expected_active_connections=*/1,
-                                /*expected_total_connections=*/1,
-                                /*expected_blocked_hosts*=*/0),
+     get_expected_routes_status_fields(/*expected_active_connections=*/1,
+                                       /*expected_total_connections=*/1,
+                                       /*expected_blocked_hosts*=*/0),
      kRoutingSwaggerPaths},
 
-    {"routing_ro_status",
+    {"routing_routes_ro_status",
      std::string(rest_api_basepath) + "/routes/cluster_ro/status",
      "/routes/{routeName}/status", HttpMethod::Get, HttpStatusCode::Ok,
      kContentTypeJson, kRestApiUsername, kRestApiPassword,
      /*request_authentication =*/true,
-     get_expected_status_fields(/*expected_active_connections=*/2,
-                                /*expected_total_connections=*/2,
-                                /*expected_blocked_hosts*=*/0),
+     get_expected_routes_status_fields(/*expected_active_connections=*/2,
+                                       /*expected_total_connections=*/2,
+                                       /*expected_blocked_hosts*=*/0),
      kRoutingSwaggerPaths},
 
     {"cluster_routes",

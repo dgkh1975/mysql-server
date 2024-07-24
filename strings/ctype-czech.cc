@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    Without limiting anything contained in the foregoing, this file,
    which is part of C Driver for MySQL (Connector/C), is also subject to the
@@ -153,7 +154,7 @@ static const unsigned char *CZ_SORT_TABLE[] = {literal0, literal1, literal2,
                                                literal3};
 
 /*
-        These define the valuse for the double chars that need to be
+        These define the values for the double chars that need to be
         sorted as they were single characters -- in Czech these are
         'ch', 'Ch' and 'CH'.
 */
@@ -304,7 +305,7 @@ static struct wordvalue doubles[] = {
 */
 
 extern "C" {
-static int my_strnncoll_czech(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
+static int my_strnncoll_czech(const CHARSET_INFO *cs [[maybe_unused]],
                               const uchar *s1, size_t len1, const uchar *s2,
                               size_t len2, bool s2_is_prefix) {
   int v1, v2;
@@ -343,8 +344,8 @@ static int my_strnncollsp_czech(const CHARSET_INFO *cs, const uchar *s,
 /*
   Returns the number of bytes required for strnxfrm().
 */
-static size_t my_strnxfrmlen_czech(
-    const CHARSET_INFO *cs MY_ATTRIBUTE((unused)), size_t len) {
+static size_t my_strnxfrmlen_czech(const CHARSET_INFO *cs [[maybe_unused]],
+                                   size_t len) {
   return len * 4 + 4;
 }
 
@@ -353,9 +354,9 @@ static size_t my_strnxfrmlen_czech(
   the length of the strings being specified
 */
 
-static size_t my_strnxfrm_czech(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
+static size_t my_strnxfrm_czech(const CHARSET_INFO *cs [[maybe_unused]],
                                 uchar *dest, size_t len,
-                                uint nweights_arg MY_ATTRIBUTE((unused)),
+                                uint nweights_arg [[maybe_unused]],
                                 const uchar *src, size_t srclen, uint flags) {
   int value;
   const uchar *p, *store;
@@ -458,7 +459,7 @@ static bool my_like_range_czech(const CHARSET_INFO *cs, const char *ptr,
     {
       break;
     }
-    if (value == 255) /* Double char too compicated */
+    if (value == 255) /* Double char too complicated */
     {
       break;
     }
@@ -673,7 +674,7 @@ CHARSET_INFO my_charset_latin2_czech_ci = {
     0,                                              /* number    */
     MY_CS_COMPILED | MY_CS_STRNXFRM | MY_CS_CSSORT, /* state     */
     "latin2",                                       /* cs name   */
-    "latin2_czech_cs",                              /* name      */
+    "latin2_czech_cs",                              /* m_coll_name */
     "ISO 8859-2 Central European",                  /* comment   */
     nullptr,                                        /* tailoring */
     nullptr,                                        /* coll_param */

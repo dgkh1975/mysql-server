@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -47,6 +48,7 @@ extern bool binlog_cache_is_reset;
 template <class ISTREAM, class OSTREAM>
 bool stream_copy(ISTREAM *istream, OSTREAM *ostream,
                  bool *ostream_error = nullptr) {
+  DBUG_TRACE;
   unsigned char *buffer = nullptr;
   my_off_t length = 0;
 
@@ -75,8 +77,8 @@ class IO_CACHE_binlog_cache_storage : public Truncatable_ostream {
 
   /**
      Opens the binlog cache. It creates a memory buffer as long as cache_size.
-     The buffer will be extended up to max_cache_size when writting data. The
-     data exceeds max_cache_size will be writting into temporary file.
+     The buffer will be extended up to max_cache_size when writing data. The
+     data exceeding max_cache_size will be written into a temporary file.
 
      @param[in] dir  Where the temporary file will be created
      @param[in] prefix  Prefix of the temporary file name
@@ -93,7 +95,7 @@ class IO_CACHE_binlog_cache_storage : public Truncatable_ostream {
   bool truncate(my_off_t offset) override;
   /* purecov: inspected */
   /* binlog cache doesn't need seek operation. Setting true to return error */
-  bool seek(my_off_t offset MY_ATTRIBUTE((unused))) override { return true; }
+  bool seek(my_off_t offset [[maybe_unused]]) override { return true; }
   /**
      Reset status and drop all data. It looks like a cache never was used after
      reset.
@@ -218,6 +220,7 @@ class Binlog_cache_storage : public Basic_ostream {
      @retval true  Error happens in either the istream or ostream.
   */
   bool copy_to(Basic_ostream *ostream, bool *ostream_error = nullptr) {
+    DBUG_TRACE;
     return stream_copy(&m_file, ostream, ostream_error);
   }
 

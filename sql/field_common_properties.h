@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -153,6 +154,8 @@ inline bool is_temporal_type_with_time(enum_field_types type) {
   @retval false  If field type is not temporal type with date part.
 */
 inline bool is_temporal_type_with_date(enum_field_types type) {
+  // A type which is_temporal_type() but not is_temporal_type_with_date() ?
+  assert(type != MYSQL_TYPE_NEWDATE);
   switch (type) {
     case MYSQL_TYPE_DATE:
     case MYSQL_TYPE_DATETIME:

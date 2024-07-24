@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -83,8 +84,8 @@ int esalary_rnd_next(PSI_table_handle *handle) {
   return PFS_HA_ERR_END_OF_FILE;
 }
 
-int esalary_rnd_init(PSI_table_handle *h MY_ATTRIBUTE((unused)),
-                     bool scan MY_ATTRIBUTE((unused))) {
+int esalary_rnd_init(PSI_table_handle *h [[maybe_unused]],
+                     bool scan [[maybe_unused]]) {
   return 0;
 }
 
@@ -101,25 +102,24 @@ int esalary_rnd_pos(PSI_table_handle *handle) {
 }
 
 /* Initialize the table index */
-int esalary_index_init(PSI_table_handle *handle MY_ATTRIBUTE((unused)),
-                       uint idx MY_ATTRIBUTE((unused)),
-                       bool sorted MY_ATTRIBUTE((unused)),
-                       PSI_index_handle **index MY_ATTRIBUTE((unused))) {
+int esalary_index_init(PSI_table_handle *handle [[maybe_unused]],
+                       uint idx [[maybe_unused]], bool sorted [[maybe_unused]],
+                       PSI_index_handle **index [[maybe_unused]]) {
   /* Do nothing as there are no index */
   return 0;
 }
 
 /* For each key in index, read value specified in query */
-int esalary_index_read(PSI_index_handle *index MY_ATTRIBUTE((unused)),
-                       PSI_key_reader *reader MY_ATTRIBUTE((unused)),
-                       unsigned int idx MY_ATTRIBUTE((unused)),
-                       int find_flag MY_ATTRIBUTE((unused))) {
+int esalary_index_read(PSI_index_handle *index [[maybe_unused]],
+                       PSI_key_reader *reader [[maybe_unused]],
+                       unsigned int idx [[maybe_unused]],
+                       int find_flag [[maybe_unused]]) {
   /* Do nothing as there are no index */
   return 0;
 }
 
 /* Read the next indexed value */
-int esalary_index_next(PSI_table_handle *handle MY_ATTRIBUTE((unused))) {
+int esalary_index_next(PSI_table_handle *handle [[maybe_unused]]) {
   /* Do nothing as there are no index */
   return PFS_HA_ERR_END_OF_FILE;
 }
@@ -139,18 +139,18 @@ int esalary_read_column_value(PSI_table_handle *handle, PSI_field *field,
 
   switch (index) {
     case 0: /* EMPLOYEE_NUMBER */
-      table_svc->set_field_integer(field, h->current_row.e_number);
+      col_int_svc->set(field, h->current_row.e_number);
       break;
     case 1: /* EMPLOYEE_SALARY */
-      table_svc->set_field_bigint(field, h->current_row.e_salary);
+      col_bigint_svc->set(field, h->current_row.e_salary);
       break;
     case 2: /* DATE_OF_BIRTH */
-      table_svc->set_field_date(field, h->current_row.e_dob,
-                                h->current_row.e_dob_length);
+      col_date_svc->set(field, h->current_row.e_dob,
+                        h->current_row.e_dob_length);
       break;
     case 3: /* TIME_OF_BIRTH */
-      table_svc->set_field_time(field, h->current_row.e_tob,
-                                h->current_row.e_tob_length);
+      col_time_svc->set(field, h->current_row.e_tob,
+                        h->current_row.e_tob_length);
       break;
     default: /* We should never reach here */
       assert(0);
@@ -198,16 +198,16 @@ int esalary_write_column_value(PSI_table_handle *handle, PSI_field *field,
 
   switch (index) {
     case 0: /* EMPLOYEE_NUMBER */
-      table_svc->get_field_integer(field, &h->current_row.e_number);
+      col_int_svc->get(field, &h->current_row.e_number);
       break;
     case 1: /* EMPLOYEE_SALARY */
-      table_svc->get_field_bigint(field, &h->current_row.e_salary);
+      col_bigint_svc->get(field, &h->current_row.e_salary);
       break;
     case 2: /* DATE_OF_BIRTH */
-      table_svc->get_field_date(field, dob_val, dob_len);
+      col_date_svc->get(field, dob_val, dob_len);
       break;
     case 3: /* TIME_OF_BIRTH */
-      table_svc->get_field_time(field, tob_val, tob_len);
+      col_time_svc->get(field, tob_val, tob_len);
       break;
     default: /* We should never reach here */
       assert(0);
@@ -242,16 +242,16 @@ int esalary_update_column_value(PSI_table_handle *handle, PSI_field *field,
 
   switch (index) {
     case 0: /* EMPLOYEE_NUMBER */
-      table_svc->get_field_integer(field, &h->current_row.e_number);
+      col_int_svc->get(field, &h->current_row.e_number);
       break;
     case 1: /* EMPLOYEE_SALARY */
-      table_svc->get_field_bigint(field, &h->current_row.e_salary);
+      col_bigint_svc->get(field, &h->current_row.e_salary);
       break;
     case 2: /* DATE_OF_BIRTH */
-      table_svc->get_field_date(field, dob_val, dob_len);
+      col_date_svc->get(field, dob_val, dob_len);
       break;
     case 3: /* TIME_OF_BIRTH */
-      table_svc->get_field_time(field, tob_val, tob_len);
+      col_time_svc->get(field, tob_val, tob_len);
       break;
     default: /* We should never reach here */
       assert(0);

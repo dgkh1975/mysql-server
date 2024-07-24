@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 1994, 2021, Oracle and/or its affiliates.
+Copyright (c) 1994, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -50,13 +51,13 @@ void ut_print_timestamp(FILE *file) /*!< in: file where to print */
 void ut_sprintf_timestamp(char *buf); /*!< in: buffer where to sprintf */
 
 /** Prints the contents of a memory buffer in hex.
-@param[in,out] &o Output stream
+@param[in,out] o Output stream
 @param[in] buf Memory buffer
 @param[in] len Length of the buffer */
 void ut_print_buf_hex(std::ostream &o, const void *buf, ulint len);
 
 /** Prints the contents of a memory buffer in hex and ascii.
-@param[in,out] &o Output stream
+@param[in,out] o Output stream
 @param[in] buf Memory buffer
 @param[in] len Length of the buffer */
 void ut_print_buf(std::ostream &o, const void *buf, ulint len);

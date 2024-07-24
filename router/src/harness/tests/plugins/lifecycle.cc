@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -49,7 +50,6 @@
 #include "mysql/harness/config_parser.h"
 #include "mysql/harness/logging/logging.h"
 #include "mysql/harness/plugin.h"
-#include "router_config.h"
 
 #include "my_compiler.h"
 
@@ -356,7 +356,7 @@ void execute_exit_strategy(const std::string &func,
 #define LIFECYCLE_API
 #endif
 
-static std::array<const char *, 2> requires = {
+static std::array<const char *, 2> requires_plugins = {
     "routertestplugin_magic (>>1.0)",
     "routertestplugin_lifecycle3",
 };
@@ -424,15 +424,19 @@ LIFECYCLE_API mysql_harness::Plugin harness_plugin_routertestplugin_lifecycle =
         mysql_harness::ARCHITECTURE_DESCRIPTOR,  // arch
         "Lifecycle test plugin",                 // name
         VERSION_NUMBER(1, 0, 0),
-        // requires
-        requires.size(), requires.data(),
+        // requires_plugins
+        requires_plugins.size(),
+        requires_plugins.data(),
         // conflicts
-        0, nullptr,
+        0,
+        nullptr,
         init,    // init
         deinit,  // deinit
         start,   // start
         stop,    // stop
         false,   // declares_readiness
+        0,
+        nullptr,
 };
 
 LIFECYCLE_API void lifecycle_init(int flags) {

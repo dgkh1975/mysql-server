@@ -1,16 +1,17 @@
 /* Copyright (C) 2007 Google Inc.
-   Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -381,13 +382,13 @@ class ActiveTranx : public Trace {
    *
    * Return:
    *   True :  If there are no nodes
-   *   False:  othewise
+   *   False:  otherwise
    */
   bool is_empty() { return (trx_front_ == nullptr); }
 };
 
 /**
-   AckInfo is a POD. It defines a structure includes information related to an
+   AckInfo is a POD. It defines a structure including information related to an
    ack: server_id   - which slave the ack comes from. binlog_name - the binlog
    file name included in the ack. binlog_pos  - the binlog file position
    included in the ack.
@@ -530,7 +531,7 @@ class AckContainer : public Trace {
       else if (m_ack_array[i].is_server(server_id)) {
         m_ack_array[i].update(log_file_name, log_file_pos);
         if (trace_level_ & kTraceDetail)
-          LogErr(INFORMATION_LEVEL, ER_SEMISYNC_UPDATE_EXISTING_SLAVE_ACK, i);
+          LogErr(INFORMATION_LEVEL, ER_SEMISYNC_UPDATE_EXISTING_REPLICA_ACK, i);
         break;
       }
     }
@@ -574,7 +575,7 @@ class ReplSemiSyncMaster : public ReplSemiSyncBase {
 
   /* Mutex that protects the following state variables and the active
    * transaction list.
-   * Under no cirumstances we can acquire mysql_bin_log.LOCK_log if we are
+   * Under no circumstances we can acquire mysql_bin_log.LOCK_log if we are
    * already holding LOCK_binlog_ because it can cause deadlocks.
    */
   mysql_mutex_t LOCK_binlog_;
@@ -855,7 +856,7 @@ extern unsigned long long rpl_semi_sync_source_trx_wait_time;
 /*
   This indicates whether we should keep waiting if no semi-sync slave
   is available.
-     0           : stop waiting if detected no avaialable semi-sync slave.
+     0           : stop waiting if detected no available semi-sync slave.
      1 (default) : keep waiting until timeout even no available semi-sync slave.
 */
 extern bool rpl_semi_sync_source_wait_no_replica;

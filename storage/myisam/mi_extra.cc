@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -73,7 +74,7 @@ int mi_extra(MI_INFO *info, enum ha_extra_function function, void *extra_arg) {
     case HA_EXTRA_PREPARE_FOR_UPDATE:
       if (info->s->data_file_type != DYNAMIC_RECORD) break;
       /* Remove read/write cache if dynamic rows */
-      // Fall through.
+      [[fallthrough]];
     case HA_EXTRA_NO_READCHECK:
       info->opt_flag &= ~READ_CHECK_USED; /* No readcheck */
       break;
@@ -90,7 +91,7 @@ int mi_extra(MI_INFO *info, enum ha_extra_function function, void *extra_arg) {
       info->save_lastpos = info->lastpos;
       info->save_lastkey_length = info->lastkey_length;
       if (function == HA_EXTRA_REMEMBER_POS) break;
-      /* fall through */
+      [[fallthrough]];
     case HA_EXTRA_KEYREAD_CHANGE_POS:
       info->opt_flag |= KEY_READ_USED;
       info->read_record = _mi_read_key_record;
@@ -109,7 +110,7 @@ int mi_extra(MI_INFO *info, enum ha_extra_function function, void *extra_arg) {
       info->read_record = share->read_record;
       info->opt_flag &= ~(KEY_READ_USED | REMEMBER_OLD_POS);
       break;
-    case HA_EXTRA_NO_USER_CHANGE: /* Database is somehow locked agains changes
+    case HA_EXTRA_NO_USER_CHANGE: /* Database is somehow locked against changes
                                    */
       info->lock_type = F_EXTRA_LCK; /* Simulate as locked */
       break;
@@ -175,7 +176,7 @@ int mi_extra(MI_INFO *info, enum ha_extra_function function, void *extra_arg) {
       }
       if (share->base.blobs) mi_alloc_rec_buff(info, -1, &info->rec_buff);
       break;
-    case HA_EXTRA_NORMAL: /* Theese isn't in use */
+    case HA_EXTRA_NORMAL: /* This isn't in use */
       info->quick_mode = false;
       break;
     case HA_EXTRA_QUICK:

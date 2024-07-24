@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2006, 2021, Oracle and/or its affiliates.
+Copyright (c) 2006, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -37,7 +38,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 /** Create a new list.
  @return list */
 ib_list_t *ib_list_create(void) {
-  return (static_cast<ib_list_t *>(ut_zalloc_nokey(sizeof(ib_list_t))));
+  return (static_cast<ib_list_t *>(
+      ut::zalloc_withkey(UT_NEW_THIS_FILE_PSI_KEY, sizeof(ib_list_t))));
 }
 
 /** Free a list. */
@@ -47,7 +49,7 @@ void ib_list_free(ib_list_t *list) /*!< in: list */
   to e.g. have all the nodes allocated from a single heap that is then
   freed after the list itself is freed. */
 
-  ut_free(list);
+  ut::free(list);
 }
 
 /** Add the data after the indicated node.

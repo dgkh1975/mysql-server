@@ -1,15 +1,16 @@
-/* Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,7 +27,10 @@
 #include "storage/perfschema/pfs_global.h"
 #include "storage/perfschema/pfs_instr.h"
 #include "storage/perfschema/pfs_instr_class.h"
+#include "storage/perfschema/unittest/stub_digest.h"
 #include "storage/perfschema/unittest/stub_pfs_plugin_table.h"
+#include "storage/perfschema/unittest/stub_pfs_tls_channel.h"
+#include "storage/perfschema/unittest/stub_server_telemetry.h"
 #include "unittest/mytap/tap.h"
 
 static void test_no_registration() {
@@ -67,8 +71,9 @@ static void test_no_registration() {
   PSI_cond_info_v1 cond_info;
   memset(&cond_info, 0, sizeof(cond_info));
 
-  PSI_thread_info_v1 thread_info;
+  PSI_thread_info_v5 thread_info;
   memset(&thread_info, 0, sizeof(thread_info));
+  thread_info.m_os_name = "OS_NAME";
 
   PSI_file_info_v1 file_info;
   memset(&file_info, 0, sizeof(file_info));
@@ -338,8 +343,9 @@ static void test_thread_registration() {
   int rc;
   PFS_thread_key key;
   PFS_thread_class *thread;
-  PSI_thread_info_v1 thread_info;
+  PSI_thread_info_v5 thread_info;
   memset(&thread_info, 0, sizeof(thread_info));
+  thread_info.m_os_name = "OS_NAME";
 
   rc = init_thread_class(5);
   ok(rc == 0, "room for 5 thread");

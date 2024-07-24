@@ -1,17 +1,18 @@
 /***********************************************************************
 
-Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -165,9 +166,9 @@ static bool innodb_read_cache_policy(
   ib_crsr_t idx_crsr = NULL;
   ib_tpl_t tpl = NULL;
   ib_err_t err = DB_SUCCESS;
-  int n_cols MY_ATTRIBUTE((unused));
+  int n_cols [[maybe_unused]];
   int i;
-  ib_ulint_t data_len;
+  uint64_t data_len;
   ib_col_meta_t col_meta;
 
   ib_trx = ib_cb_trx_begin(IB_TRX_READ_COMMITTED, true, false, thd);
@@ -279,9 +280,9 @@ static bool innodb_read_config_option(
   ib_crsr_t idx_crsr = NULL;
   ib_tpl_t tpl = NULL;
   ib_err_t err = DB_SUCCESS;
-  int n_cols MY_ATTRIBUTE((unused));
+  int n_cols [[maybe_unused]];
   int i;
-  ib_ulint_t data_len;
+  uint64_t data_len;
   ib_col_meta_t col_meta;
   int current_option = -1;
 
@@ -402,7 +403,7 @@ static meta_cfg_info_t *innodb_config_add_item(
   ib_err_t err = DB_SUCCESS;
   int n_cols;
   int i;
-  ib_ulint_t data_len;
+  uint64_t data_len;
   meta_cfg_info_t *item = NULL;
   ib_col_meta_t col_meta;
   int fold;
@@ -592,13 +593,13 @@ static meta_cfg_info_t *innodb_config_container(
   ib_err_t err = DB_SUCCESS;
   int n_cols;
   int i;
-  ib_ulint_t data_len;
+  uint64_t data_len;
   ib_col_meta_t col_meta;
   ib_tpl_t read_tpl = NULL;
   meta_cfg_info_t *item = NULL;
 
   if (name != NULL) {
-    ib_ulint_t fold;
+    uint64_t fold;
 
     assert(meta_hash);
 
@@ -745,7 +746,7 @@ func_exit:
     free(item);
     item = NULL;
   } else {
-    ib_ulint_t fold;
+    uint64_t fold;
 
     fold = ut_fold_string(item->col_info[0].col_name);
     HASH_INSERT(meta_cfg_info_t, name_hash, meta_hash, fold, item);
@@ -1181,7 +1182,7 @@ meta_cfg_info_t *innodb_config(
   if (!name) {
     item = innodb_config_meta_hash_init(*meta_hash, thd);
   } else {
-    ib_ulint_t fold;
+    uint64_t fold;
 
     fold = ut_fold_string(name);
     HASH_SEARCH(name_hash, *meta_hash, fold, meta_cfg_info_t *, item,

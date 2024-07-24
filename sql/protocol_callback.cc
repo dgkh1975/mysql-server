@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License, version 2.0,
  as published by the Free Software Foundation.
 
- This program is also distributed with certain software (including
+ This program is designed to work with certain software (including
  but not limited to OpenSSL) that is licensed under separate terms,
  as designated in a particular file or component or in included license
  documentation.  The authors of MySQL hereby grant you an additional
  permission to link the program and your derivative works with the
- separately licensed software that they have included with MySQL.
+ separately licensed software that they have either included with
+ the program or referenced in the documentation.
 
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,6 +30,7 @@
 #include "m_ctype.h"
 #include "mysql_com.h"
 #include "sql/current_thd.h"
+#include "sql/debug_sync.h"
 #include "sql/field.h"
 #include "sql/item.h"
 #include "sql/item_func.h"
@@ -106,7 +108,7 @@ bool Protocol_callback::store_long(longlong from, uint32) {
 
 bool Protocol_callback::store_longlong(longlong from, bool is_unsigned,
                                        uint32) {
-  if (callbacks.get_integer)
+  if (callbacks.get_longlong)
     return callbacks.get_longlong(callbacks_ctx, from, is_unsigned);
   return false;
 }
@@ -151,7 +153,7 @@ bool Protocol_callback::store_datetime(const MYSQL_TIME &time, uint precision) {
 }
 
 bool Protocol_callback::store_date(const MYSQL_TIME &time) {
-  if (callbacks.get_datetime) return callbacks.get_date(callbacks_ctx, &time);
+  if (callbacks.get_date) return callbacks.get_date(callbacks_ctx, &time);
   return false;
 }
 
@@ -276,8 +278,10 @@ int Protocol_callback::shutdown(bool server_shutdown) {
     false  disconnected
 */
 bool Protocol_callback::connection_alive() const {
-  if (callbacks.connection_alive)
+  if (callbacks.connection_alive) {
+    DEBUG_SYNC(current_thd, "wait_before_checking_alive");
     return callbacks.connection_alive(callbacks_ctx);
+  }
 
   return true;
 }

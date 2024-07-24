@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -197,6 +198,10 @@
 tls_channels g_instrumented_tls_channels;
 static bool g_instrumented_tls_channels_inited = false;
 
+/**
+  RW lock that protects list of instrumented TLS channels.
+  @sa g_instrumented_tls_channels
+*/
 mysql_rwlock_t LOCK_pfs_tls_channels;
 static PSI_rwlock_key key_LOCK_pfs_tls_channels;
 static PSI_rwlock_info info_LOCK_pfs_tls_channels = {
@@ -216,25 +221,24 @@ void cleanup_pfs_tls_channels_instrumentation() {
 }
 
 void pfs_register_tls_channel_v1(TLS_channel_property_iterator *provider) {
-  if (g_instrumented_tls_channels_inited == false) return;
+  if (!g_instrumented_tls_channels_inited) return;
   bool insert = true;
   mysql_rwlock_wrlock(&LOCK_pfs_tls_channels);
-  for (tls_channels::const_iterator it = g_instrumented_tls_channels.cbegin();
-       it != g_instrumented_tls_channels.cend(); ++it) {
-    if (*it == provider) {
+  for (auto *channel : g_instrumented_tls_channels) {
+    if (channel == provider) {
       insert = false;
       break;
     }
   }
-  if (insert == true) g_instrumented_tls_channels.push_back(provider);
+  if (insert) g_instrumented_tls_channels.push_back(provider);
   mysql_rwlock_unlock(&LOCK_pfs_tls_channels);
 }
 
 void pfs_unregister_tls_channel_v1(TLS_channel_property_iterator *provider) {
-  if (g_instrumented_tls_channels_inited == false) return;
-  if (g_instrumented_tls_channels.size() == 0) return;
+  if (!g_instrumented_tls_channels_inited) return;
+  if (g_instrumented_tls_channels.empty()) return;
   mysql_rwlock_wrlock(&LOCK_pfs_tls_channels);
-  for (tls_channels::const_iterator it = g_instrumented_tls_channels.cbegin();
+  for (auto it = g_instrumented_tls_channels.cbegin();
        it != g_instrumented_tls_channels.cend(); ++it) {
     if (*it == provider) {
       g_instrumented_tls_channels.erase(it);
@@ -242,4 +246,14 @@ void pfs_unregister_tls_channel_v1(TLS_channel_property_iterator *provider) {
     }
   }
   mysql_rwlock_unlock(&LOCK_pfs_tls_channels);
+}
+
+void pfs_tls_channels_lock_for_read() {
+  mysql_rwlock_rdlock(&LOCK_pfs_tls_channels);
+}
+
+void pfs_tls_channels_unlock() { mysql_rwlock_unlock(&LOCK_pfs_tls_channels); }
+
+tls_channels &pfs_get_instrumented_tls_channels() {
+  return g_instrumented_tls_channels;
 }

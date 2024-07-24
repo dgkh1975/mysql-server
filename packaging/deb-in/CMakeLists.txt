@@ -1,15 +1,16 @@
-# Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -57,7 +58,7 @@ ENDIF()
 # Change uppercase first letter of Ubuntu/Debian
 string(TOLOWER "${DEB_ID}" DEB_ID)
 
-IF (WITH_NDBCLUSTER)
+IF (WITH_NDB)
   SET (DEB_BASE_PRODUCT "cluster-")
   SET (DEB_BASE_PRODUCTC "Cluster ")
   SET (DEB_BASE_VERSION ${MYSQL_CLUSTER_VERSION})
@@ -107,8 +108,19 @@ usr/lib/mysql/plugin/keyring_oci.so
 usr/lib/mysql/plugin/openssl_udf.so
 usr/lib/mysql/plugin/thread_pool.so
 usr/lib/mysql/plugin/firewall.so
-usr/lib/mysql/plugin/component_test_page_track_component.so
+usr/lib/mysql/plugin/authentication_fido.so
 usr/lib/mysql/plugin/component_keyring_encrypted_file.so
+usr/lib/mysql/plugin/component_keyring_oci.so
+usr/lib/mysql/plugin/component_enterprise_encryption.so
+usr/lib/mysql/plugin/component_masking.so
+usr/lib/mysql/plugin/component_masking_functions.so
+usr/lib/mysql/plugin/component_scheduler.so
+")
+
+   SET (DEB_INSTALL_TEST_PLUGINS
+"
+usr/lib/mysql/plugin/component_test_global_priv_registration.so
+usr/lib/mysql/plugin/component_test_page_track_component.so
 ")
 
   IF (DEB_AWS_SDK)
@@ -257,7 +269,7 @@ ENDIF()
 IF (NOT DEFINED DEB_NOROUTER)
   INCLUDE(deb_router.cmake)
 ENDIF()
-IF (WITH_NDBCLUSTER)
+IF (WITH_NDB)
   INCLUDE(deb_ndb.cmake)
 ENDIF()
 if (DEFINED DEB_WITH_DEBUG)

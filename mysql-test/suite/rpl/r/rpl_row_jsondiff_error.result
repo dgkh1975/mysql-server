@@ -1,7 +1,7 @@
 include/master-slave.inc
 Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
-Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Note	####	Storing MySQL user name or password information in the connection metadata repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START REPLICA; see the 'START REPLICA Syntax' in the MySQL Manual for more information.
 [connection master]
 ######## Configure ########
 # Configure slave_rows_search_algorithms on master
@@ -9,6 +9,8 @@ Note	####	Storing MySQL user name or password information in the master info rep
 include/begin_replace_combination.inc [BOTH.BINLOG_FORMAT=ROW,MIXED,STATEMENT -> GLOBAL.SLAVE_ROWS_SEARCH_ALGORITHMS=INDEX_SCAN,HASH_SCAN,TABLE_SCAN]
 Warnings:
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
 # Configure partial JSON on master
 [connection master]
 SET @old_binlog_row_image= @@SESSION.BINLOG_ROW_IMAGE;
@@ -19,14 +21,14 @@ SET @@SESSION.BINLOG_ROW_VALUE_OPTIONS = 'PARTIAL_JSON';
 [connection slave]
 call mtr.add_suppression("Could not execute Update_rows_partial event on table test.t");
 call mtr.add_suppression("Can't find record in 't'");
-call mtr.add_suppression("The slave coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
-call mtr.add_suppression("Slave: Could not apply JSON diff");
-call mtr.add_suppression("Slave: Corrupted JSON diff");
-call mtr.add_suppression("Slave: Corrupted replication event was detected");
-call mtr.add_suppression("Slave: Got error 1610 - ");
-call mtr.add_suppression("Slave: Got error 3648 - ");
-call mtr.add_suppression("Slave: Got error 3649 - ");
-call mtr.add_suppression("Slave: Got error 5 - ");
+call mtr.add_suppression("The replica coordinator and worker threads are stopped, possibly leaving data in inconsistent state");
+call mtr.add_suppression("Replica: Could not apply JSON diff");
+call mtr.add_suppression("Replica: Corrupted JSON diff");
+call mtr.add_suppression("Replica: Corrupted replication event was detected");
+call mtr.add_suppression("Replica: Got error 1610 - ");
+call mtr.add_suppression("Replica: Got error 3648 - ");
+call mtr.add_suppression("Replica: Got error 3649 - ");
+call mtr.add_suppression("Replica: Got error 5 - ");
 ######## Test ########
 [connection slave]
 include/stop_slave.inc
@@ -37,6 +39,8 @@ include/stop_slave.inc
 include/begin_replace_combination.inc [BOTH.BINLOG_FORMAT=ROW,MIXED,STATEMENT -> GLOBAL.SLAVE_ROWS_SEARCH_ALGORITHMS=INDEX_SCAN,HASH_SCAN,TABLE_SCAN]
 Warnings:
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
 # Configure partial JSON
 SET @old_binlog_row_image= @@GLOBAL.BINLOG_ROW_IMAGE;
 SET @old_binlog_row_value_options= @@GLOBAL.BINLOG_ROW_VALUE_OPTIONS;
@@ -174,9 +178,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_op' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_op
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_op' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -206,9 +207,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_truncate_before_path_length' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_truncate_before_path_length
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_truncate_before_path_length' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -238,9 +236,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_path_length' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_path_length
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_path_length' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -270,9 +265,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_truncate_before_path' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_truncate_before_path
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_truncate_before_path' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -302,9 +294,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_path_char' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_path_char
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_path_char' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -334,9 +323,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_truncate_before_doc_length' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_truncate_before_doc_length
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_truncate_before_doc_length' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -366,9 +352,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_doc_length' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_doc_length
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_doc_length' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -398,9 +381,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_truncate_before_doc' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_truncate_before_doc
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_truncate_before_doc' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -430,9 +410,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_doc_char' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_doc_char
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_doc_char' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -462,9 +439,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_omit_last_column_from_table_map_event' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_omit_last_column_from_table_map_event
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_omit_last_column_from_table_map_event' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -508,6 +482,8 @@ include/rpl_restart_server.inc [server_number=2 parameters: --replica_skip_error
 include/begin_replace_combination.inc [BOTH.BINLOG_FORMAT=ROW,MIXED,STATEMENT -> GLOBAL.SLAVE_ROWS_SEARCH_ALGORITHMS=INDEX_SCAN,HASH_SCAN,TABLE_SCAN]
 Warnings:
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
 # Configure partial JSON
 SET @old_binlog_row_image= @@GLOBAL.BINLOG_ROW_IMAGE;
 SET @old_binlog_row_value_options= @@GLOBAL.BINLOG_ROW_VALUE_OPTIONS;
@@ -625,9 +601,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_op' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_op
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_op' from @@SESSION.debug
 DROP TABLE test.t;
@@ -648,9 +621,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_truncate_before_path_length' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_truncate_before_path_length
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_truncate_before_path_length' from @@SESSION.debug
 DROP TABLE test.t;
@@ -671,9 +641,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_path_length' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_path_length
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_path_length' from @@SESSION.debug
 DROP TABLE test.t;
@@ -694,9 +661,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_truncate_before_path' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_truncate_before_path
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_truncate_before_path' from @@SESSION.debug
 DROP TABLE test.t;
@@ -717,9 +681,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_path_char' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_path_char
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_path_char' from @@SESSION.debug
 DROP TABLE test.t;
@@ -740,9 +701,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_truncate_before_doc_length' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_truncate_before_doc_length
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_truncate_before_doc_length' from @@SESSION.debug
 DROP TABLE test.t;
@@ -763,9 +721,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_doc_length' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_doc_length
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_doc_length' from @@SESSION.debug
 DROP TABLE test.t;
@@ -786,9 +741,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_truncate_before_doc' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_truncate_before_doc
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_truncate_before_doc' from @@SESSION.debug
 DROP TABLE test.t;
@@ -809,9 +761,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_doc_char' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_doc_char
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_doc_char' from @@SESSION.debug
 DROP TABLE test.t;
@@ -832,9 +781,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_omit_last_column_from_table_map_event' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_omit_last_column_from_table_map_event
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_omit_last_column_from_table_map_event' from @@SESSION.debug
 DROP TABLE test.t;
@@ -859,6 +805,8 @@ SET GLOBAL REPLICA_EXEC_MODE = IDEMPOTENT;
 include/begin_replace_combination.inc [BOTH.BINLOG_FORMAT=ROW,MIXED,STATEMENT -> GLOBAL.SLAVE_ROWS_SEARCH_ALGORITHMS=INDEX_SCAN,HASH_SCAN,TABLE_SCAN]
 Warnings:
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
 # Configure partial JSON
 SET @old_binlog_row_image= @@GLOBAL.BINLOG_ROW_IMAGE;
 SET @old_binlog_row_value_options= @@GLOBAL.BINLOG_ROW_VALUE_OPTIONS;
@@ -992,9 +940,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_op' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_op
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_op' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -1024,9 +969,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_truncate_before_path_length' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_truncate_before_path_length
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_truncate_before_path_length' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -1056,9 +998,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_path_length' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_path_length
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_path_length' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -1088,9 +1027,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_truncate_before_path' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_truncate_before_path
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_truncate_before_path' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -1120,9 +1056,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_path_char' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_path_char
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_path_char' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -1152,9 +1085,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_truncate_before_doc_length' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_truncate_before_doc_length
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_truncate_before_doc_length' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -1184,9 +1114,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_doc_length' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_doc_length
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_doc_length' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -1216,9 +1143,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_truncate_before_doc' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_truncate_before_doc
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_truncate_before_doc' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -1248,9 +1172,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_corrupt_json_diff_bad_doc_char' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_corrupt_json_diff_bad_doc_char
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_corrupt_json_diff_bad_doc_char' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -1280,9 +1201,6 @@ CREATE TABLE test.t (i INT PRIMARY KEY, j JSON);
 INSERT INTO test.t (i, j) VALUES (1, '{"id": 1, "value": "x"}');
 SET SQL_LOG_BIN = 1;
 ## Adding debug point 'binlog_omit_last_column_from_table_map_event' to @@SESSION.debug
-SELECT @@SESSION.DEBUG;
-@@SESSION.DEBUG
-d,binlog_omit_last_column_from_table_map_event
 UPDATE t SET j = JSON_SET(j, '$.id', '[1]') WHERE i = 1;
 ## Removing debug point 'binlog_omit_last_column_from_table_map_event' from @@SESSION.debug
 ### UPDATE `test`.`t`
@@ -1322,10 +1240,14 @@ SET @@SESSION.BINLOG_ROW_IMAGE= @old_binlog_row_image;
 include/end_replace_combination.inc [BOTH.BINLOG_FORMAT=ROW,MIXED,STATEMENT -> GLOBAL.SLAVE_ROWS_SEARCH_ALGORITHMS=INDEX_SCAN,HASH_SCAN,TABLE_SCAN]
 Warnings:
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
 [connection slave]
 include/stop_slave_sql.inc
 include/end_replace_combination.inc [BOTH.BINLOG_FORMAT=ROW,MIXED,STATEMENT -> GLOBAL.SLAVE_ROWS_SEARCH_ALGORITHMS=INDEX_SCAN,HASH_SCAN,TABLE_SCAN]
 Warnings:
 Warning	1287	'@@slave_rows_search_algorithms' is deprecated and will be removed in a future release.
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
 SET GLOBAL REPLICA_EXEC_MODE = STRICT;
 include/rpl_end.inc

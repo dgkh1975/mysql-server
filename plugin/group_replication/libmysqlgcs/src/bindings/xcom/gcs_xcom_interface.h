@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -98,6 +99,14 @@ class Gcs_xcom_config {
    * @returns true if the event horizons are the same, false otherwise
    */
   bool same_event_horizon(xcom_event_horizon const &event_horizon) const;
+  /**
+   * Checks whether this configuration's membership matches the given
+   * membership.
+   *
+   * @param xcom_nodes the membership to compare against
+   * @returns true if the memberships are the same, false otherwise
+   */
+  bool same_xcom_nodes_v3(Gcs_xcom_nodes const &xcom_nodes) const;
   /*
    * This class will have a singleton object, so we delete the {copy,move}
    * {constructor,assignment}. This way the compiler slaps us on the wrist if we
@@ -215,6 +224,18 @@ class Gcs_xcom_interface : public Gcs_interface {
   Gcs_xcom_node_address *get_node_address();
 
   void set_node_address(std::string const &address);
+
+  /**
+   * @see Gcs_interface#setup_runtime_resources
+   */
+  enum_gcs_error setup_runtime_resources(
+      Gcs_interface_runtime_requirements &reqs) override;
+
+  /**
+   * @see Gcs_interface#cleanup_runtime_resources
+   */
+  enum_gcs_error cleanup_runtime_resources(
+      Gcs_interface_runtime_requirements &reqs) override;
 
   /**
    This member function shall return the set of parameters that configure
@@ -348,6 +369,13 @@ class Gcs_xcom_interface : public Gcs_interface {
 
   void clear_peer_nodes();
 
+  /**
+   * @brief Announces that a finalize was called to all group instances that
+   *        use a Gcs_xcom_view_change_control_interface. The purpose of this
+   *        is to end any ongoing tasks, like pending joins.
+   */
+  void announce_finalize_to_view_control();
+
   // Holder to the created group interfaces, in which the key is the group
   std::map<std::string, gcs_xcom_group_interfaces *> m_group_interfaces;
 
@@ -410,6 +438,11 @@ class Gcs_xcom_interface : public Gcs_interface {
   /// protects the m_ssl_init_state thread shared variable
   My_xp_cond_impl m_wait_for_ssl_init_cond;
   My_xp_mutex_impl m_wait_for_ssl_init_mutex;
+
+  /**
+   Network namespace service provider
+   */
+  Network_namespace_manager *m_netns_manager;
 
  private:
   /*

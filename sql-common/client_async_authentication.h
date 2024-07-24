@@ -1,15 +1,16 @@
-/* Copyright (c) 2019, 2021, Oracle and/or its affiliates. All rights reserved.
+/* Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -19,10 +20,18 @@
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
+#ifndef SQL_COMMON_CLIENT_ASYNC_AUTHENTICATION_H
+#define SQL_COMMON_CLIENT_ASYNC_AUTHENTICATION_H
+
+#define MAX_CIPHER_LENGTH 1024
 
 #include <openssl/ossl_typ.h>
+#include <openssl/pem.h>
+#include <openssl/rsa.h>
+
 #include "mysql/plugin_auth_common.h"
 #include "mysql_async.h"
+#include "mysql_com.h"
 
 /* this is a "superset" of MYSQL_PLUGIN_VIO, in C++ I use inheritance */
 struct MCPVIO_EXT {
@@ -42,6 +51,8 @@ struct MCPVIO_EXT {
   struct {
     uchar *pkt; /**< pointer into NET::buff */
     uint pkt_len;
+    /** a flag indicating that pkt, pkt_len contain valid packet to be reused */
+    bool pkt_received;
   } cached_server_reply;
   int packets_read, packets_written; /**< counters for send/received packets */
   int mysql_change_user;             /**< if it's mysql_change_user() */
@@ -84,6 +95,17 @@ enum client_auth_caching_sha2_password_plugin_status {
 struct mysql_async_auth;
 typedef mysql_state_machine_status (*authsm_function)(mysql_async_auth *);
 
+struct sha2_async_auth {
+  unsigned char encrypted_password[MAX_CIPHER_LENGTH];
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+  EVP_PKEY *public_key;
+#else  /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
+  RSA *public_key;
+#endif /* OPENSSL_VERSION_NUMBER >= 0x30000000L */
+  unsigned char scramble_pkt[SCRAMBLE_LENGTH];
+  int cipher_length;
+};
+
 struct mysql_async_auth {
   MYSQL *mysql;
   bool non_blocking;
@@ -106,6 +128,9 @@ struct mysql_async_auth {
   /** Used by caching_sha256_password plugin */
   int client_auth_plugin_state;
   authsm_function state_function;
+  uint current_factor_index;
+
+  sha2_async_auth sha2_auth;
 };
 
 /*
@@ -167,3 +192,5 @@ struct mysql_async_connect {
   /* state function that will be called next */
   csm_function state_function;
 };
+
+#endif /* SQL_COMMON_CLIENT_ASYNC_AUTHENTICATION_H */

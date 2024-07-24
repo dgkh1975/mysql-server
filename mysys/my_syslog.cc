@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    Without limiting anything contained in the foregoing, this file,
    which is part of C Driver for MySQL (Connector/C), is also subject to the
@@ -93,8 +94,8 @@ static HANDLE hEventLog = NULL;  // global
      0 Success
     -1 Error
 */
-int my_syslog(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
-              enum loglevel level, const char *msg) {
+int my_syslog(const CHARSET_INFO *cs [[maybe_unused]], enum loglevel level,
+              const char *msg) {
 #ifdef _WIN32
   int _level = EVENTLOG_INFORMATION_TYPE;
   wchar_t buff[MAX_SYSLOG_MESSAGE_SIZE];
@@ -137,14 +138,14 @@ int my_syslog(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
 
     // Fetch mysqld's Windows default message, insert u16buf, log the result.
     if (!ReportEventW(hEventLog,
-                      _level,              // severity
-                      0,                   // app-defined event category
-                      MSG_DEFAULT,         // event ID / message ID (see above)
-                      NULL,                // security identifier
-                      1,                   // number of strings in u16buf
-                      0,                   // number of bytes in raw data
-                      (LPCWSTR *)&u16buf,  // 0-terminated strings
-                      NULL))               // raw (binary data)
+                      _level,       // severity
+                      0,            // app-defined event category
+                      MSG_DEFAULT,  // event ID / message ID (see above)
+                      NULL,         // security identifier
+                      1,            // number of strings in u16buf
+                      0,            // number of bytes in raw data
+                      const_cast<LPCWSTR *>(&u16buf),  // 0-terminated strings
+                      NULL))                           // raw (binary data)
       goto err;
   }
 
@@ -290,6 +291,8 @@ int my_openlog(const char *name, int option, int facility) {
   openlog(name, opts | LOG_NDELAY, facility);
 
 #else
+  (void)option;    // maybe unused
+  (void)facility;  // maybe unused
 
   HANDLE hEL_new;
 

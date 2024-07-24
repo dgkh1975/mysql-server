@@ -1,15 +1,16 @@
-/* Copyright (c) 2012, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2012, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -47,13 +48,13 @@ PSI_memory_key key_memory_string_iterator;
 
   TODO: Marking charset_name as unused for now, see Bug#25533463.
 */
-int mysql_string_convert_to_char_ptr(
-    mysql_string_handle string_handle,
-    const char *charset_name MY_ATTRIBUTE((unused)), char *buffer,
-    unsigned int buffer_size, int *error) {
+int mysql_string_convert_to_char_ptr(mysql_string_handle string_handle,
+                                     const char *charset_name [[maybe_unused]],
+                                     char *buffer, unsigned int buffer_size,
+                                     int *error) {
   String *str = (String *)string_handle;
   int len =
-      (int)my_convert(buffer, buffer_size - 1, &my_charset_utf8_general_ci,
+      (int)my_convert(buffer, buffer_size - 1, &my_charset_utf8mb3_general_ci,
                       str->ptr(), str->length(), str->charset(), (uint *)error);
   buffer[len] = '\0';
   return (len);

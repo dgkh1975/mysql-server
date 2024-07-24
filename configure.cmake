@@ -1,15 +1,16 @@
-# Copyright (c) 2009, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2009, 2024, Oracle and/or its affiliates.
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -115,10 +116,9 @@ IF(UNIX)
 
   # https://bugs.llvm.org/show_bug.cgi?id=16404
   IF(LINUX AND HAVE_UBSAN AND MY_COMPILER_IS_CLANG)
-    SET(CMAKE_EXE_LINKER_FLAGS_DEBUG
-      "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -rtlib=compiler-rt -lgcc_s")
-    SET(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO
-      "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} -rtlib=compiler-rt -lgcc_s")
+    STRING_APPEND(CMAKE_EXE_LINKER_FLAGS    " -rtlib=compiler-rt -lgcc_s")
+    STRING_APPEND(CMAKE_MODULE_LINKER_FLAGS " -rtlib=compiler-rt -lgcc_s")
+    STRING_APPEND(CMAKE_SHARED_LINKER_FLAGS " -rtlib=compiler-rt -lgcc_s")
   ENDIF()
 
   IF(WITH_ASAN)
@@ -225,6 +225,9 @@ CHECK_INCLUDE_FILES ("sys/types.h;sasl/sasl.h" HAVE_SASL_SASL_H)
 IF(WITH_ASAN)
   CHECK_SYMBOL_EXISTS (__lsan_do_recoverable_leak_check
     "sanitizer/lsan_interface.h" HAVE_LSAN_DO_RECOVERABLE_LEAK_CHECK)
+ELSE()
+  UNSET(HAVE_LSAN_DO_RECOVERABLE_LEAK_CHECK)
+  UNSET(HAVE_LSAN_DO_RECOVERABLE_LEAK_CHECK CACHE)
 ENDIF()
 CHECK_FUNCTION_EXISTS (_aligned_malloc HAVE_ALIGNED_MALLOC)
 CHECK_FUNCTION_EXISTS (backtrace HAVE_BACKTRACE)
@@ -420,27 +423,6 @@ int main()
   return clock_gettime(CLOCK_REALTIME, &ts);
 }" HAVE_CLOCK_REALTIME)
 
-IF(NOT STACK_DIRECTION)
-  IF(CMAKE_CROSSCOMPILING)
-   MESSAGE(FATAL_ERROR 
-   "STACK_DIRECTION is not defined.  Please specify -DSTACK_DIRECTION=1 "
-   "or -DSTACK_DIRECTION=-1 when calling cmake.")
-  ELSE()
-    TRY_RUN(STACKDIR_RUN_RESULT STACKDIR_COMPILE_RESULT    
-     ${CMAKE_BINARY_DIR} 
-     ${CMAKE_SOURCE_DIR}/cmake/stack_direction.c
-     )
-     # Test program returns 0 (down) or 1 (up).
-     # Convert to -1 or 1
-     IF(STACKDIR_RUN_RESULT EQUAL 0)
-       SET(STACK_DIRECTION -1 CACHE INTERNAL "Stack grows direction")
-     ELSE()
-       SET(STACK_DIRECTION 1 CACHE INTERNAL "Stack grows direction")
-     ENDIF()
-     MESSAGE(STATUS "Checking stack direction : ${STACK_DIRECTION}")
-   ENDIF()
-ENDIF()
-
 CHECK_INCLUDE_FILES("time.h;sys/time.h" TIME_WITH_SYS_TIME)
 CHECK_SYMBOL_EXISTS(O_NONBLOCK "unistd.h;fcntl.h" HAVE_FCNTL_NONBLOCK)
 IF(NOT HAVE_FCNTL_NONBLOCK)
@@ -614,6 +596,28 @@ int main(int ac, char **av)
 HAVE_INTEGER_PTHREAD_SELF
 FAIL_REGEX "warning: incompatible pointer to integer conversion"
 )
+
+# Check for pthread_setname_np() on linux
+CHECK_C_SOURCE_COMPILES("
+#define _GNU_SOURCE
+#include <pthread.h>
+int main(int argc, char **argv)
+{
+  pthread_t tid = 0;
+  const char *name = NULL;
+  return pthread_setname_np(tid, name);
+}"
+HAVE_PTHREAD_SETNAME_NP_LINUX)
+
+# Check for pthread_setname_np() on macos
+CHECK_C_SOURCE_COMPILES("
+#include <pthread.h>
+int main(int argc, char **argv)
+{
+  char name[16] = {0};
+  return pthread_setname_np(name);
+}"
+HAVE_PTHREAD_SETNAME_NP_MACOS)
 
 #--------------------------------------------------------------------
 # Check for IPv6 support

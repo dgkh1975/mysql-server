@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,6 +31,7 @@
 #include <netinet/in.h>
 #include <sys/file.h>
 #include <sys/socket.h>
+#include <sys/stat.h>  // chmod
 #include <sys/un.h>
 #include <unistd.h>
 #else
@@ -48,8 +50,6 @@
 #include "tcp_port_pool.h"
 
 using mysql_harness::Path;
-
-const unsigned TcpPortPool::kPortsRange;
 
 #ifndef _WIN32
 bool UniqueId::lock_file(const std::string &file_name) {
@@ -214,8 +214,6 @@ UniqueId::UniqueId(UniqueId &&other) {
 }
 
 uint16_t TcpPortPool::get_next_available() {
-  net::io_context io_ctx;
-
   while (true) {
     if (number_of_ids_used_ % kPortsPerFile == 0) {
       number_of_ids_used_ = 0;
@@ -232,6 +230,6 @@ uint16_t TcpPortPool::get_next_available() {
     unsigned result = 10000 + unique_ids_.back().get() * kPortsPerFile +
                       number_of_ids_used_++;
 
-    if (is_port_available(result)) return result;
+    if (is_port_bindable(result)) return result;
   }
 }

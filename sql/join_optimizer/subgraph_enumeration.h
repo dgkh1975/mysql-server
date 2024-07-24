@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -71,6 +72,7 @@
   the algorithm itself without having to benchmark the receiver.
  */
 
+#include <assert.h>
 #include <string>
 #include "sql/join_optimizer/bit_utils.h"
 #include "sql/join_optimizer/hypergraph.h"
@@ -168,8 +170,8 @@ class NeighborhoodCache {
   // two neighborhoods. Returns the actual set of bits we need
   // to compute the neighborhood for (whether it could save
   // anything or not).
-  inline NodeMap InitSearch(NodeMap just_grown_by, NodeMap *full_neighborhood,
-                            NodeMap *neighborhood) {
+  inline NodeMap InitSearch(NodeMap just_grown_by, NodeMap *neighborhood,
+                            NodeMap *full_neighborhood) {
     if (IsSubset(m_last_just_grown_by, just_grown_by)) {
       // We can use our cache from the last node and continue the search from
       // there.
@@ -184,8 +186,9 @@ class NeighborhoodCache {
 
   // Tell the cache we just computed a neighborhood. It can choose to
   // store it to accelerate future InitSearch() calls.
-  inline void Store(NodeMap just_grown_by, NodeMap full_neighborhood,
-                    NodeMap neighborhood) {
+  inline void Store(NodeMap just_grown_by, NodeMap neighborhood,
+                    NodeMap full_neighborhood) {
+    assert(IsSubset(neighborhood, full_neighborhood));
     if (Overlaps(just_grown_by, m_taboo_bit)) return;
 
     m_last_just_grown_by = just_grown_by;
@@ -291,6 +294,7 @@ inline NodeMap FindNeighborhood(const Hypergraph &g, NodeMap subgraph,
 
   NodeMap to_search =
       cache->InitSearch(just_grown_by, &neighborhood, &full_neighborhood);
+  assert(IsSubset(neighborhood, full_neighborhood));
 
   for (size_t node_idx : BitsSetIn(to_search)) {
     // Simple edges.
@@ -344,9 +348,9 @@ inline NodeMap FindNeighborhood(const Hypergraph &g, NodeMap subgraph,
 //
 // Called EmitCsg() in the DPhyp paper.
 template <class Receiver>
-bool EnumerateComplementsTo(const Hypergraph &g, size_t lowest_node_idx,
-                            NodeMap subgraph, NodeMap full_neighborhood,
-                            NodeMap neighborhood, Receiver *receiver) {
+[[nodiscard]] bool EnumerateComplementsTo(
+    const Hypergraph &g, size_t lowest_node_idx, NodeMap subgraph,
+    NodeMap full_neighborhood, NodeMap neighborhood, Receiver *receiver) {
   NodeMap forbidden = TablesBetween(0, lowest_node_idx);
 
   HYPERGRAPH_PRINTF("Enumerating complements to %s, neighborhood=%s\n",
@@ -403,8 +407,10 @@ bool EnumerateComplementsTo(const Hypergraph &g, size_t lowest_node_idx,
     NodeMap new_full_neighborhood = 0;  // Unused; see comment on TryConnecting.
     NodeMap new_neighborhood = FindNeighborhood(g, seed, new_forbidden, seed,
                                                 &cache, &new_full_neighborhood);
-    ExpandComplement(g, lowest_node_idx, subgraph, full_neighborhood, seed,
-                     new_neighborhood, new_forbidden, receiver);
+    if (ExpandComplement(g, lowest_node_idx, subgraph, full_neighborhood, seed,
+                         new_neighborhood, new_forbidden, receiver)) {
+      return true;
+    }
   }
   return false;
 }
@@ -416,10 +422,10 @@ bool EnumerateComplementsTo(const Hypergraph &g, size_t lowest_node_idx,
 //
 // Called EnumerateCsgRec() in the paper.
 template <class Receiver>
-bool ExpandSubgraph(const Hypergraph &g, size_t lowest_node_idx,
-                    NodeMap subgraph, NodeMap full_neighborhood,
-                    NodeMap neighborhood, NodeMap forbidden,
-                    Receiver *receiver) {
+[[nodiscard]] bool ExpandSubgraph(const Hypergraph &g, size_t lowest_node_idx,
+                                  NodeMap subgraph, NodeMap full_neighborhood,
+                                  NodeMap neighborhood, NodeMap forbidden,
+                                  Receiver *receiver) {
   HYPERGRAPH_PRINTF(
       "Expanding connected subgraph, subgraph=%s neighborhood=%s "
       "forbidden=%s\n",
@@ -523,9 +529,9 @@ bool ExpandSubgraph(const Hypergraph &g, size_t lowest_node_idx,
 // complement, and picked the one with fewest nodes to study, but it doesn't
 // seem to be worth it.
 template <class Receiver>
-bool TryConnecting(const Hypergraph &g, NodeMap subgraph,
-                   NodeMap subgraph_full_neighborhood, NodeMap complement,
-                   Receiver *receiver) {
+[[nodiscard]] bool TryConnecting(const Hypergraph &g, NodeMap subgraph,
+                                 NodeMap subgraph_full_neighborhood,
+                                 NodeMap complement, Receiver *receiver) {
   for (size_t node_idx : BitsSetIn(complement & subgraph_full_neighborhood)) {
     // Simple edges.
     if (Overlaps(g.nodes[node_idx].simple_neighborhood, subgraph)) {
@@ -572,10 +578,11 @@ bool TryConnecting(const Hypergraph &g, NodeMap subgraph,
 //
 // Called EnumerateCmpRec() in the paper.
 template <class Receiver>
-bool ExpandComplement(const Hypergraph &g, size_t lowest_node_idx,
-                      NodeMap subgraph, NodeMap subgraph_full_neighborhood,
-                      NodeMap complement, NodeMap neighborhood,
-                      NodeMap forbidden, Receiver *receiver) {
+[[nodiscard]] bool ExpandComplement(const Hypergraph &g, size_t lowest_node_idx,
+                                    NodeMap subgraph,
+                                    NodeMap subgraph_full_neighborhood,
+                                    NodeMap complement, NodeMap neighborhood,
+                                    NodeMap forbidden, Receiver *receiver) {
   assert(IsSubset(subgraph, forbidden));
   assert(!IsSubset(complement, forbidden));
 

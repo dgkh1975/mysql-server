@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,9 +30,9 @@
 #include <cstddef>  // std::nullptr_t
 #include <memory>   // std::unique_ptr
 #include <new>
+#include <optional>
 
 #include "my_inttypes.h"
-#include "nullable.h"
 #include "sql/dd/impl/types/entity_object_impl.h"  // dd::Entity_object_impl
 #include "sql/dd/impl/types/weak_object_impl.h"
 #include "sql/dd/object_id.h"
@@ -130,35 +131,34 @@ class Spatial_reference_system_impl : public Entity_object_impl,
   // organization
   /////////////////////////////////////////////////////////////////////////
 
-  const Mysql::Nullable<String_type> &organization() const override {
+  const std::optional<String_type> &organization() const override {
     return m_organization;
   }
 
   void set_organization(const String_type &organization) override {
-    m_organization = Mysql::Nullable<String_type>(organization);
+    m_organization = std::optional<String_type>(organization);
   }
 
   void set_organization(std::nullptr_t) override {
-    m_organization = Mysql::Nullable<String_type>();
+    m_organization = std::optional<String_type>();
   }
 
   /////////////////////////////////////////////////////////////////////////
   // organization_coordsys_id
   /////////////////////////////////////////////////////////////////////////
 
-  const Mysql::Nullable<gis::srid_t> &organization_coordsys_id()
-      const override {
+  const std::optional<gis::srid_t> &organization_coordsys_id() const override {
     return m_organization_coordsys_id;
   }
 
   void set_organization_coordsys_id(
       gis::srid_t organization_coordsys_id) override {
     m_organization_coordsys_id =
-        Mysql::Nullable<gis::srid_t>(organization_coordsys_id);
+        std::optional<gis::srid_t>(organization_coordsys_id);
   }
 
   void set_organization_coordsys_id(std::nullptr_t) override {
-    m_organization_coordsys_id = Mysql::Nullable<gis::srid_t>();
+    m_organization_coordsys_id = std::optional<gis::srid_t>();
   }
 
   /////////////////////////////////////////////////////////////////////////
@@ -315,16 +315,16 @@ class Spatial_reference_system_impl : public Entity_object_impl,
   // description
   /////////////////////////////////////////////////////////////////////////
 
-  const Mysql::Nullable<String_type> &description() const override {
+  const std::optional<String_type> &description() const override {
     return m_description;
   }
 
   void set_description(const String_type &description) override {
-    m_description = Mysql::Nullable<String_type>(description);
+    m_description = std::optional<String_type>(description);
   }
 
   void set_description(std::nullptr_t) override {
-    m_description = Mysql::Nullable<String_type>();
+    m_description = std::optional<String_type>();
   }
 
   // Fix "inherits ... via dominance" warnings
@@ -357,11 +357,11 @@ class Spatial_reference_system_impl : public Entity_object_impl,
   // Fields
   ulonglong m_created;
   ulonglong m_last_altered;
-  Mysql::Nullable<String_type> m_organization;
-  Mysql::Nullable<gis::srid_t> m_organization_coordsys_id;
+  std::optional<String_type> m_organization;
+  std::optional<gis::srid_t> m_organization_coordsys_id;
   String_type m_definition;
   std::unique_ptr<gis::srs::Spatial_reference_system> m_parsed_definition;
-  Mysql::Nullable<String_type> m_description;
+  std::optional<String_type> m_description;
 
   Spatial_reference_system *clone() const override {
     return new Spatial_reference_system_impl(*this);

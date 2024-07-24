@@ -1,15 +1,16 @@
-/* Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -96,7 +97,7 @@ PFS_engine_table *table_mems_global_by_event_name::create(
   return new table_mems_global_by_event_name();
 }
 
-int table_mems_global_by_event_name::delete_all_rows(void) {
+int table_mems_global_by_event_name::delete_all_rows() {
   reset_memory_by_thread();
   reset_memory_by_account();
   reset_memory_by_user();
@@ -105,19 +106,19 @@ int table_mems_global_by_event_name::delete_all_rows(void) {
   return 0;
 }
 
-ha_rows table_mems_global_by_event_name::get_row_count(void) {
+ha_rows table_mems_global_by_event_name::get_row_count() {
   return memory_class_max;
 }
 
 table_mems_global_by_event_name::table_mems_global_by_event_name()
     : PFS_engine_table(&m_share, &m_pos), m_pos(), m_next_pos() {}
 
-void table_mems_global_by_event_name::reset_position(void) {
+void table_mems_global_by_event_name::reset_position() {
   m_pos.reset();
   m_next_pos.reset();
 }
 
-int table_mems_global_by_event_name::rnd_next(void) {
+int table_mems_global_by_event_name::rnd_next() {
   PFS_memory_class *pfs;
   PFS_builtin_memory_class *pfs_builtin;
 
@@ -177,7 +178,7 @@ int table_mems_global_by_event_name::rnd_pos(const void *pos) {
   return HA_ERR_RECORD_DELETED;
 }
 
-int table_mems_global_by_event_name::index_init(uint idx MY_ATTRIBUTE((unused)),
+int table_mems_global_by_event_name::index_init(uint idx [[maybe_unused]],
                                                 bool) {
   PFS_index_mems_global_by_event_name *result = nullptr;
   assert(idx == 0);
@@ -187,7 +188,7 @@ int table_mems_global_by_event_name::index_init(uint idx MY_ATTRIBUTE((unused)),
   return 0;
 }
 
-int table_mems_global_by_event_name::index_next(void) {
+int table_mems_global_by_event_name::index_next() {
   PFS_memory_class *pfs;
   PFS_builtin_memory_class *pfs_builtin;
 

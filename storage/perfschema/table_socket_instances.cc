@@ -1,15 +1,16 @@
-/* Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -127,19 +128,19 @@ PFS_engine_table *table_socket_instances::create(PFS_engine_table_share *) {
   return new table_socket_instances();
 }
 
-ha_rows table_socket_instances::get_row_count(void) {
+ha_rows table_socket_instances::get_row_count() {
   return global_socket_container.get_row_count();
 }
 
 table_socket_instances::table_socket_instances()
     : PFS_engine_table(&m_share, &m_pos), m_pos(0), m_next_pos(0) {}
 
-void table_socket_instances::reset_position(void) {
+void table_socket_instances::reset_position() {
   m_pos.m_index = 0;
   m_next_pos.m_index = 0;
 }
 
-int table_socket_instances::rnd_next(void) {
+int table_socket_instances::rnd_next() {
   PFS_socket *pfs;
 
   m_pos.set_at(&m_next_pos);
@@ -192,7 +193,7 @@ int table_socket_instances::index_init(uint idx, bool) {
   return 0;
 }
 
-int table_socket_instances::index_next(void) {
+int table_socket_instances::index_next() {
   PFS_socket *pfs;
 
   m_pos.set_at(&m_next_pos);
@@ -263,8 +264,8 @@ int table_socket_instances::read_row_values(TABLE *table, unsigned char *buf,
     if (read_all || bitmap_is_set(table->read_set, f->field_index())) {
       switch (f->field_index()) {
         case 0: /* EVENT_NAME */
-          set_field_varchar_utf8(f, m_row.m_event_name,
-                                 m_row.m_event_name_length);
+          set_field_varchar_utf8mb4(f, m_row.m_event_name,
+                                    m_row.m_event_name_length);
           break;
         case 1: /* OBJECT_INSTANCE_BEGIN */
           set_field_ulonglong(f, (intptr)m_row.m_identity);
@@ -280,7 +281,7 @@ int table_socket_instances::read_row_values(TABLE *table, unsigned char *buf,
           set_field_ulong(f, m_row.m_fd);
           break;
         case 4: /* IP */
-          set_field_varchar_utf8(f, m_row.m_ip, m_row.m_ip_length);
+          set_field_varchar_utf8mb4(f, m_row.m_ip, m_row.m_ip_length);
           break;
         case 5: /* PORT */
           set_field_ulong(f, m_row.m_port);

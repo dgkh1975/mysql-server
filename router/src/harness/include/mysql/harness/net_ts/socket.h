@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -70,7 +71,7 @@ namespace socket_option {
  * can be used to implement type safe socket options.
  *
  * @see socket_option::integer
- * @see socket_option::boolen
+ * @see socket_option::boolean
  */
 template <int Level, int Name, class T, class V = T>
 class option_base {
@@ -143,7 +144,7 @@ class socket_base {
   using debug = socket_option::boolean<SOL_SOCKET, SO_DEBUG>;
   using do_not_route = socket_option::boolean<SOL_SOCKET, SO_DONTROUTE>;
   using error =
-      socket_option::boolean<SOL_SOCKET, SO_ERROR>;  // not part of std
+      socket_option::integer<SOL_SOCKET, SO_ERROR>;  // not part of std
   using keep_alive = socket_option::boolean<SOL_SOCKET, SO_KEEPALIVE>;
 
   class linger;
@@ -250,7 +251,7 @@ class socket_base {
     }
 
     /**
-     * set receipient of the message.
+     * set recipient of the message.
      */
     template <class endpoint_type>
     void set_recipient(const endpoint_type &ep) {
@@ -417,7 +418,10 @@ class basic_socket_impl_base {
       cancel();
 
       auto res = io_ctx_->socket_service()->close(native_handle());
-      if (res) native_handle_ = impl::socket::kInvalidSocket;
+
+      // after close() finished, the socket's state is undefined even if it
+      // failed. See "man close" on Linux.
+      native_handle_ = impl::socket::kInvalidSocket;
 
       return res;
     }
@@ -550,7 +554,7 @@ class basic_socket_impl : public basic_socket_impl_base {
                                                  endpoint_size);
     if (!res) return stdx::make_unexpected(res.error());
 
-    return {stdx::in_place, io_ctx, protocol_, std::move(res.value())};
+    return {std::in_place, io_ctx, protocol_, std::move(res.value())};
   }
 
   stdx::expected<socket_type, error_type> accept(io_context &io_ctx,

@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    Without limiting anything contained in the foregoing, this file,
    which is part of C Driver for MySQL (Connector/C), is also subject to the
@@ -314,16 +315,16 @@ static const uchar *uni_to_cs[256] = {
     nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
 
 extern "C" {
-static int my_mb_wc_latin1(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
-                           my_wc_t *wc, const uchar *str, const uchar *end) {
+static int my_mb_wc_latin1(const CHARSET_INFO *cs [[maybe_unused]], my_wc_t *wc,
+                           const uchar *str, const uchar *end) {
   if (str >= end) return MY_CS_TOOSMALL;
 
   *wc = cs_to_uni[*str];
   return (!wc[0] && str[0]) ? -1 : 1;
 }
 
-static int my_wc_mb_latin1(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
-                           my_wc_t wc, uchar *str, uchar *end) {
+static int my_wc_mb_latin1(const CHARSET_INFO *cs [[maybe_unused]], my_wc_t wc,
+                           uchar *str, uchar *end) {
   const uchar *pl;
 
   if (str >= end) return MY_CS_TOOSMALL;
@@ -370,7 +371,7 @@ CHARSET_INFO my_charset_latin1 = {
     0,                              /* number    */
     MY_CS_COMPILED | MY_CS_PRIMARY, /* state */
     "latin1",                       /* cs name    */
-    "latin1_swedish_ci",            /* name      */
+    "latin1_swedish_ci",            /* m_coll_name */
     "cp1252 West European",         /* comment   */
     nullptr,                        /* tailoring */
     nullptr,                        /* coll_param */
@@ -488,7 +489,7 @@ static const uchar combo2map[] = {
 */
 
 extern "C" {
-static int my_strnncoll_latin1_de(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
+static int my_strnncoll_latin1_de(const CHARSET_INFO *cs [[maybe_unused]],
                                   const uchar *a, size_t a_length,
                                   const uchar *b, size_t b_length,
                                   bool b_is_prefix) {
@@ -521,9 +522,9 @@ static int my_strnncoll_latin1_de(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
                                   : (b < b_end || b_extend) ? -1 : 0);
 }
 
-static int my_strnncollsp_latin1_de(
-    const CHARSET_INFO *cs MY_ATTRIBUTE((unused)), const uchar *a,
-    size_t a_length, const uchar *b, size_t b_length) {
+static int my_strnncollsp_latin1_de(const CHARSET_INFO *cs [[maybe_unused]],
+                                    const uchar *a, size_t a_length,
+                                    const uchar *b, size_t b_length) {
   const uchar *a_end = a + a_length, *b_end = b + b_length;
   uchar a_char, a_extend = 0, b_char, b_extend = 0;
   int res;
@@ -587,9 +588,9 @@ static size_t my_strnxfrm_latin1_de(const CHARSET_INFO *cs, uchar *dst,
   return my_strxfrm_pad(cs, d0, dst, de, nweights, flags);
 }
 
-static void my_hash_sort_latin1_de(
-    const CHARSET_INFO *cs MY_ATTRIBUTE((unused)), const uchar *key, size_t len,
-    uint64 *nr1, uint64 *nr2) {
+static void my_hash_sort_latin1_de(const CHARSET_INFO *cs [[maybe_unused]],
+                                   const uchar *key, size_t len, uint64 *nr1,
+                                   uint64 *nr2) {
   const uchar *end;
   uint64 tmp1;
   uint64 tmp2;
@@ -638,7 +639,7 @@ CHARSET_INFO my_charset_latin1_german2_ci = {
     0,                               /* number    */
     MY_CS_COMPILED | MY_CS_STRNXFRM, /* state     */
     "latin1",                        /* cs name    */
-    "latin1_german2_ci",             /* name      */
+    "latin1_german2_ci",             /* m_coll_name */
     "cp1252 West European",          /* comment   */
     nullptr,                         /* tailoring */
     nullptr,                         /* coll_param */
@@ -673,7 +674,7 @@ CHARSET_INFO my_charset_latin1_bin = {
     0,                              /* number    */
     MY_CS_COMPILED | MY_CS_BINSORT, /* state     */
     "latin1",                       /* cs name    */
-    "latin1_bin",                   /* name      */
+    "latin1_bin",                   /* m_coll_name */
     "cp1252 West European",         /* comment   */
     nullptr,                        /* tailoring */
     nullptr,                        /* coll_param */

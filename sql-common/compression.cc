@@ -1,15 +1,16 @@
-/* Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -57,8 +58,6 @@ enum_compression_algorithm get_compression_algorithm(std::string name) {
 
   @param       name    comma separated list of compression algorithm names
   @param[out]  list    list containing algorithm names
-
-  @retval void
 */
 void parse_compression_algorithms_list(std::string name,
                                        std::vector<std::string> &list) {
@@ -91,10 +90,9 @@ bool is_zstd_compression_level_valid(uint level) {
   @retval 0  success
   @retval 1  error or warnings
 */
-bool validate_compression_attributes(
-    std::string algorithm_names,
-    std::string channel_name MY_ATTRIBUTE((unused)),
-    bool ignore_errors MY_ATTRIBUTE((unused))) {
+bool validate_compression_attributes(std::string algorithm_names,
+                                     std::string channel_name [[maybe_unused]],
+                                     bool ignore_errors [[maybe_unused]]) {
   DBUG_TRACE;
   /*
     Note: there's no real limit like that to the string. But, since the
@@ -117,7 +115,7 @@ bool validate_compression_attributes(
   if (!total_names) {
 #ifdef MYSQL_SERVER
     if (!ignore_errors) {
-      my_error(ER_CHANGE_MASTER_WRONG_COMPRESSION_ALGORITHM_CLIENT, MYF(0),
+      my_error(ER_CHANGE_SOURCE_WRONG_COMPRESSION_ALGORITHM_CLIENT, MYF(0),
                algorithm_names.c_str(), channel_name.c_str());
     }
 #endif
@@ -126,7 +124,7 @@ bool validate_compression_attributes(
   if (total_names > COMPRESSION_ALGORITHM_COUNT_MAX) {
 #ifdef MYSQL_SERVER
     if (!ignore_errors) {
-      my_error(ER_CHANGE_MASTER_WRONG_COMPRESSION_ALGORITHM_LIST_CLIENT, MYF(0),
+      my_error(ER_CHANGE_SOURCE_WRONG_COMPRESSION_ALGORITHM_LIST_CLIENT, MYF(0),
                algorithm_names.c_str(), channel_name.c_str());
     }
 #endif
@@ -142,7 +140,7 @@ bool validate_compression_attributes(
     if (method == enum_compression_algorithm::MYSQL_INVALID) {
 #ifdef MYSQL_SERVER
       if (!ignore_errors) {
-        my_error(ER_CHANGE_MASTER_WRONG_COMPRESSION_ALGORITHM_CLIENT, MYF(0),
+        my_error(ER_CHANGE_SOURCE_WRONG_COMPRESSION_ALGORITHM_CLIENT, MYF(0),
                  algorithm_name.c_str(), channel_name.c_str());
       }
 #endif

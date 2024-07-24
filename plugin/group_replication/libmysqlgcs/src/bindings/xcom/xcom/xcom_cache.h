@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,6 +27,7 @@
 #include <stddef.h>
 
 #include "xcom/simset.h"
+#include "xcom/site_struct.h"
 #include "xcom/xcom_profile.h"
 #include "xdr_gen/xcom_vp.h"
 
@@ -55,6 +57,40 @@ typedef struct stack_machine stack_machine;
 struct pax_machine;
 typedef struct pax_machine pax_machine;
 
+#define p_events                                                          \
+  X(paxos_prepare), X(paxos_ack_prepare), X(paxos_accept),                \
+      X(paxos_ack_accept), X(paxos_learn), X(paxos_start), X(paxos_tout), \
+      X(last_p_event)
+
+#define X(a) a
+enum paxos_event { p_events };
+typedef enum paxos_event paxos_event;
+#undef X
+
+struct paxos_fsm_state;
+typedef struct paxos_fsm_state paxos_fsm_state;
+
+/* Function pointer corresponding to a state. Return 1 if execution should
+ * continue, 0 otherwise */
+typedef int (*paxos_fsm_fp)(pax_machine *paxos, site_def const *site,
+                            paxos_event event, pax_msg *mess);
+
+/* Function pointer and name */
+struct paxos_fsm_state {
+  paxos_fsm_fp state_fp;
+  char const *state_name;
+};
+
+extern int paxos_fsm_idle(pax_machine *paxos, site_def const *site,
+                          paxos_event event, pax_msg *mess);
+
+// Set current Paxos state and name of state (for tracing) in pax_machine object
+#define SET_PAXOS_FSM_STATE(obj, s) \
+  do {                              \
+    (obj)->state.state_fp = s;      \
+    (obj)->state.state_name = #s;   \
+  } while (0)
+
 /* Definition of a Paxos instance */
 struct pax_machine {
   linkage hash_link;
@@ -63,6 +99,7 @@ struct pax_machine {
   synode_no synode;
   double last_modified; /* Start time */
   linkage rv; /* Tasks may sleep on this until something interesting happens */
+  linkage watchdog; /* Used for timeouts in Paxos */
 
   struct {
     ballot bal;            /* The current ballot we are working on */
@@ -89,6 +126,7 @@ struct pax_machine {
 #ifndef XCOM_STANDALONE
   char is_instrumented;
 #endif
+  paxos_fsm_state state;
 };
 
 pax_machine *init_pax_machine(pax_machine *p, lru_machine *lru,
@@ -133,6 +171,7 @@ void set_dec_threshold_length(uint64_t threshold);
 void set_min_target_occupation(float threshold);
 void set_dec_threshold_size(float threshold);
 void set_min_length_threshold(float threshold);
+void paxos_timeout(pax_machine *p);
 
 #ifndef XCOM_STANDALONE
 void psi_set_cache_resetting(int is_resetting);

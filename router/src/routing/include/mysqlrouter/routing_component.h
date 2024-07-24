@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -34,16 +35,18 @@
 #include <string>
 #include <vector>
 
+#include "connection.h"
+#include "mysql/harness/config_parser.h"
 #include "tcp_address.h"
 
-class MySQLRouting;
+class MySQLRoutingBase;
 class BaseProtocol;
 
 class ROUTING_EXPORT MySQLRoutingAPI {
  public:
   MySQLRoutingAPI() = default;
 
-  MySQLRoutingAPI(std::shared_ptr<MySQLRouting> r) : r_{std::move(r)} {}
+  MySQLRoutingAPI(std::shared_ptr<MySQLRoutingBase> r) : r_{std::move(r)} {}
 
   // config
   std::string get_bind_address() const;
@@ -90,21 +93,42 @@ class ROUTING_EXPORT MySQLRoutingAPI {
 
   std::vector<mysql_harness::TCPAddress> get_destinations() const;
 
+  void start_accepting_connections();
+  void restart_accepting_connections();
+
   bool is_accepting_connections() const;
 
+  void stop_socket_acceptors();
+
+  bool is_running() const;
+
  private:
-  std::shared_ptr<MySQLRouting> r_;
+  std::shared_ptr<MySQLRoutingBase> r_;
 };
 
 class ROUTING_EXPORT MySQLRoutingComponent {
  public:
   static MySQLRoutingComponent &get_instance();
 
-  void init(const std::string &name, std::shared_ptr<MySQLRouting> srv);
+  void deinit();
+
+  void init(const mysql_harness::Config &config);
+
+  void register_route(const std::string &name,
+                      std::shared_ptr<MySQLRoutingBase> srv);
+
+  void erase(const std::string &name);
 
   MySQLRoutingAPI api(const std::string &name);
 
+  uint64_t current_total_connections();
+  uint64_t max_total_connections() const { return max_total_connections_; }
+
+  MySQLRoutingConnectionBase *get_connection(const std::string &ep);
+
   std::vector<std::string> route_names() const;
+
+  static const uint64_t kDefaultMaxTotalConnections = 512;
 
  private:
   // disable copy, as we are a single-instance
@@ -112,7 +136,9 @@ class ROUTING_EXPORT MySQLRoutingComponent {
   void operator=(MySQLRoutingComponent const &) = delete;
 
   std::mutex routes_mu_;
-  std::map<std::string, std::weak_ptr<MySQLRouting>> routes_;
+  std::map<std::string, std::weak_ptr<MySQLRoutingBase>> routes_;
+
+  uint64_t max_total_connections_{0};
 
   MySQLRoutingComponent() = default;
 };

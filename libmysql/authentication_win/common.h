@@ -1,15 +1,16 @@
-/* Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -166,7 +167,10 @@ class Blob {
   Blob(const byte *ptr, const size_t len)
       : m_ptr(const_cast<byte *>(ptr)), m_len(len) {}
 
-  Blob(const char *str) : m_ptr((byte *)str) { m_len = strlen(str); }
+  explicit Blob(const char *str)
+      : m_ptr(const_cast<byte *>(reinterpret_cast<const byte *>(str))) {
+    m_len = strlen(str);
+  }
 
   byte *ptr() const { return m_ptr; }
 
@@ -199,7 +203,7 @@ class Connection {
   int m_error;
 
  public:
-  Connection(MYSQL_PLUGIN_VIO *vio);
+  explicit Connection(MYSQL_PLUGIN_VIO *vio);
   int write(const Blob &);
   Blob read();
 
@@ -217,8 +221,8 @@ class Sid {
   SID_NAME_USE m_type;  ///< Type of identified entity.
 
  public:
-  Sid(const wchar_t *);
-  Sid(HANDLE sec_token);
+  explicit Sid(const wchar_t *);
+  explicit Sid(HANDLE sec_token);
   ~Sid();
 
   bool is_valid(void) const;

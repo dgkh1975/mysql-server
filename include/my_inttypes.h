@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,12 +40,12 @@
 #include <sys/types.h>
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(MYSQL_ABI_CHECK)
 #include <BaseTsd.h>
 typedef unsigned int uint;
 typedef unsigned short ushort;
 #endif
-#if !defined(HAVE_ULONG)
+#if !defined(HAVE_ULONG) && !defined(MYSQL_ABI_CHECK)
 typedef unsigned long ulong; /* Short for unsigned long */
 #endif
 
@@ -101,15 +102,19 @@ typedef int myf; /* Type of MyFlags in my_funcs */
 /* Length of decimal number represented by INT64. */
 #define MY_INT64_NUM_DECIMAL_DIGITS 21U
 
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(MYSQL_ABI_CHECK)
+#ifndef SSIZE_T_DEFINED
+/* krb5/win-mac.h has a conflicting typedef */
+#define SSIZE_T_DEFINED 1
 typedef SSIZE_T ssize_t;
+#endif
 #endif
 
 /*
   This doesn't really belong here, but it was the only reasonable place
   at the time.
 */
-#ifdef _WIN32
+#if defined(_WIN32) && !defined(MYSQL_ABI_CHECK)
 typedef int sigset_t;
 #endif
 

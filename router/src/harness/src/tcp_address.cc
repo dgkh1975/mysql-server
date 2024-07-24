@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -117,7 +118,7 @@ static stdx::expected<TCPAddress, std::error_code> make_tcp_address_ipv6(
   ++pos;
   if (pos == endpoint.size()) {
     // ] was last character,  no port
-    return {stdx::in_place, addr, 0};
+    return {std::in_place, addr, 0};
   }
 
   if (endpoint[pos] != ':') {
@@ -133,13 +134,13 @@ static stdx::expected<TCPAddress, std::error_code> make_tcp_address_ipv6(
 
   auto port = port_res.value();
 
-  return {stdx::in_place, addr, port};
+  return {std::in_place, addr, port};
 }
 
 stdx::expected<TCPAddress, std::error_code> make_tcp_address(
     const std::string &endpoint) {
   if (endpoint.empty()) {
-    return {stdx::in_place, "", 0};
+    return {std::in_place, "", 0};
   }
 
   if (endpoint[0] == '[') {
@@ -151,13 +152,13 @@ stdx::expected<TCPAddress, std::error_code> make_tcp_address(
       return addr_res.get_unexpected();
     }
 
-    return {stdx::in_place, endpoint, 0};
+    return {std::in_place, endpoint, 0};
   } else {
     // IPv4 or address
     const auto pos = endpoint.find(":");
     if (pos == std::string::npos) {
       // no port
-      return {stdx::in_place, endpoint, 0};
+      return {std::in_place, endpoint, 0};
     }
 
     auto addr = endpoint.substr(0, pos);
@@ -167,7 +168,7 @@ stdx::expected<TCPAddress, std::error_code> make_tcp_address(
       return port_res.get_unexpected();
     }
 
-    return {stdx::in_place, addr, port_res.value()};
+    return {std::in_place, addr, port_res.value()};
   }
 }
 

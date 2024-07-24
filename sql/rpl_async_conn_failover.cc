@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,6 +23,7 @@
 
 #include "mysql/components/services/log_builtins.h"
 
+#include "sql/changestreams/apply/replication_thread_status.h"
 #include "sql/current_thd.h"
 #include "sql/debug_sync.h"  // DEBUG_SYNC
 #include "sql/rpl_async_conn_failover.h"
@@ -47,13 +49,11 @@ constexpr uint enum_convert(enum_sender_tuple eval) {
   return static_cast<uint>(eval);
 }
 
-Async_conn_failover_manager::enum_do_auto_conn_failover_error
+Async_conn_failover_manager::DoAutoConnFailoverError
 Async_conn_failover_manager::do_auto_conn_failover(Master_info *mi,
                                                    bool force_highest_weight) {
   DBUG_TRACE;
   channel_map.assert_some_lock();
-  Async_conn_failover_manager::enum_do_auto_conn_failover_error error{
-      ACF_RETRIABLE_ERROR};
 
   /* The list of different source connection details. */
   RPL_FAILOVER_SOURCE_LIST source_conn_detail_list{};
@@ -149,7 +149,7 @@ Async_conn_failover_manager::do_auto_conn_failover(Master_info *mi,
            "no alternative source is"
            " specified",
            "add new source details for the channel");
-    return ACF_NO_SOURCES_ERROR;
+    return DoAutoConnFailoverError::no_sources_error;
   }
 
   /* When sender list is exhausted reset position. */
@@ -180,7 +180,7 @@ Async_conn_failover_manager::do_auto_conn_failover(Master_info *mi,
 
   /*
     reset current network configuration details with new network
-    configuration details of choosen source.
+    configuration details of chosen source.
   */
   if (!set_channel_conn_details(
           mi,
@@ -190,13 +190,12 @@ Async_conn_failover_manager::do_auto_conn_failover(Master_info *mi,
               source_conn_detail_list[mi->get_failover_list_position()]),
           std::get<enum_convert(enum_sender_tuple::NETNS)>(
               source_conn_detail_list[mi->get_failover_list_position()]))) {
-    error = ACF_NO_ERROR;
-
     /* Increment to next position in source_conn_detail_list list. */
     mi->increment_failover_list_position();
+    return DoAutoConnFailoverError::no_error;
   }
 
-  return error;
+  return DoAutoConnFailoverError::retriable_error;
 }
 
 bool Async_conn_failover_manager::set_channel_conn_details(
@@ -258,7 +257,8 @@ bool Async_conn_failover_manager::set_channel_conn_details(
   /* If the receiver is stopped, flush master_info to disk. */
   if ((thread_mask & SLAVE_IO) == 0 && flush_master_info(mi, true)) {
     error = true;
-    my_error(ER_RELAY_LOG_INIT, MYF(0), "Failed to flush master info file");
+    my_error(ER_RELAY_LOG_INIT, MYF(0),
+             "Failed to flush connection metadata repository");
   }
 
   unlock_slave_threads(mi);
@@ -266,9 +266,10 @@ bool Async_conn_failover_manager::set_channel_conn_details(
   return error;
 }
 
-int Async_conn_failover_manager::get_source_quorum_status(MYSQL *mysql,
-                                                          Master_info *mi) {
-  int ret = 0;
+Async_conn_failover_manager::SourceQuorumStatus
+Async_conn_failover_manager::get_source_quorum_status(MYSQL *mysql,
+                                                      Master_info *mi) {
+  SourceQuorumStatus quorum_status{SourceQuorumStatus::no_error};
   MYSQL_RES *source_res = nullptr;
   MYSQL_ROW source_row = nullptr;
   std::vector<SENDER_CONN_MERGE_TUPLE> source_conn_merged_list{};
@@ -283,7 +284,7 @@ int Async_conn_failover_manager::get_source_quorum_status(MYSQL *mysql,
   std::tie(error, source_conn_merged_list) =
       Source_IO_monitor::get_instance()->get_senders_details(mi->get_channel());
   if (error) {
-    return 2;
+    return SourceQuorumStatus::transient_network_error;
   }
 
   for (auto source_conn_detail : source_conn_merged_list) {
@@ -299,7 +300,7 @@ int Async_conn_failover_manager::get_source_quorum_status(MYSQL *mysql,
     }
   }
 
-  if (!connected_source_in_sender_list) return 0;
+  if (!connected_source_in_sender_list) return SourceQuorumStatus::no_error;
 
   std::string query = Source_IO_monitor::get_instance()->get_query(
       enum_sql_query_tag::CONFIG_MODE_QUORUM_IO);
@@ -307,29 +308,30 @@ int Async_conn_failover_manager::get_source_quorum_status(MYSQL *mysql,
   if (!mysql_real_query(mysql, query.c_str(), query.length()) &&
       (source_res = mysql_store_result(mysql)) &&
       (source_row = mysql_fetch_row(source_res))) {
-    auto quorum_status{
+    auto curr_quorum_status{
         static_cast<enum_conf_mode_quorum_status>(std::stoi(source_row[0]))};
-    if (quorum_status == enum_conf_mode_quorum_status::MANAGED_GR_HAS_QUORUM) {
-      ret = 0;
-    } else if (quorum_status ==
+    if (curr_quorum_status ==
+        enum_conf_mode_quorum_status::MANAGED_GR_HAS_QUORUM) {
+      quorum_status = SourceQuorumStatus::no_error;
+    } else if (curr_quorum_status ==
                enum_conf_mode_quorum_status::MANAGED_GR_HAS_ERROR) {
       LogErr(ERROR_LEVEL, ER_RPL_ASYNC_CHANNEL_CANT_CONNECT_NO_QUORUM, mi->host,
              mi->port, "", mi->get_channel());
-      ret = 1;
+      quorum_status = SourceQuorumStatus::no_quorum_error;
     }
   } else if (mysql_errno(mysql) != ER_UNKNOWN_SYSTEM_VARIABLE) {
     if (is_network_error(mysql_errno(mysql))) {
       mi->set_network_error();
-      ret = 2;
+      quorum_status = SourceQuorumStatus::transient_network_error;
     } else {
       LogErr(WARNING_LEVEL, ER_RPL_ASYNC_EXECUTING_QUERY,
              "The IO thread failed to detect if the source belongs to the "
              "group majority",
              mi->host, mi->port, "", mi->get_channel());
-      ret = 1;
+      quorum_status = SourceQuorumStatus::fatal_error;
     }
   }
 
   if (source_res) mysql_free_result(source_res);
-  return ret;
+  return quorum_status;
 }

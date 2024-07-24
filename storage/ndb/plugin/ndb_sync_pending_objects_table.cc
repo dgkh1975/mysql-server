@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,6 +25,7 @@
 #include "storage/ndb/plugin/ndb_sync_pending_objects_table.h"
 
 #include <assert.h>
+#include <cstdint>
 #include <cstring>  // std::strlen
 
 // assert
@@ -69,7 +71,7 @@ int Ndb_sync_pending_objects_table::rnd_init() {
   return 0;
 }
 
-extern SERVICE_TYPE_NO_CONST(pfs_plugin_column_string_v1) * pfscol_string;
+extern SERVICE_TYPE_NO_CONST(pfs_plugin_column_string_v2) * pfscol_string;
 extern SERVICE_TYPE_NO_CONST(pfs_plugin_column_enum_v1) * pfscol_enum;
 
 int Ndb_sync_pending_objects_table::read_column_value(PSI_field *field,
@@ -82,11 +84,11 @@ int Ndb_sync_pending_objects_table::read_column_value(PSI_field *field,
 
   switch (index) {
     case 0: /* SCHEMA_NAME: Name of the schema */
-      pfscol_string->set_varchar_utf8(
+      pfscol_string->set_varchar_utf8mb4(
           field, obj.m_schema_name == "" ? nullptr : obj.m_schema_name.c_str());
       break;
     case 1: /* NAME: Object name */
-      pfscol_string->set_varchar_utf8(
+      pfscol_string->set_varchar_utf8mb4(
           field, obj.m_name == "" ? nullptr : obj.m_name.c_str());
       break;
     case 2: /* TYPE */

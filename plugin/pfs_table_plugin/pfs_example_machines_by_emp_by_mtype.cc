@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -100,7 +101,7 @@ int m_by_emp_by_mtype_rnd_next(PSI_table_handle *handle) {
               /* Make current row */
               make_record(&h->current_row, e_record, m_record);
           }
-          it++;
+          ++it;
         }
         /* If a record was formed */
         if (h->current_row.m_exist) {
@@ -114,8 +115,8 @@ int m_by_emp_by_mtype_rnd_next(PSI_table_handle *handle) {
   return PFS_HA_ERR_END_OF_FILE;
 }
 
-int m_by_emp_by_mtype_rnd_init(PSI_table_handle *h MY_ATTRIBUTE((unused)),
-                               bool scan MY_ATTRIBUTE((unused))) {
+int m_by_emp_by_mtype_rnd_init(PSI_table_handle *h [[maybe_unused]],
+                               bool scan [[maybe_unused]]) {
   return 0;
 }
 
@@ -133,26 +134,25 @@ int m_by_emp_by_mtype_rnd_pos(PSI_table_handle *handle) {
 }
 
 /* Initialize the table index */
-int m_by_emp_by_mtype_index_init(
-    PSI_table_handle *handle MY_ATTRIBUTE((unused)),
-    uint idx MY_ATTRIBUTE((unused)), bool sorted MY_ATTRIBUTE((unused)),
-    PSI_index_handle **index MY_ATTRIBUTE((unused))) {
+int m_by_emp_by_mtype_index_init(PSI_table_handle *handle [[maybe_unused]],
+                                 uint idx [[maybe_unused]],
+                                 bool sorted [[maybe_unused]],
+                                 PSI_index_handle **index [[maybe_unused]]) {
   /* No Index */
   return 0;
 }
 
 /* For each key in index, read value specified in query */
-int m_by_emp_by_mtype_index_read(PSI_index_handle *index MY_ATTRIBUTE((unused)),
-                                 PSI_key_reader *reader MY_ATTRIBUTE((unused)),
-                                 unsigned int idx MY_ATTRIBUTE((unused)),
-                                 int find_flag MY_ATTRIBUTE((unused))) {
+int m_by_emp_by_mtype_index_read(PSI_index_handle *index [[maybe_unused]],
+                                 PSI_key_reader *reader [[maybe_unused]],
+                                 unsigned int idx [[maybe_unused]],
+                                 int find_flag [[maybe_unused]]) {
   /* No Index */
   return 0;
 }
 
 /* Read the next indexed value */
-int m_by_emp_by_mtype_index_next(
-    PSI_table_handle *handle MY_ATTRIBUTE((unused))) {
+int m_by_emp_by_mtype_index_next(PSI_table_handle *handle [[maybe_unused]]) {
   /* No Index */
   return 0;
 }
@@ -172,18 +172,18 @@ int m_by_emp_by_mtype_read_column_value(PSI_table_handle *handle,
 
   switch (index) {
     case 0: /* FIRST_NAME */
-      table_svc->set_field_char_utf8(field, h->current_row.f_name,
-                                     h->current_row.f_name_length);
+      col_string_svc->set_char_utf8mb4(field, h->current_row.f_name,
+                                       h->current_row.f_name_length);
       break;
     case 1: /* LAST_NAME */
-      table_svc->set_field_char_utf8(field, h->current_row.l_name,
-                                     h->current_row.l_name_length);
+      col_string_svc->set_char_utf8mb4(field, h->current_row.l_name,
+                                       h->current_row.l_name_length);
       break;
     case 2: /* MACHINE_TYPE */
-      table_svc->set_field_enum(field, h->current_row.machine_type);
+      col_enum_svc->set(field, h->current_row.machine_type);
       break;
     case 3: /* COUNT */
-      table_svc->set_field_integer(field, h->current_row.count);
+      col_int_svc->set(field, h->current_row.count);
       break;
     default: /* We should never reach here */
       assert(0);

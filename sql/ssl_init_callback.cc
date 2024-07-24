@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,6 +30,7 @@
 #include <sql/ssl_init_callback.h>
 #include <sql/sys_vars.h>
 #include <sql/sys_vars_shared.h> /* AutoRLock , PolyLock_mutex */
+#include <tls_ciphers.h>
 
 /* Internal flag */
 std::atomic_bool g_admin_ssl_configured(false);
@@ -48,6 +50,8 @@ static char *opt_tls_ciphersuites = nullptr;
 static char *opt_ssl_crl = nullptr;
 static char *opt_ssl_crlpath = nullptr;
 static char *opt_tls_version = nullptr;
+static bool opt_ssl_session_cache_mode = true;
+static long opt_ssl_session_cache_timeout = 300;
 
 static PolyLock_mutex lock_ssl_ctx(&LOCK_tls_ctx_options);
 
@@ -63,6 +67,71 @@ static const char *opt_admin_ssl_crlpath = nullptr;
 static const char *opt_admin_tls_version = nullptr;
 
 static PolyLock_mutex lock_admin_ssl_ctx(&LOCK_admin_tls_ctx_options);
+
+bool validate_tls_version(const char *val) {
+  if (val && val[0] == 0) return false;
+  std::string token;
+  std::stringstream str(val);
+  while (getline(str, token, ',')) {
+    if (my_strcasecmp(system_charset_info, token.c_str(), "TLSv1.2") &&
+        my_strcasecmp(system_charset_info, token.c_str(), "TLSv1.3"))
+      return true;
+  }
+  return false;
+}
+
+static bool check_tls_version(sys_var *, THD *, set_var *var) {
+  if (!(var->save_result.string_value.str)) return true;
+  return validate_tls_version(var->save_result.string_value.str);
+}
+
+static bool check_admin_tls_version(sys_var *, THD *, set_var *var) {
+  return check_tls_version(nullptr, nullptr, var);
+}
+
+void validate_ciphers(const char *option, const char *val,
+                      TLS_version version) {
+  if (!val || !*val) return;
+  std::string ciphers{val};
+  std::string haystack{};
+  switch (version) {
+    case TLS_version::TLSv12:
+      haystack.assign(default_tls12_ciphers);
+      break;
+    case TLS_version::TLSv13:
+      haystack.assign(default_tls13_ciphers);
+      break;
+    default:
+      break;
+  };
+  auto index = ciphers.find(':');
+
+  while (index != std::string::npos) {
+    auto needle = ciphers.substr(0, index);
+    if ((needle[0] != '!') && (haystack.find(needle) == std::string::npos)) {
+      LogErr(WARNING_LEVEL, ER_WARN_DEPRECATED_OR_BLOCKED_CIPHER, option,
+             needle.c_str());
+    }
+    ciphers.erase(0, index + 1);
+    index = ciphers.find(':');
+  }
+  if ((ciphers[0] != '!') && (haystack.find(ciphers) == std::string::npos)) {
+    LogErr(WARNING_LEVEL, ER_WARN_DEPRECATED_OR_BLOCKED_CIPHER, option,
+           ciphers.c_str());
+  }
+}
+
+static bool check_tls12_ciphers(sys_var *var, THD *, set_var *value) {
+  validate_ciphers(var->name.str, value->save_result.string_value.str,
+                   TLS_version::TLSv12);
+  return false;
+}
+
+static bool check_tls13_ciphers(sys_var *var, THD *, set_var *value) {
+  validate_ciphers(var->name.str, value->save_result.string_value.str,
+                   TLS_version::TLSv13);
+  return false;
+}
 
 /*
   If you are adding new system variable for SSL communication, please take a
@@ -85,15 +154,19 @@ static Sys_var_charptr Sys_ssl_capath(
 
 static Sys_var_charptr Sys_tls_version(
     "tls_version",
-    "TLS version, permitted values are TLSv1, TLSv1.1, TLSv1.2, TLSv1.3",
+#ifdef HAVE_TLSv13
+    "TLS version, permitted values are TLSv1.2, TLSv1.3",
+#else
+    "TLS version, permitted values are TLSv1.2",
+#endif
     PERSIST_AS_READONLY GLOBAL_VAR(opt_tls_version),
     CMD_LINE(REQUIRED_ARG, OPT_TLS_VERSION), IN_FS_CHARSET,
 #ifdef HAVE_TLSv13
-    "TLSv1,TLSv1.1,TLSv1.2,TLSv1.3",
+    "TLSv1.2,TLSv1.3",
 #else
-    "TLSv1,TLSv1.1,TLSv1.2",
+    "TLSv1.2",
 #endif /* HAVE_TLSv13 */
-    &lock_ssl_ctx);
+    &lock_ssl_ctx, NOT_IN_BINLOG, ON_CHECK(check_tls_version));
 
 static Sys_var_charptr Sys_ssl_cert(
     "ssl_cert", "X509 cert in PEM format (implies --ssl)",
@@ -105,13 +178,14 @@ static Sys_var_charptr Sys_ssl_cipher(
     "ssl_cipher", "SSL cipher to use (implies --ssl)",
     PERSIST_AS_READONLY GLOBAL_VAR(opt_ssl_cipher),
     CMD_LINE(REQUIRED_ARG, OPT_SSL_CIPHER), IN_FS_CHARSET, DEFAULT(nullptr),
-    &lock_ssl_ctx);
+    &lock_ssl_ctx, NOT_IN_BINLOG, ON_CHECK(check_tls12_ciphers));
 
 static Sys_var_charptr Sys_tls_ciphersuites(
     "tls_ciphersuites", "TLS v1.3 ciphersuite to use (implies --ssl)",
     PERSIST_AS_READONLY GLOBAL_VAR(opt_tls_ciphersuites),
     CMD_LINE(REQUIRED_ARG, OPT_TLS_CIPHERSUITES), IN_FS_CHARSET,
-    DEFAULT(nullptr), &lock_ssl_ctx);
+    DEFAULT(nullptr), &lock_ssl_ctx, NOT_IN_BINLOG,
+    ON_CHECK(check_tls13_ciphers));
 
 static Sys_var_charptr Sys_ssl_key("ssl_key",
                                    "X509 key in PEM format (implies --ssl)",
@@ -132,6 +206,24 @@ static Sys_var_charptr Sys_ssl_crlpath(
     CMD_LINE(REQUIRED_ARG, OPT_SSL_CRLPATH), IN_FS_CHARSET, DEFAULT(nullptr),
     &lock_ssl_ctx);
 
+#define PFS_TRAILING_PROPERTIES                                         \
+  NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(NULL), ON_UPDATE(NULL), NULL, \
+      sys_var::PARSE_EARLY
+
+static Sys_var_bool Sys_var_opt_ssl_session_cache_mode(
+    "ssl_session_cache_mode", "Is TLS session cache enabled or not",
+    PERSIST_AS_READONLY GLOBAL_VAR(opt_ssl_session_cache_mode),
+    CMD_LINE(OPT_ARG), DEFAULT(true), PFS_TRAILING_PROPERTIES);
+
+/* 84600 is 1 day in seconds */
+static Sys_var_long Sys_var_opt_ssl_session_cache_timeout(
+    "ssl_session_cache_timeout",
+    "The timeout to expire sessions in the TLS session cache",
+    PERSIST_AS_READONLY GLOBAL_VAR(opt_ssl_session_cache_timeout),
+    CMD_LINE(REQUIRED_ARG, OPT_SSL_SESSION_CACHE_TIMEOUT),
+    VALID_RANGE(0, 84600), DEFAULT(300), BLOCK_SIZE(1),
+    PFS_TRAILING_PROPERTIES);
+
 /* Related to admin connection port */
 static Sys_var_charptr Sys_admin_ssl_ca(
     "admin_ssl_ca",
@@ -150,16 +242,19 @@ static Sys_var_charptr Sys_admin_ssl_capath(
 
 static Sys_var_charptr Sys_admin_tls_version(
     "admin_tls_version",
-    "TLS version for --admin-port, permitted values are TLSv1, TLSv1.1, "
-    "TLSv1.2, TLSv1.3",
+#ifdef HAVE_TLSv13
+    "TLS version for --admin-port, permitted values are TLSv1.2, TLSv1.3",
+#else
+    "TLS version for --admin-port, permitted values are TLSv1.2",
+#endif
     PERSIST_AS_READONLY GLOBAL_VAR(opt_admin_tls_version),
     CMD_LINE(REQUIRED_ARG, OPT_TLS_VERSION), IN_FS_CHARSET,
 #ifdef HAVE_TLSv13
-    "TLSv1,TLSv1.1,TLSv1.2,TLSv1.3",
+    "TLSv1.2,TLSv1.3",
 #else
-    "TLSv1,TLSv1.1,TLSv1.2",
+    "TLSv1.2",
 #endif /* HAVE_TLSv13 */
-    &lock_admin_ssl_ctx);
+    &lock_admin_ssl_ctx, NOT_IN_BINLOG, ON_CHECK(check_admin_tls_version));
 
 static Sys_var_charptr Sys_admin_ssl_cert(
     "admin_ssl_cert",
@@ -172,14 +267,15 @@ static Sys_var_charptr Sys_admin_ssl_cipher(
     "admin_ssl_cipher", "SSL cipher to use (implies --ssl) for --admin-port",
     PERSIST_AS_READONLY GLOBAL_VAR(opt_admin_ssl_cipher),
     CMD_LINE(REQUIRED_ARG, OPT_SSL_CIPHER), IN_FS_CHARSET, DEFAULT(nullptr),
-    &lock_admin_ssl_ctx);
+    &lock_admin_ssl_ctx, NOT_IN_BINLOG, ON_CHECK(check_tls12_ciphers));
 
 static Sys_var_charptr Sys_admin_tls_ciphersuites(
     "admin_tls_ciphersuites",
     "TLS v1.3 ciphersuite to use (implies --ssl) for --admin-port",
     PERSIST_AS_READONLY GLOBAL_VAR(opt_admin_tls_ciphersuites),
     CMD_LINE(REQUIRED_ARG, OPT_TLS_CIPHERSUITES), IN_FS_CHARSET,
-    DEFAULT(nullptr), &lock_admin_ssl_ctx);
+    DEFAULT(nullptr), &lock_admin_ssl_ctx, NOT_IN_BINLOG,
+    ON_CHECK(check_tls13_ciphers));
 
 static Sys_var_charptr Sys_admin_ssl_key(
     "admin_ssl_key", "X509 key in PEM format (implies --ssl) for --admin-port",
@@ -295,7 +391,8 @@ static bool warn_self_signed_ca_certs(const char *ssl_ca,
 void Ssl_init_callback_server_main::read_parameters(
     OptionalString *ca, OptionalString *capath, OptionalString *version,
     OptionalString *cert, OptionalString *cipher, OptionalString *ciphersuites,
-    OptionalString *key, OptionalString *crl, OptionalString *crl_path) {
+    OptionalString *key, OptionalString *crl, OptionalString *crl_path,
+    bool *session_cache_mode, long *session_cache_timeout) {
   AutoRLock lock(&lock_ssl_ctx);
   if (ca) ca->assign(opt_ssl_ca);
   if (capath) capath->assign(opt_ssl_capath);
@@ -306,6 +403,9 @@ void Ssl_init_callback_server_main::read_parameters(
   if (key) key->assign(opt_ssl_key);
   if (crl) crl->assign(opt_ssl_crl);
   if (crl_path) crl_path->assign(opt_ssl_crlpath);
+  if (session_cache_mode) *session_cache_mode = opt_ssl_session_cache_mode;
+  if (session_cache_timeout)
+    *session_cache_timeout = opt_ssl_session_cache_timeout;
 }
 
 ssl_artifacts_status Ssl_init_callback_server_main::auto_detect_ssl() {
@@ -369,7 +469,8 @@ bool Ssl_init_callback_server_main::warn_self_signed_ca() {
 void Ssl_init_callback_server_admin::read_parameters(
     OptionalString *ca, OptionalString *capath, OptionalString *version,
     OptionalString *cert, OptionalString *cipher, OptionalString *ciphersuites,
-    OptionalString *key, OptionalString *crl, OptionalString *crl_path) {
+    OptionalString *key, OptionalString *crl, OptionalString *crl_path,
+    bool *session_cache_mode, long *session_cache_timeout) {
   AutoRLock lock(&lock_admin_ssl_ctx);
   if (ca) ca->assign(opt_admin_ssl_ca);
   if (capath) capath->assign(opt_admin_ssl_capath);
@@ -380,6 +481,9 @@ void Ssl_init_callback_server_admin::read_parameters(
   if (key) key->assign(opt_admin_ssl_key);
   if (crl) crl->assign(opt_admin_ssl_crl);
   if (crl_path) crl_path->assign(opt_admin_ssl_crlpath);
+  if (session_cache_mode) *session_cache_mode = opt_ssl_session_cache_mode;
+  if (session_cache_timeout)
+    *session_cache_timeout = opt_ssl_session_cache_timeout;
 
   if (opt_admin_ssl_ca || opt_admin_ssl_capath || opt_admin_ssl_cert ||
       opt_admin_ssl_cipher || opt_admin_tls_ciphersuites || opt_admin_ssl_key ||

@@ -1,15 +1,16 @@
-/* Copyright (c) 2005, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2005, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,7 +31,7 @@
 #include "lex_string.h"
 #include "my_io.h"
 #include "my_sqlcommand.h"  // enum_sql_command
-#include "mysql/components/services/mysql_mutex_bits.h"
+#include "mysql/components/services/bits/mysql_mutex_bits.h"
 #include "sql/sql_cmd.h"         // Sql_cmd
 #include "sql/sql_plugin_ref.h"  // plugin_ref
 
@@ -158,6 +159,7 @@ extern bool plugin_register_early_plugins(int *argc, char **argv, int flags);
 extern bool plugin_register_builtin_and_init_core_se(int *argc, char **argv);
 extern bool plugin_register_dynamic_and_init_all(int *argc, char **argv,
                                                  int init_flags);
+extern bool update_persisted_plugin_sysvars(const char *name);
 
 namespace dd {
 namespace upgrade {
@@ -193,9 +195,6 @@ extern bool plugin_foreach_with_mask(THD *thd, plugin_foreach_func *func,
                                      int type, uint state_mask, void *arg);
 extern bool plugin_foreach_with_mask(THD *thd, plugin_foreach_func **funcs,
                                      int type, uint state_mask, void *arg);
-int lock_plugin_data();
-int unlock_plugin_data();
-
 bool end_transaction(THD *thd, bool error);
 
 /**

@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -263,7 +264,7 @@ Converter::Arch Converter::detect_native_arch() {
   // determine bit width
   const size_t bit_width = 8 * sizeof(size_t);
 
-  // determine endianess
+  // determine endianness
   size_t number = 1;
   bool isLittleEndian = *(char *)(&number);
 
@@ -288,11 +289,11 @@ Converter::Arch Converter::detect_native_arch() {
 }
 
 /**
-  (static) determines endianess of architecture
+  (static) determines endianness of architecture
 
-  @param arch   - architecture to return endianess of
+  @param arch   - architecture to return endianness of
 
-  @return       - endianess of the architecture
+  @return       - endianness of the architecture
 */
 Converter::Endian Converter::get_endian(Arch arch) {
   if (arch == Arch::LE_64 || arch == Arch::LE_32) return Endian::LITTLE;

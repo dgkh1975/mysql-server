@@ -1,15 +1,16 @@
-/* Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -52,13 +53,9 @@ struct row_setup_objects {
   /** Column OBJECT_TYPE. */
   enum_object_type m_object_type;
   /** Column SCHEMA_NAME. */
-  char m_schema_name[NAME_LEN];
-  /** Length in bytes of @c m_schema_name. */
-  uint m_schema_name_length;
+  PFS_schema_name m_schema_name;
   /** Column OBJECT_NAME. */
-  char m_object_name[NAME_LEN];
-  /** Length in bytes of @c m_object_name. */
-  uint m_object_name_length;
+  PFS_object_name m_object_name;
   /** Column ENABLED. */
   bool *m_enabled_ptr;
   /** Column TIMED. */
@@ -76,7 +73,6 @@ class PFS_index_setup_objects : public PFS_engine_index {
   ~PFS_index_setup_objects() override = default;
 
   virtual bool match(PFS_setup_object *pfs);
-  virtual bool match(row_setup_objects *row);
 
  private:
   PFS_key_object_type_enum m_key_1;
@@ -96,7 +92,7 @@ class table_setup_objects : public PFS_engine_table {
   static int delete_all_rows();
   static ha_rows get_row_count();
 
-  void reset_position(void) override;
+  void reset_position() override;
 
   int rnd_next() override;
   int rnd_pos(const void *pos) override;

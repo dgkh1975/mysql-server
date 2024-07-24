@@ -1,17 +1,18 @@
 /************************************************************************
                       Mysql Enterprise Backup
- Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+ Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License, version 2.0,
  as published by the Free Software Foundation.
 
- This program is also distributed with certain software (including
+ This program is designed to work with certain software (including
  but not limited to OpenSSL) that is licensed under separate terms,
  as designated in a particular file or component or in included license
  documentation.  The authors of MySQL hereby grant you an additional
  permission to link the program and your derivative works with the
- separately licensed software that they have included with MySQL.
+ separately licensed software that they have either included with
+ the program or referenced in the documentation.
 
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -81,35 +82,41 @@ class Backup_page_tracker {
   static mysql_service_status_t unregister_udfs();
 
   static bool set_page_tracking_init(UDF_INIT *initid, UDF_ARGS *, char *);
-  static void set_page_tracking_deinit(UDF_INIT *initid MY_ATTRIBUTE((unused)));
+  static void set_page_tracking_deinit(UDF_INIT *initid [[maybe_unused]]);
   static long long set_page_tracking(UDF_INIT *initid, UDF_ARGS *,
                                      unsigned char *is_null,
                                      unsigned char *error);
 
   static bool page_track_get_changed_pages_init(UDF_INIT *initid, UDF_ARGS *,
                                                 char *);
-  static void page_track_get_changed_pages_deinit(
-      UDF_INIT *initid MY_ATTRIBUTE((unused)));
+  static void page_track_get_changed_pages_deinit(UDF_INIT *initid
+                                                  [[maybe_unused]]);
   static long long page_track_get_changed_pages(UDF_INIT *initid, UDF_ARGS *,
                                                 unsigned char *is_null,
                                                 unsigned char *error);
 
   static bool page_track_get_start_lsn_init(UDF_INIT *initid, UDF_ARGS *,
                                             char *);
-  static void page_track_get_start_lsn_deinit(
-      UDF_INIT *initid MY_ATTRIBUTE((unused)));
+  static void page_track_get_start_lsn_deinit(UDF_INIT *initid
+                                              [[maybe_unused]]);
   static long long page_track_get_start_lsn(UDF_INIT *initid, UDF_ARGS *,
                                             unsigned char *is_null,
                                             unsigned char *error);
 
   static bool page_track_get_changed_page_count_init(UDF_INIT *initid,
                                                      UDF_ARGS *, char *);
-  static void page_track_get_changed_page_count_deinit(
-      UDF_INIT *initid MY_ATTRIBUTE((unused)));
+  static void page_track_get_changed_page_count_deinit(UDF_INIT *initid
+                                                       [[maybe_unused]]);
   static long long page_track_get_changed_page_count(UDF_INIT *initid,
                                                      UDF_ARGS *,
                                                      unsigned char *is_null,
                                                      unsigned char *error);
+
+  static bool page_track_purge_up_to_init(UDF_INIT *initid, UDF_ARGS *, char *);
+  static void page_track_purge_up_to_deinit(UDF_INIT *initid [[maybe_unused]]);
+  static long long page_track_purge_up_to(UDF_INIT *initid, UDF_ARGS *,
+                                          unsigned char *is_null,
+                                          unsigned char *error);
 
   // method to act on a changed backup-id
   static bool backup_id_update();

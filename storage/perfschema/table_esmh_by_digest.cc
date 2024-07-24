@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -109,7 +110,7 @@ int table_esmh_by_digest::delete_all_rows() {
   return 0;
 }
 
-ha_rows table_esmh_by_digest::get_row_count(void) { return digest_max; }
+ha_rows table_esmh_by_digest::get_row_count() { return digest_max; }
 
 table_esmh_by_digest::table_esmh_by_digest()
     : PFS_engine_table(&m_share, &m_pos),
@@ -117,12 +118,12 @@ table_esmh_by_digest::table_esmh_by_digest()
       m_pos(),
       m_next_pos() {}
 
-void table_esmh_by_digest::reset_position(void) {
+void table_esmh_by_digest::reset_position() {
   m_pos.reset();
   m_next_pos.reset();
 }
 
-int table_esmh_by_digest::rnd_next(void) {
+int table_esmh_by_digest::rnd_next() {
   PFS_statements_digest_stat *digest_stat;
 
   if (statements_digest_stat_array == nullptr) {
@@ -165,7 +166,7 @@ int table_esmh_by_digest::rnd_pos(const void *pos) {
   return HA_ERR_RECORD_DELETED;
 }
 
-int table_esmh_by_digest::index_init(uint idx MY_ATTRIBUTE((unused)), bool) {
+int table_esmh_by_digest::index_init(uint idx [[maybe_unused]], bool) {
   PFS_index_esmh_by_digest *result = nullptr;
   assert(idx == 0);
   result = PFS_NEW(PFS_index_esmh_by_digest);
@@ -174,7 +175,7 @@ int table_esmh_by_digest::index_init(uint idx MY_ATTRIBUTE((unused)), bool) {
   return 0;
 }
 
-int table_esmh_by_digest::index_next(void) {
+int table_esmh_by_digest::index_next() {
   PFS_statements_digest_stat *digest_stat;
 
   if (statements_digest_stat_array == nullptr) {
@@ -247,13 +248,13 @@ int table_esmh_by_digest::make_row(PFS_statements_digest_stat *digest_stat,
   m_row.m_count_bucket_and_lower =
       m_materialized_histogram.m_buckets[bucket_index].m_count_bucket_and_lower;
 
-  ulonglong count_star =
+  const ulonglong count_star =
       m_materialized_histogram.m_buckets[NUMBER_OF_BUCKETS - 1]
           .m_count_bucket_and_lower;
 
   if (count_star > 0) {
-    double dividend = m_row.m_count_bucket_and_lower;
-    double divisor = count_star;
+    const double dividend = m_row.m_count_bucket_and_lower;
+    const double divisor = count_star;
     m_row.m_percentile = dividend / divisor; /* computed with double, not int */
   } else {
     m_row.m_percentile = 0.0;

@@ -23,7 +23,7 @@ var common_responses = common_stmts.prepare_statement_responses(
       "router_check_member_state",
       "router_select_members_count",
       "router_show_cipher_status",
-      "router_select_cluster_instances_v2",
+      "router_select_cluster_instances_v2_ar",
       "router_select_cluster_instance_addresses_v2",
       "router_start_transaction",
       "router_commit",
@@ -36,6 +36,7 @@ var common_responses_regex = common_stmts.prepare_statement_responses_regex(
       "router_insert_into_routers",
       "router_delete_old_accounts",
       "router_create_user_if_not_exists",
+      "router_check_auth_plugin",
     ],
     options);
 

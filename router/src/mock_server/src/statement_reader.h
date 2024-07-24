@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,12 +26,14 @@
 #ifndef MYSQLD_MOCK_STATEMENT_READER_INCLUDED
 #define MYSQLD_MOCK_STATEMENT_READER_INCLUDED
 
-#include <openssl/bio.h>
 #include <chrono>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <openssl/bio.h>
 
 #include "mysql/harness/net_ts/buffer.h"
 #include "mysql/harness/net_ts/executor.h"
@@ -45,6 +48,7 @@
 #include "mysql/harness/net_ts/internet.h"
 #include "mysql/harness/net_ts/socket.h"
 #include "mysql/harness/stdx/expected.h"
+#include "mysql/harness/stdx/monitor.h"
 #include "mysqlrouter/classic_protocol_message.h"
 
 namespace server_mock {
@@ -52,7 +56,7 @@ namespace server_mock {
 /** @brief Vector for keeping has_value|string representation of the values
  *         of the single row (ordered by column)
  **/
-using RowValueType = std::vector<stdx::expected<std::string, void>>;
+using RowValueType = std::vector<std::optional<std::string>>;
 
 /** @brief Keeps result data for single SQL statement that returns
  *         resultset.
@@ -84,16 +88,10 @@ class ProtocolBase {
                TlsServerContext &tls_ctx);
 
   ProtocolBase(const ProtocolBase &) = delete;
-  ProtocolBase(ProtocolBase &&) = default;
+  ProtocolBase(ProtocolBase &&) = delete;
 
   ProtocolBase &operator=(const ProtocolBase &) = delete;
-  ProtocolBase &operator=(ProtocolBase &&rhs) {
-    client_socket_ = std::move(rhs.client_socket_);
-    ssl_ = std::move(rhs.ssl_);
-    tls_ctx_ = std::move(rhs.tls_ctx_);
-
-    return *this;
-  }
+  ProtocolBase &operator=(ProtocolBase &&rhs) = delete;
 
   virtual ~ProtocolBase() = default;
 
@@ -145,16 +143,18 @@ class ProtocolBase {
               async_send(std::move(compl_handler));
             });
       } else {
-        net::defer([compl_handler = std::move(init.completion_handler),
+        net::defer(client_socket_.get_executor(),
+                   [compl_handler = std::move(init.completion_handler),
                     ec = write_res.error()]() { compl_handler(ec, {}); });
       }
     } else {
       net::dynamic_buffer(send_buffer_).consume(write_res.value());
 
-      net::defer([compl_handler = std::move(init.completion_handler),
+      net::defer(client_socket_.get_executor(),
+                 [compl_handler = std::move(init.completion_handler),
                   transferred = write_res.value()]() {
-        compl_handler({}, transferred);
-      });
+                   compl_handler({}, transferred);
+                 });
     }
 
     return init.result.get();
@@ -168,6 +168,11 @@ class ProtocolBase {
       net::async_write(client_socket_, net::dynamic_buffer(send_buffer_),
                        std::forward<CompletionToken>(token));
     }
+  }
+
+  // TlsErrc to net::stream_errc if needed.
+  static std::error_code map_tls_error_code(std::error_code ec) {
+    return (ec == TlsErrc::kZeroReturn) ? net::stream_errc::eof : ec;
   }
 
   template <class CompletionToken>
@@ -207,9 +212,11 @@ class ProtocolBase {
       } else {
         // as we can't handle the error, forward the error to the
         // completion handler
-        net::defer(client_socket_.get_executor(),
-                   [compl_handler = std::move(init.completion_handler),
-                    ec = read_ec]() { compl_handler(ec, {}); });
+
+        net::defer(
+            client_socket_.get_executor(),
+            [compl_handler = std::move(init.completion_handler),
+             ec = map_tls_error_code(read_ec)]() { compl_handler(ec, {}); });
       }
     } else {
       // success, forward it to the completion handler
@@ -223,12 +230,24 @@ class ProtocolBase {
 
   template <class CompletionToken>
   void async_receive(CompletionToken &&token) {
-    if (is_tls()) {
-      return async_receive_tls(std::forward<CompletionToken>(token));
-    } else {
-      return net::async_read(client_socket_, net::dynamic_buffer(recv_buffer_),
-                             std::forward<CompletionToken>(token));
-    }
+    is_terminated_([&](const bool killed) {
+      if (killed) {
+        net::async_completion<CompletionToken, void(std::error_code, size_t)>
+            init{token};
+
+        net::defer(client_socket_.get_executor(),
+                   [compl_handler = std::move(init.completion_handler)]() {
+                     compl_handler(
+                         make_error_code(std::errc::operation_canceled), 0);
+                   });
+      } else if (is_tls()) {
+        return async_receive_tls(std::forward<CompletionToken>(token));
+      } else {
+        return net::async_read(client_socket_,
+                               net::dynamic_buffer(recv_buffer_),
+                               std::forward<CompletionToken>(token));
+      }
+    });
   }
 
   template <class CompletionToken>
@@ -307,9 +326,21 @@ class ProtocolBase {
 
   void cancel();
 
+  /**
+   * terminate the current connection.
+   *
+   * sets is_terminated(true) and cancels the current operation.
+   *
+   * may be called from another thread.
+   */
+  void terminate();
+
   net::io_context &io_context() {
     return client_socket_.get_executor().context();
   }
+
+ private:
+  Monitor<bool> is_terminated_{false};
 
  protected:
   socket_type client_socket_;
@@ -336,14 +367,24 @@ class ProtocolBase {
 class StatementReaderBase {
  public:
   struct handshake_data {
-    stdx::expected<ErrorResponse, void> error;
+    std::optional<ErrorResponse> error;
 
-    stdx::expected<std::string, void> username;
-    stdx::expected<std::string, void> password;
+    std::optional<std::string> username;
+    std::optional<std::string> password;
     bool cert_required{false};
-    stdx::expected<std::string, void> cert_subject;
-    stdx::expected<std::string, void> cert_issuer;
+    std::optional<std::string> cert_subject;
+    std::optional<std::string> cert_issuer;
   };
+
+  StatementReaderBase() = default;
+
+  StatementReaderBase(const StatementReaderBase &) = default;
+  StatementReaderBase(StatementReaderBase &&) = default;
+
+  StatementReaderBase &operator=(const StatementReaderBase &) = default;
+  StatementReaderBase &operator=(StatementReaderBase &&) = default;
+
+  virtual ~StatementReaderBase() = default;
 
   /** @brief Returns the data about the next statement from the
    *         json file. If there is no more statements it returns
@@ -369,8 +410,6 @@ class StatementReaderBase {
   virtual std::chrono::microseconds server_greeting_exec_time() = 0;
 
   virtual void set_session_ssl_info(const SSL *ssl) = 0;
-
-  virtual ~StatementReaderBase() = default;
 };
 
 }  // namespace server_mock

@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,15 +39,15 @@ native_thread_t *My_xp_thread_server::get_native_thread() {
   return &m_thread_handle->thread;
 }
 
-int My_xp_thread_server::create(PSI_thread_key key MY_ATTRIBUTE((unused)),
+int My_xp_thread_server::create(PSI_thread_key key [[maybe_unused]],
                                 const native_thread_attr_t *attr,
                                 native_start_routine func, void *arg) {
   return mysql_thread_create(key, m_thread_handle, attr, func, arg);
 }
 
-int My_xp_thread_server::create_detached(
-    PSI_thread_key key MY_ATTRIBUTE((unused)), native_thread_attr_t *attr,
-    native_start_routine func, void *arg) {
+int My_xp_thread_server::create_detached(PSI_thread_key key [[maybe_unused]],
+                                         native_thread_attr_t *attr,
+                                         native_start_routine func, void *arg) {
   native_thread_attr_t my_attr;
   bool using_my_attr = false;
 

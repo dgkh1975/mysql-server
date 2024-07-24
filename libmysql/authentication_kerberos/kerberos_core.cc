@@ -1,15 +1,16 @@
-/* Copyright (c) 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2021, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -282,12 +283,15 @@ CLEANUP:
 */
 bool Kerberos::get_kerberos_config() {
   log_client_dbg("Getting kerberos configuration.");
+#if !defined(_WIN32)
   /*
     Kerberos profile category/sub-category names.
   */
   const char apps_heading[]{"appdefaults"};
   const char mysql_apps[]{"mysql"};
   const char destroy_option[]{"destroy_tickets"};
+#endif
+
   std::stringstream info_stream;
 
   krb5_error_code res_kerberos{0};
@@ -299,6 +303,19 @@ bool Kerberos::get_kerberos_config() {
     goto CLEANUP;
   }
 
+/*
+  profile_get_boolean is not available from xpprof64.dll
+
+  objdump.exe -p .\xpprof64.dll | findstr "profile_get"
+      [   5] profile_get_integer
+      [   6] profile_get_relation_names
+      [   7] profile_get_string
+      [   8] profile_get_subsection_names
+      [   9] profile_get_values
+
+  Hence following code is enabled only on non-Windows platform
+*/
+#if !defined(_WIN32)
   /*
     Get the destroy tickets from MySQL app section.
     If failed to get destroy tickets option, default option value will be false.
@@ -314,6 +331,7 @@ bool Kerberos::get_kerberos_config() {
         "set "
         "to false.");
   }
+#endif /* _WIN32 */
 
 CLEANUP:
   profile_release(profile);
@@ -488,7 +506,7 @@ bool Kerberos::get_upn(std::string *upn) {
 
 CLEANUP:
   if (upn_name) {
-    free(upn_name);
+    krb5_free_unparsed_name(context, upn_name);
   }
   if (principal) {
     krb5_free_principal(context, principal);

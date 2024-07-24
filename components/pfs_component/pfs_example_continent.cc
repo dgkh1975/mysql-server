@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -141,9 +142,11 @@ int continent_index_read(PSI_index_handle *index, PSI_key_reader *reader,
     case 0: {
       Continent_index_by_name *i = (Continent_index_by_name *)index;
       /* Read all keys on index one by one */
-      mysql_service_pfs_plugin_table->read_key_string(reader, &i->m_name,
-                                                      find_flag);
-    } break;
+      pc_string_srv->read_key_string(reader, &i->m_name, find_flag);
+      /* Remember the number of key parts found. */
+      i->m_fields = pt_srv->get_parts_found(reader);
+      break;
+    }
     default:
       assert(0);
       break;
@@ -196,8 +199,8 @@ int continent_read_column_value(PSI_table_handle *handle, PSI_field *field,
 
   switch (index) {
     case 0: /* NAME */
-      mysql_service_pfs_plugin_table->set_field_char_utf8(
-          field, h->current_row.name, h->current_row.name_length);
+      pc_string_srv->set_char_utf8mb4(field, h->current_row.name,
+                                      h->current_row.name_length);
       break;
     default: /* We should never reach here */
       assert(0);
@@ -207,8 +210,8 @@ int continent_read_column_value(PSI_table_handle *handle, PSI_field *field,
   return 0;
 }
 
-/* As this is a readonly table, we can't use continent_write_row_values funcion,
-   so use this function to populate rows from component code.
+/* As this is a read-only table, we can't use continent_write_row_values
+   function, so use this function to populate rows from component code.
 */
 int write_rows_from_component(Continent_Table_Handle *handle) {
   if (!handle) return 1;

@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,6 +40,7 @@
 #include "storage/ndb/plugin/ndb_name_util.h"
 #include "storage/ndb/plugin/ndb_require.h"
 #include "storage/ndb/plugin/ndb_schema_dist_table.h"
+#include "storage/ndb/plugin/ndb_schema_object.h"
 #include "storage/ndb/plugin/ndb_schema_result_table.h"
 #include "storage/ndb/plugin/ndb_share.h"
 #include "storage/ndb/plugin/ndb_thd.h"
@@ -116,6 +118,13 @@ Ndb_schema_dist_client::Ndb_schema_dist_client(THD *thd)
 bool Ndb_schema_dist_client::prepare(const char *db, const char *tabname) {
   DBUG_TRACE;
 
+  // Check local schema distribution state
+  if (!check_local_schema_dist_available()) {
+    push_warning(m_thd, Sql_condition::SL_WARNING, ER_GET_ERRMSG,
+                 "Schema distribution is not ready");
+    return false;
+  }
+
   // Acquire reference on mysql.ndb_schema
   m_share = NDB_SHARE::acquire_reference(
       Ndb_schema_dist_table::DB_NAME.c_str(),
@@ -127,6 +136,19 @@ bool Ndb_schema_dist_client::prepare(const char *db, const char *tabname) {
     // yet -> schema distribution is not ready
     push_warning(m_thd, Sql_condition::SL_WARNING, ER_GET_ERRMSG,
                  "Schema distribution is not ready");
+    return false;
+  }
+
+  // Acquire reference also on mysql.ndb_schema_result
+  m_result_share = NDB_SHARE::acquire_reference(
+      Ndb_schema_result_table::DB_NAME.c_str(),
+      Ndb_schema_result_table::TABLE_NAME.c_str(), m_share_reference.c_str());
+  if (m_result_share == nullptr ||
+      m_result_share->have_event_operation() == false) {
+    // The mysql.ndb_schema_result hasn't been created or not setup yet ->
+    // schema distribution is not ready
+    push_warning(m_thd, Sql_condition::SL_WARNING, ER_GET_ERRMSG,
+                 "Schema distribution is not ready (ndb_schema_result)");
     return false;
   }
 
@@ -241,7 +263,7 @@ bool Ndb_schema_dist_client::check_identifier_limits(
 
   // Check that identifiers does not exceed the limits imposed
   // by the ndb_schema table layout
-  for (auto key : m_prepared_keys.keys()) {
+  for (const auto &key : m_prepared_keys.keys()) {
     // db
     if (!schema_dist_table.check_column_identifier_limit(
             Ndb_schema_dist_table::COL_DB, key.first)) {
@@ -265,7 +287,7 @@ void Ndb_schema_dist_client::Prepared_keys::add_key(const char *db,
 
 bool Ndb_schema_dist_client::Prepared_keys::check_key(
     const char *db, const char *tabname) const {
-  for (auto key : m_keys) {
+  for (const auto &key : m_keys) {
     if (key.first == db && key.second == tabname) {
       return true;  // OK, key has been prepared
     }
@@ -273,20 +295,22 @@ bool Ndb_schema_dist_client::Prepared_keys::check_key(
   return false;
 }
 
-extern void update_slave_api_stats(const Ndb *);
-
 Ndb_schema_dist_client::~Ndb_schema_dist_client() {
   if (m_share) {
     // Release the reference to mysql.ndb_schema table
     NDB_SHARE::release_reference(m_share, m_share_reference.c_str());
   }
+  if (m_result_share) {
+    // Release the reference to mysql.ndb_schema_result table
+    NDB_SHARE::release_reference(m_result_share, m_share_reference.c_str());
+  }
 
-  if (m_thd_ndb && m_thd_ndb->is_slave_thread()) {
-    // Copy-out slave thread statistics
-    // NOTE! This is just a "convenient place" to call this
-    // function, it could be moved to "end of statement"(if there
-    // was such a place..).
-    update_slave_api_stats(m_thd_ndb->ndb);
+  if (m_thd_ndb) {
+    // Inform Applier that one schema distribution has completed
+    Ndb_applier *const applier = m_thd_ndb->get_applier();
+    if (applier) {
+      applier->atSchemaDistCompleted();
+    }
   }
 
   if (m_holding_acl_mutex) {
@@ -321,6 +345,15 @@ uint32 Ndb_schema_dist_client::unique_version() const {
   return ver;
 }
 
+void Ndb_schema_dist_client::save_schema_op_results(
+    const NDB_SCHEMA_OBJECT *ndb_schema_object) {
+  std::vector<NDB_SCHEMA_OBJECT::Result> participant_results;
+  ndb_schema_object->client_get_schema_op_results(participant_results);
+  for (const auto &it : participant_results) {
+    m_schema_op_results.push_back({it.nodeid, it.result, it.message});
+  }
+}
+
 void Ndb_schema_dist_client::push_and_clear_schema_op_results() {
   if (m_schema_op_results.empty()) {
     return;
@@ -328,7 +361,7 @@ void Ndb_schema_dist_client::push_and_clear_schema_op_results() {
 
   // Push results received from participant(s) as warnings. These are meant to
   // indicate that schema distribution has failed on one of the nodes. For more
-  // information on how and why the failure occured, the relevant error log
+  // information on how and why the failure occurred, the relevant error log
   // remains the place to look
   for (const Schema_op_result &op_result : m_schema_op_results) {
     // Warning consists of the node id and message but not result code since
@@ -358,9 +391,9 @@ bool Ndb_schema_dist_client::log_schema_op(const char *query,
     return false;
   }
 
-  // Require that m_share has been initialized to reference the
-  // schema distribution table
+  // Require that references to schema distribution tables has been initialized
   ndbcluster::ndbrequire(m_share);
+  ndbcluster::ndbrequire(m_result_share);
 
   // Check that prepared keys match
   if (!m_prepared_keys.check_key(db, table_name)) {
@@ -735,7 +768,7 @@ const char *Ndb_schema_dist_client::type_name(SCHEMA_OP_TYPE type) {
 
 uint32 Ndb_schema_dist_client::calculate_anyvalue(bool force_nologging) const {
   Uint32 anyValue = 0;
-  if (!thd_slave_thread(m_thd)) {
+  if (!m_thd_ndb->get_applier()) {
     /* Schema change originating from this MySQLD, check SQL_LOG_BIN
      * variable and pass 'setting' to all logging MySQLDs via AnyValue
      */
@@ -773,7 +806,7 @@ uint32 Ndb_schema_dist_client::calculate_anyvalue(bool force_nologging) const {
     This tests code filtering ServerIds on the value of server-id-bits.
   */
   const char *p = getenv("NDB_TEST_ANYVALUE_USERDATA");
-  if (p != 0 && *p != 0 && *p != '0' && *p != 'n' && *p != 'N') {
+  if (p != nullptr && *p != 0 && *p != '0' && *p != 'n' && *p != 'N') {
     dbug_ndbcluster_anyvalue_set_userbits(anyValue);
   }
 #endif

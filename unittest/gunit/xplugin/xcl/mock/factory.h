@@ -1,16 +1,17 @@
 /*
- * Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+ * Copyright (c) 2017, 2024, Oracle and/or its affiliates.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2.0,
  * as published by the Free Software Foundation.
  *
- * This program is also distributed with certain software (including
+ * This program is designed to work with certain software (including
  * but not limited to OpenSSL) that is licensed under separate terms,
  * as designated in a particular file or component or in included license
  * documentation.  The authors of MySQL hereby grant you an additional
  * permission to link the program and your derivative works with the
- * separately licensed software that they have included with MySQL.
+ * separately licensed software that they have either included with
+ * the program or referenced in the documentation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,18 +40,18 @@ class Protocol_factory : public xcl::Protocol_factory {
   Protocol_factory();
   virtual ~Protocol_factory() override;
 
-  MOCK_METHOD(XProtocol *, create_protocol_raw,
+  MOCK_METHOD(xcl::XProtocol *, create_protocol_raw,
               (std::shared_ptr<Context> context));
-  MOCK_METHOD(XConnection *, create_connection_raw,
+  MOCK_METHOD(xcl::XConnection *, create_connection_raw,
               (std::shared_ptr<Context> context));
-  MOCK_METHOD(XQuery_result *, create_result_raw,
+  MOCK_METHOD(xcl::XQuery_result *, create_result_raw,
               (std::shared_ptr<XProtocol>, Query_instances *,
                std::shared_ptr<Context>));
 
  private:
-  std::shared_ptr<XProtocol> create_protocol(
+  std::shared_ptr<xcl::XProtocol> create_protocol(
       std::shared_ptr<Context> context) override {
-    std::shared_ptr<XProtocol> result{create_protocol_raw(context)};
+    std::shared_ptr<xcl::XProtocol> result{create_protocol_raw(context)};
 
     return result;
   }
@@ -63,7 +64,8 @@ class Protocol_factory : public xcl::Protocol_factory {
   }
 
   std::unique_ptr<xcl::XQuery_result> create_result(
-      std::shared_ptr<XProtocol> protocol, Query_instances *query_instances,
+      std::shared_ptr<xcl::XProtocol> protocol,
+      Query_instances *query_instances,
       std::shared_ptr<Context> context) override {
     std::unique_ptr<xcl::XQuery_result> result{
         create_result_raw(protocol, query_instances, context)};

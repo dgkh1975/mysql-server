@@ -1,15 +1,16 @@
-/* Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -148,10 +149,8 @@ int ToDescr(size_t hi) { return hi + MY_FILE_MIN; }
 bool IsValidIndex(size_t hi) {
   const HandleInfoVector &hiv = *hivp;
   mysql_mutex_assert_owner(&THR_LOCK_open);
-  return (hi >= 0 && hi < hiv.size());
+  return (hi < hiv.size());
 }
-
-bool IsValidDescr(File fd) { return IsValidIndex(ToIndex(fd)); }
 
 HandleInfo GetHandleInfo(File fd) {
   HandleInfoVector &hiv = *hivp;
@@ -207,7 +206,7 @@ LARGE_INTEGER MakeLargeInteger(int64_t src) {
   return li;
 }
 
-OVERLAPPED MakeOverlapped(DWORD l, DWORD h) { return {0, 0, {l, h}, 0}; }
+OVERLAPPED MakeOverlapped(DWORD l, DWORD h) { return {0, 0, {{l, h}}, 0}; }
 
 OVERLAPPED MakeOverlapped(int64_t src) {
   LARGE_INTEGER li = MakeLargeInteger(src);
@@ -856,7 +855,7 @@ int my_win_stat(const char *path, struct _stati64 *buf) {
   if (!GetFileAttributesEx(path, GetFileExInfoStandard, &data)) return -1;
 
   buf->st_size =
-      LARGE_INTEGER{data.nFileSizeLow, (LONG)data.nFileSizeHigh}.QuadPart;
+      LARGE_INTEGER{{data.nFileSizeLow, (LONG)data.nFileSizeHigh}}.QuadPart;
 
   return 0;
 }

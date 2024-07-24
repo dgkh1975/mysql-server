@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -131,11 +132,13 @@ NDB_SCHEMA_OBJECT::NDB_SCHEMA_OBJECT(const char *key, const char *db,
       m_started(std::chrono::steady_clock::now()) {}
 
 NDB_SCHEMA_OBJECT::~NDB_SCHEMA_OBJECT() {
+  assert(state.dbug_lock());
   assert(state.m_use_count == 0);
   // Check that all participants have completed
   assert(state.m_participants.size() == count_completed_participants());
   // Coordinator should have completed
   assert(state.m_coordinator_completed);
+  assert(state.dbug_unlock());
 }
 
 NDB_SCHEMA_OBJECT *NDB_SCHEMA_OBJECT::get(const char *db,
@@ -289,9 +292,22 @@ size_t NDB_SCHEMA_OBJECT::count_completed_participants() const {
   return count;
 }
 
-void NDB_SCHEMA_OBJECT::register_participants(
-    const std::unordered_set<uint32> &nodes) const {
+bool NDB_SCHEMA_OBJECT::register_participants(
+    const std::unordered_set<uint32> &nodes) {
   std::lock_guard<std::mutex> lock_state(state.m_lock);
+
+  if (state.m_participants.size()) {
+    // There are already participants registered, this means that the client has
+    // failed the schema operation (most likley due to timeout).
+    // As part of failing it has inserted one participant where it's assigned
+    // result + error message.
+    ndbcluster::ndbrequire(
+        state.m_participants.size() == 1 &&
+        state.m_participants.count(active_schema_clients.m_own_nodeid) == 1 &&
+        state.m_coordinator_completed);
+
+    return false;
+  }
 
   // Assume the list of participants is empty
   ndbcluster::ndbrequire(state.m_participants.size() == 0);
@@ -303,6 +319,8 @@ void NDB_SCHEMA_OBJECT::register_participants(
 
   // Double check that there are as many participants as nodes
   ndbcluster::ndbrequire(nodes.size() == state.m_participants.size());
+
+  return true;
 }
 
 bool NDB_SCHEMA_OBJECT::result_received_from_node(
@@ -320,9 +338,11 @@ bool NDB_SCHEMA_OBJECT::result_received_from_node(
 
   // Mark participant as completed and save result
   State::Participant &participant = it->second;
-  participant.m_completed = true;
-  participant.m_result = result;
-  participant.m_message = message;
+  if (!participant.m_completed) {
+    participant.m_completed = true;
+    participant.m_result = result;
+    participant.m_message = message;
+  }
   return true;
 }
 
@@ -392,13 +412,30 @@ bool NDB_SCHEMA_OBJECT::check_for_failed_subscribers(
   return true;
 }
 
-bool NDB_SCHEMA_OBJECT::check_timeout(int timeout_seconds, uint32 result,
+bool NDB_SCHEMA_OBJECT::check_timeout(bool is_client, int timeout_seconds,
+                                      uint32 result,
                                       const char *message) const {
   std::unique_lock<std::mutex> lock_state(state.m_lock);
 
+  if (is_client && state.m_participants.size()) {
+    // The client is checking for timeout but participants have been registered,
+    // this means that coordinator has taken over timeout checking
+    return false;
+  }
+
   if (m_started + std::chrono::seconds(timeout_seconds) >
       std::chrono::steady_clock::now())
-    return false;  // Timeout has not occured
+    return false;  // Timeout has not occurred
+
+  if (is_client) {
+    // Timeout has expired, since this is the client no participants are
+    // registered as the coordinator haven't yet got the first schema event,
+    // add own node as participant
+    state.m_participants[active_schema_clients.m_own_nodeid];
+
+    // Mark coordinator as completed
+    state.m_coordinator_completed = true;
+  }
 
   // Mark all participants who hasn't already completed as timedout
   for (auto &it : state.m_participants) {
@@ -439,7 +476,7 @@ void NDB_SCHEMA_OBJECT::fail_schema_op(uint32 result,
   // All participant should now have been marked as completed
   ndbcluster::ndbrequire(state.m_participants.size() ==
                          count_completed_participants());
-  // Mark als coordinator as completed
+  // Mark also coordinator as completed
   state.m_coordinator_completed = true;
 }
 

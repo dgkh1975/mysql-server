@@ -3,9 +3,8 @@ var common_stmts = require("common_statements");
 var options = {
   metadata_schema_version: [1, 0, 2],
   cluster_type: "gr",
+  gr_id: mysqld.global.gr_id,
   innodb_cluster_name: "mycluster",
-  innodb_cluster_instances:
-      [["localhost", 5500], ["localhost", 5510], ["localhost", 5520]],
 };
 
 var common_responses = common_stmts.prepare_statement_responses(
@@ -23,7 +22,7 @@ var common_responses = common_stmts.prepare_statement_responses(
       "router_commit",
 
       // account verification
-      "router_select_metadata",
+      "router_select_metadata_account_verification",
       "router_select_group_replication_primary_member",
       "router_select_group_membership_with_primary_mode",
     ],
@@ -36,6 +35,7 @@ var common_responses_regex = common_stmts.prepare_statement_responses_regex(
       "router_select_hosts_v1",
       "router_select_hosts_join_routers_v1",
       "router_create_user_if_not_exists",
+      "router_check_auth_plugin",
       "router_grant_on_metadata_db",
       "router_grant_on_pfs_db",
       "router_grant_on_routers",

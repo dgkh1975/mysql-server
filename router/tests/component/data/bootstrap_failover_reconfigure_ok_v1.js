@@ -6,11 +6,10 @@ var gr_members = gr_memberships.members(mysqld.global.gr_members);
 
 var options = {
   metadata_schema_version: [1, 0, 2],
+  gr_id: mysqld.global.gr_id,
   innodb_cluster_name: mysqld.global.cluster_name,
   replication_group_members: gr_members,
-
-  innodb_cluster_instances:
-      [["127.0.0.1", 13001], ["127.0.0.1", 13002], ["127.0.0.1", 13003]],
+  innodb_cluster_instances: gr_members,
   innodb_cluster_hosts: [[8, "dont.query.dns", null]],
 };
 
@@ -31,6 +30,7 @@ var common_responses_regex = common_stmts.prepare_statement_responses_regex(
       "router_select_hosts_v1",
       "router_select_hosts_join_routers_v1",
       "router_create_user_if_not_exists",
+      "router_check_auth_plugin",
       "router_grant_on_metadata_db",
       "router_grant_on_pfs_db",
       "router_grant_on_routers",

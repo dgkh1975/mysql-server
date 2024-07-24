@@ -1,18 +1,19 @@
 #ifndef MY_COMPILER_INCLUDED
 #define MY_COMPILER_INCLUDED
 
-/* Copyright (c) 2010, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2010, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -41,9 +42,9 @@
 
 /*
   The macros below are borrowed from include/linux/compiler.h in the
-  Linux kernel. Use them to indicate the likelyhood of the truthfulness
+  Linux kernel. Use them to indicate the likelihood of the truthfulness
   of a condition. This serves two purposes - newer versions of gcc will be
-  able to optimize for branch predication, which could yield siginficant
+  able to optimize for branch predication, which could yield significant
   performance gains in frequently executed sections of the code, and the
   other reason to use them is for documentation
 */
@@ -51,8 +52,8 @@
 
 // likely/unlikely are likely to clash with other symbols, do not #define
 #if defined(__cplusplus)
-inline bool likely(bool expr) { return __builtin_expect(expr, true); }
-inline bool unlikely(bool expr) { return __builtin_expect(expr, false); }
+constexpr bool likely(bool expr) { return __builtin_expect(expr, true); }
+constexpr bool unlikely(bool expr) { return __builtin_expect(expr, false); }
 #else
 #define likely(x) __builtin_expect((x), 1)
 #define unlikely(x) __builtin_expect((x), 0)
@@ -61,8 +62,8 @@ inline bool unlikely(bool expr) { return __builtin_expect(expr, false); }
 #else /* HAVE_BUILTIN_EXPECT */
 
 #if defined(__cplusplus)
-inline bool likely(bool expr) { return expr; }
-inline bool unlikely(bool expr) { return expr; }
+constexpr bool likely(bool expr) { return expr; }
+constexpr bool unlikely(bool expr) { return expr; }
 #else
 #define likely(x) (x)
 #define unlikely(x) (x)
@@ -70,7 +71,7 @@ inline bool unlikely(bool expr) { return expr; }
 
 #endif /* HAVE_BUILTIN_EXPECT */
 
-/* Comunicate to the compiler the unreachability of the code. */
+/* Communicate to the compiler the unreachability of the code. */
 #ifdef HAVE_BUILTIN_UNREACHABLE
 #define MY_ASSERT_UNREACHABLE() __builtin_unreachable()
 #else

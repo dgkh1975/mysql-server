@@ -1,15 +1,16 @@
-/* Copyright (c) 2002, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2002, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,12 +34,12 @@
 
 NAMED_ILIST key_caches;
 
-static uchar *find_named(I_List<NAMED_ILINK> *list, const char *name,
-                         size_t length, NAMED_ILINK **found) {
+static uchar *find_named(I_List<NAMED_ILINK> *list, std::string_view name,
+                         NAMED_ILINK **found) {
   I_List_iterator<NAMED_ILINK> it(*list);
   NAMED_ILINK *element;
   while ((element = it++)) {
-    if (element->cmp(name, length)) {
+    if (element->cmp(name.data(), name.size())) {
       if (found) *found = element;
       return element->data;
     }
@@ -59,26 +60,29 @@ void NAMED_ILIST::delete_elements() {
 
 /* Key cache functions */
 
-LEX_CSTRING default_key_cache_base = {STRING_WITH_LEN("default")};
+const LEX_CSTRING default_key_cache_base = {STRING_WITH_LEN("default")};
 
 KEY_CACHE
 zero_key_cache;  ///< @@nonexistent_cache.param->value_ptr() points here
 
-KEY_CACHE *get_key_cache(const LEX_CSTRING *cache_name) {
-  if (!cache_name || !cache_name->length) cache_name = &default_key_cache_base;
-  return ((KEY_CACHE *)find_named(&key_caches, cache_name->str,
-                                  cache_name->length, nullptr));
+KEY_CACHE *get_key_cache(std::string_view cache_name) {
+  std::string_view name = cache_name.empty()
+                              ? std::string_view{default_key_cache_base.str,
+                                                 default_key_cache_base.length}
+                              : cache_name;
+  return pointer_cast<KEY_CACHE *>(find_named(&key_caches, name, nullptr));
 }
 
-KEY_CACHE *create_key_cache(const char *name, size_t length) {
+KEY_CACHE *create_key_cache(std::string_view name) {
   KEY_CACHE *key_cache;
   DBUG_TRACE;
-  DBUG_PRINT("enter", ("name: %.*s", static_cast<int>(length), name));
+  DBUG_PRINT("enter",
+             ("name: %.*s", static_cast<int>(name.size()), name.data()));
 
   if ((key_cache =
            (KEY_CACHE *)my_malloc(key_memory_KEY_CACHE, sizeof(KEY_CACHE),
                                   MYF(MY_ZEROFILL | MY_WME)))) {
-    if (!new NAMED_ILINK(&key_caches, name, length, (uchar *)key_cache)) {
+    if (!new NAMED_ILINK(&key_caches, name, (uchar *)key_cache)) {
       my_free(key_cache);
       key_cache = nullptr;
     } else {
@@ -96,14 +100,10 @@ KEY_CACHE *create_key_cache(const char *name, size_t length) {
   return key_cache;
 }
 
-KEY_CACHE *get_or_create_key_cache(const char *name, size_t length) {
-  LEX_CSTRING key_cache_name;
+KEY_CACHE *get_or_create_key_cache(std::string_view name) {
   KEY_CACHE *key_cache;
 
-  key_cache_name.str = name;
-  key_cache_name.length = length;
-  if (!(key_cache = get_key_cache(&key_cache_name)))
-    key_cache = create_key_cache(name, length);
+  if (!(key_cache = get_key_cache(name))) key_cache = create_key_cache(name);
   return key_cache;
 }
 

@@ -1,3 +1,9 @@
+Warnings:
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
+Warnings:
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
+Warnings:
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.
 drop table if exists t1;
 set names cp932;
 set character_set_database = cp932;
@@ -57,6 +63,8 @@ SELECT hex(a), hex(lower(a)), hex(upper(a)) FROM t1 ORDER BY binary(a);
 hex(a)	hex(lower(a))	hex(upper(a))
 8352835E	8352835E	8352835E
 8372835E	8372835E	8372835E
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1;
 End of 5.1 tests
 #
@@ -19502,6 +19510,8 @@ EFBFA2	81CA
 EFBFA3	8150
 EFBFA4	FA55
 EFBFA5	818F
+Warnings:
+Warning	1287	'BINARY expr' is deprecated and will be removed in a future release. Please use CAST instead
 DROP TABLE t1;
 #
 # End of 5.5 tests
@@ -19841,3 +19851,5 @@ hex(weight_string(cast(0x814081408140 as char),25, 4, 0xC0))
 #
 # End of 5.6 tests
 #
+Warnings:
+Warning	1287	'@@binlog_format' is deprecated and will be removed in a future release.

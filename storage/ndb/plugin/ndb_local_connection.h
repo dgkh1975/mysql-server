@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,8 +26,10 @@
 #ifndef NDB_LOCAL_CONNECTION_H
 #define NDB_LOCAL_CONNECTION_H
 
+#include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "my_inttypes.h"
 
@@ -57,11 +60,25 @@ class Ndb_local_connection {
   */
   void set_binlog_options(bool log_replica_updates, unsigned int op_anyvalue);
 
+  /* Public bool methods return true on unexpected error;
+     false on success or expected error.
+  */
   bool truncate_table(const std::string &db, const std::string &table,
                       bool ignore_no_such_table);
 
   bool delete_rows(const std::string &db, const std::string &table,
                    bool ignore_no_such_table, const std::string &where);
+
+  bool get_affected_rows(ulong &rows);
+
+  // Run the given SQL query and return a list of first column from all rows
+  bool select_column(const std::string &query,
+                     std::vector<std::string> &values);
+  // Run the given query and return a list of first column from rows where the
+  // first column match the filter
+  bool select_column_matching_filter(
+      const std::string &query, std::vector<std::string> &values,
+      std::function<bool(std::string_view)> filter);
 
   bool create_util_table(const std::string &table_def_sql);
 
@@ -73,11 +90,17 @@ class Ndb_local_connection {
 
   bool run_acl_statement(const std::string &acl_sql);
 
+  /* try_create_user() returns false only if the operation actually succeeds. */
+  bool try_create_user(const std::string &acl_sql);
+
  protected:
   bool execute_query_iso(const std::string &sql_query,
                          const uint *ignore_mysql_errors);
   bool execute_query(const std::string &sql_query,
                      const uint *ignore_mysql_errors);
+  uint execute_query(const std::string &sql_query);
+  bool check_query_error(const std::string &sql_query, uint result,
+                         const uint *ignore_mysql_errors);
 
   class Ed_result_set *get_results();
 

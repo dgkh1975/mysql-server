@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 1996, 2021, Oracle and/or its affiliates.
+Copyright (c) 1996, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -69,6 +70,7 @@ static inline void dict_mem_fill_index_struct(
 #endif /* !UNIV_HOTBACKUP */
   index->table_name = table_name;
   index->n_fields = (unsigned int)n_fields;
+  index->n_total_fields = (unsigned int)n_fields;
   /* The '1 +' above prevents allocation
   of an empty mem block */
   index->allow_duplicates = false;
@@ -85,8 +87,16 @@ static inline void dict_mem_fill_index_struct(
 #endif /* UNIV_DEBUG */
 }
 
-/** Returns the number of fields before first instant ADD COLUMN */
+/** Returns the number of fields before first instant ADD COLUMN. It includes
+dropped fields also (if any) */
 inline uint32_t dict_index_t::get_instant_fields() const {
   ut_ad(has_instant_cols());
-  return (n_fields - (table->n_cols - table->n_instant_cols));
+
+  size_t n_inst_cols_v1 = table->get_n_instant_added_col_v1();
+  size_t n_drop_cols = table->get_n_instant_drop_cols();
+  size_t n_add_cols = table->get_n_instant_add_cols();
+  size_t n_instant_fields =
+      n_fields + n_drop_cols - n_add_cols - n_inst_cols_v1;
+
+  return n_instant_fields;
 }

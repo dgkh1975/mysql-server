@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,19 +31,16 @@
 #include <fstream>
 #include <string>
 
-#include <gmock/gmock.h>
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #ifdef RAPIDJSON_NO_SIZETYPEDEFINE
-// if we build within the server, it will set RAPIDJSON_NO_SIZETYPEDEFINE
-// globally and require to include my_rapidjson_size_t.h
 #include "my_rapidjson_size_t.h"
 #endif
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
 
 #include "dim.h"
-#include "filesystem_utils.h"
 #include "harness_assert.h"
 #include "keyring/keyring_manager.h"
 #include "mock_server_rest_client.h"
@@ -55,9 +53,9 @@
 #include "random_generator.h"
 #include "rest_api_testutils.h"
 #include "router_component_test.h"
+#include "router_test_helpers.h"  // get_file_output
 #include "script_generator.h"
 #include "socket_operations.h"
-#include "utils.h"
 
 /**
  * @file
@@ -308,12 +306,12 @@ class AccountReuseTestBase : public RouterComponentBootstrapTest {
   }
 
   // ---- account validation queries ----
-  static std::string sql_val1(const std::string &cluster_name = "test") {
-    return "select I.mysql_server_uuid, I.endpoint, I.xendpoint, I.attributes "
+  static std::string sql_val1() {
+    return "select C.cluster_id, C.cluster_name, I.mysql_server_uuid, "
+           "I.endpoint, I.xendpoint, I.attributes "
            "from mysql_innodb_cluster_metadata.v2_instances I join "
            "mysql_innodb_cluster_metadata.v2_gr_clusters C on I.cluster_id = "
-           "C.cluster_id where C.cluster_name = '" +
-           cluster_name + "'";
+           "C.cluster_id where C.cluster_name = 'some_cluster_name'";
   }
   static std::string sql_val2() {
     return "show status like 'group_replication_primary_member'";
@@ -372,12 +370,12 @@ class AccountReuseTestBase : public RouterComponentBootstrapTest {
       const std::set<std::string> &hostnames_existing =
           {},  // must be empty if if_not_exists == false
       bool if_not_exists = true,
-      const std::string &password_hash = kAccountUserPasswordHash) {
+      const std::string &password = kAccountUserPassword) {
     CustomResponses cr;
 
     // CREATE USER [IF NOT EXISTS]
     const std::string account_auth_list =
-        make_account_auth_list(username, hostnames_requested, password_hash);
+        make_account_auth_list(username, hostnames_requested, password);
     std::set<std::string> hostnames_new;
     if (hostnames_existing.empty()) {
       cr.add(sql_create_user(account_auth_list, if_not_exists));
@@ -451,19 +449,6 @@ class AccountReuseTestBase : public RouterComponentBootstrapTest {
     };
   }
 
-  void add_login_hook(ProcessWrapper &router,
-                      const std::string &account_password,
-                      const std::string &username = kAccountUser,
-                      bool root_password_on_cmdline = false) {
-    router.register_response(
-        "Please enter MySQL password for " + username + ": ",
-        account_password + "\n");
-
-    if (root_password_on_cmdline == false)
-      router.register_response("Please enter MySQL password for root: ",
-                               "fake-root-pass\n");
-  }
-
   ////////////////////////////////////////////////////////////////////////////////
   // other functions
   ////////////////////////////////////////////////////////////////////////////////
@@ -481,17 +466,29 @@ class AccountReuseTestBase : public RouterComponentBootstrapTest {
   ProcessWrapper &launch_bootstrap(int exp_exit_code, uint16_t server_port,
                                    const std::string &bootstrap_directory,
                                    const std::vector<std::string> &extra_args,
+                                   const std::string &account_password,
+                                   const std::string &username = kAccountUser,
                                    bool root_password_on_cmdline = false) {
     std::vector<std::string> args = {
         "--bootstrap",
         "root"s + (root_password_on_cmdline ? ":root_password" : "") +
             "@127.0.0.1:" + std::to_string(server_port),
-        "--report-host",
-        my_hostname,
-        "-d",
-        bootstrap_directory};
+        "-d", bootstrap_directory};
     for (const std::string &a : extra_args) args.push_back(a);
-    return launch_router_for_bootstrap(args, exp_exit_code);
+
+    ProcessWrapper::OutputResponder output_responder{
+        [=](const std::string &line) -> std::string {
+          if (line == "Please enter MySQL password for " + username + ": ")
+            return account_password + "\n";
+
+          if (!root_password_on_cmdline &&
+              line == "Please enter MySQL password for root: ")
+            return "fake-root-pass\n";
+          return "";
+        }};
+
+    return launch_router_for_bootstrap(args, exp_exit_code, true, true, true,
+                                       output_responder);
   }
 
   static std::string get_local_hostname() {
@@ -528,7 +525,7 @@ class AccountReuseTestBase : public RouterComponentBootstrapTest {
       std::memcpy(ep.data(), ai->ai_addr, ai->ai_addrlen);
       ep.resize(ai->ai_addrlen);
 
-      // get an IPv4 address that is not refering to 127.0.0.1.
+      // get an IPv4 address that is not referring to 127.0.0.1.
       //
       // it may refer to another address on the loopback interface though like
       // 127.0.1.1
@@ -651,10 +648,10 @@ class AccountReuseTestBase : public RouterComponentBootstrapTest {
     // expected account name
     if (expect_exists) {
       ASSERT_TRUE(config_file.exists());
-      EXPECT_TRUE(
-          find_in_file(config_file.str(), [&](const std::string &line) -> bool {
-            return line.find("user=" + username) != line.npos;
-          }));
+      auto file_content = get_file_output(config_file.str());
+      auto lines = mysql_harness::split_string(file_content, '\n');
+      EXPECT_THAT(
+          lines, ::testing::Contains(::testing::HasSubstr("user=" + username)));
     } else {
       EXPECT_FALSE(config_file.exists());
     }
@@ -699,7 +696,7 @@ class AccountReuseTestBase : public RouterComponentBootstrapTest {
     auto expect_stmt = [&](const std::string &query, bool expected) {
       // we search for substring matches - this is more useful than searching
       // for an exact string when trying to prove a particular (class of)
-      // statments did or did not execute.  You can always make the substring
+      // statements did or did not execute.  You can always make the substring
       // as specific as you'd like (the whole query string) to get the exact
       // match behaviour.
       ASSERT_TRUE(sql_log.IsObject());
@@ -780,14 +777,11 @@ class AccountReuseTestBase : public RouterComponentBootstrapTest {
 
   static std::string make_account_auth_list(
       const std::string &username, const std::set<std::string> &hostnames,
-      const std::string &password_hash = kAccountUserPasswordHash) {
+      const std::string &password = kAccountUserPassword) {
     return make_list(hostnames,
                      [&](const std::string &h) {
-                       return "'" + username + "'@'" + h +
-                              "'"
-                              " IDENTIFIED WITH mysql_native_password"
-                              " AS '" +
-                              password_hash + "'";
+                       return "'" + username + "'@'" + h + "' IDENTIFIED BY '" +
+                              password + "'";
                      }
 
     );
@@ -837,7 +831,7 @@ class AccountReuseTestBase : public RouterComponentBootstrapTest {
         "FATAL ERROR ENCOUNTERED, attempting to undo new accounts that were created",
 
         "ERROR: As part of cleanup after bootstrap failure, we tried to erase account(s)",
-        "that we created.  Unfortuantely the cleanup failed with error:",
+        "that we created.  Unfortunately the cleanup failed with error:",
         "  Error executing MySQL query \"DROP USER IF EXISTS " + new_account_list + "\": " + du_err_msg + " (" + std::to_string(du_err_code) + ")",
         "You may want to clean up the accounts yourself, here is the full list of",
         "accounts that were created:",
@@ -912,10 +906,8 @@ class AccountReuseTestBase : public RouterComponentBootstrapTest {
 
   static const std::string kAccountUser;  // passed by --account
   static const std::string kAccountUserPassword;
-  static const std::string kAccountUserPasswordHash;
   static const std::string kAutoGenUser;  // autogenerated without --account
   static const std::string kAutoGenUserPassword;
-  static const std::string kAutoGenUserPasswordHash;
 
   static const std::string kHostC_inDB;
   static const std::string kHostD_inDB;
@@ -952,10 +944,6 @@ class AccountReuseTestBase : public RouterComponentBootstrapTest {
     "fake-account-pass";
 /*static*/ const std::string AccountReuseTestBase::kAutoGenUserPassword =
     "fake-autogen-pass";
-/*static*/ const std::string AccountReuseTestBase::kAccountUserPasswordHash =
-    "*FF1D4A27A543DD464A5FFA210278E604979F781B";
-/*static*/ const std::string AccountReuseTestBase::kAutoGenUserPasswordHash =
-    "*4F7873C0ABA52D7BB5E1AE9271F636B2C48174E4";
 /*static*/ const std::string AccountReuseTestBase::kUserExistsCode =
     std::to_string(ER_USER_ALREADY_EXISTS);  // "3163"
 
@@ -979,7 +967,7 @@ TEST_F(AccountReuseBadCmdlineTest, account_without_bootstrap_switch) {
       launch_router_for_bootstrap({"--account", "account1"}, EXIT_FAILURE);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(
       router.get_full_output(),
       ::testing::HasSubstr(
@@ -999,7 +987,7 @@ TEST_F(AccountReuseBadCmdlineTest, account_argument_missing) {
       launch_router_for_bootstrap({"-B=0", "--account"}, EXIT_FAILURE);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(
       router.get_full_output(),
       ::testing::HasSubstr("option '--account' expects a value, got nothing"));
@@ -1017,7 +1005,7 @@ TEST_F(AccountReuseBadCmdlineTest, account_argument_empty) {
       launch_router_for_bootstrap({"-B=0", "--account", ""}, EXIT_FAILURE);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(router.get_full_output(),
               ::testing::HasSubstr(
                   "Error: Value for --account option cannot be empty"));
@@ -1034,7 +1022,7 @@ TEST_F(AccountReuseBadCmdlineTest, account_given_twice) {
       {"-B=0", "--account", "user1", "--account", "user2"}, EXIT_FAILURE);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(router.get_full_output(),
               ::testing::HasSubstr(" Option --account can only be given once"));
   check_exit_code(router, EXIT_FAILURE);
@@ -1053,7 +1041,7 @@ TEST_F(AccountReuseBadCmdlineTest, account_create_without_account_switch) {
       {"-B=0", "--account-create", "never"}, EXIT_FAILURE);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(
       router.get_full_output(),
       ::testing::HasSubstr(
@@ -1074,7 +1062,7 @@ TEST_F(AccountReuseBadCmdlineTest, account_create_argument_missing) {
       launch_router_for_bootstrap({"-B=0", "--account-create"}, EXIT_FAILURE);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(router.get_full_output(),
               ::testing::HasSubstr(
                   "option '--account-create' expects a value, got nothing"));
@@ -1094,7 +1082,7 @@ TEST_F(AccountReuseBadCmdlineTest, account_create_illegal_value) {
       {"-B=0", "--account", "user1", "--account-create", "bla"}, EXIT_FAILURE);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(
       router.get_full_output(),
       ::testing::HasSubstr("Invalid value for --account-create option.  Valid "
@@ -1114,7 +1102,7 @@ TEST_F(AccountReuseBadCmdlineTest, account_create_given_twice) {
       EXIT_FAILURE);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(
       router.get_full_output(),
       ::testing::HasSubstr("Option --account-create can only be given once"));
@@ -1138,7 +1126,7 @@ TEST_F(AccountReuseBadCmdlineTest, account_create_never_and_account_host) {
       EXIT_FAILURE);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(
       router.get_full_output(),
       ::testing::HasSubstr("Option '--account-create never' cannot be used "
@@ -1157,7 +1145,7 @@ TEST_F(AccountReuseBadCmdlineTest, strict_without_bootstrap_switch) {
   auto &router = launch_router_for_bootstrap({"--strict"}, EXIT_FAILURE);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(
       router.get_full_output(),
       ::testing::HasSubstr(
@@ -1197,7 +1185,6 @@ TEST_F(AccountReuseTest, simple) {
   const std::string exp_output = kBootstrapSuccessMsg;
   const std::string exp_username = "mysql_router1_" /* random suffix follows*/;
   const std::string exp_password = kAutoGenUserPassword;
-  const std::string exp_password_hash = kAutoGenUserPasswordHash;
   const std::set<std::string> exp_attempt_create_hosts = {"%"};
   std::vector<std::string> exp_sql = {"CREATE USER IF NOT EXISTS",
                                       "GRANT SELECT ON "};
@@ -1210,9 +1197,9 @@ TEST_F(AccountReuseTest, simple) {
   launch_mock_server(server_port, server_http_port);
 
   // run bootstrap
-  ProcessWrapper &router = launch_bootstrap(exp_exit_code, server_port,
-                                            bootstrap_directory.name(), args);
-  add_login_hook(router, exp_password, exp_username);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       args, exp_password, exp_username);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -1256,11 +1243,9 @@ TEST_F(AccountReuseTest, no_host_patterns) {
     set_mock_server_sql_statements(server_http_port, cr.stmts);
 
     // run bootstrap
-    ProcessWrapper &router =
-        launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
-                         args, root_password_on_cmdline);
-    add_login_hook(router, exp_password, exp_username,
-                   root_password_on_cmdline);
+    ProcessWrapper &router = launch_bootstrap(
+        exp_exit_code, server_port, bootstrap_directory.name(), args,
+        exp_password, exp_username, root_password_on_cmdline);
 
     // check outcome
     ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -1315,11 +1300,9 @@ TEST_F(AccountReuseTest, multiple_host_patterns) {
     set_mock_server_sql_statements(server_http_port, cr.stmts);
 
     // run bootstrap
-    ProcessWrapper &router =
-        launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
-                         args, root_password_on_cmdline);
-    add_login_hook(router, exp_password, exp_username,
-                   root_password_on_cmdline);
+    ProcessWrapper &router = launch_bootstrap(
+        exp_exit_code, server_port, bootstrap_directory.name(), args,
+        exp_password, exp_username, root_password_on_cmdline);
 
     // check outcome
     ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -1372,9 +1355,6 @@ class AccountReuseCreateComboTestP
 
     const std::string HOST = get_local_hostname();
     const auto local_ipv4_res = get_local_ipv4(HOST);
-    EXPECT_TRUE(local_ipv4_res)
-        << "for host " << HOST << ": " << local_ipv4_res.error() << " "
-        << local_ipv4_res.error().message();
     const std::string IP = local_ipv4_res.value_or("");
 
     const std::string kColonUser = kAccountUser + ":" + kAccountUserPassword;
@@ -1867,9 +1847,9 @@ TEST_P(AccountReuseCreateComboTestP, config_does_not_exist_yet) {
 
   // run bootstrap
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(
-      exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-  add_login_hook(router, password, username);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       extra_args, password, username);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -1902,7 +1882,7 @@ class AccountReuseReconfigurationTest : public AccountReuseTestBase {};
  * cmdline
  * - verify expected password prompts are presented
  *
- * WL13177:TS_FR01_01 (root passowrd given on commandline)
+ * WL13177:TS_FR01_01 (root password given on commandline)
  * WL13177:TS_FR01_03 (root password should be asked via prompt)
  */
 TEST_F(AccountReuseReconfigurationTest, user_exists_then_account) {
@@ -1935,11 +1915,9 @@ TEST_F(AccountReuseReconfigurationTest, user_exists_then_account) {
     set_mock_server_sql_statements(server_http_port, cr.stmts);
 
     // run bootstrap
-    ProcessWrapper &router =
-        launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
-                         args, root_password_on_cmdline);
-    add_login_hook(router, exp_password, exp_username,
-                   root_password_on_cmdline);
+    ProcessWrapper &router = launch_bootstrap(
+        exp_exit_code, server_port, bootstrap_directory.name(), args,
+        exp_password, exp_username, root_password_on_cmdline);
 
     // check outcome
     ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -2005,11 +1983,9 @@ TEST_F(AccountReuseReconfigurationTest,
                                    cr1.stmts + "," + cr2.stmts);
 
     // run bootstrap
-    ProcessWrapper &router =
-        launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
-                         args, root_password_on_cmdline);
-    add_login_hook(router, exp_password, exp_username,
-                   root_password_on_cmdline);
+    ProcessWrapper &router = launch_bootstrap(
+        exp_exit_code, server_port, bootstrap_directory.name(), args,
+        exp_password, exp_username, root_password_on_cmdline);
 
     // check outcome
     ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -2058,12 +2034,10 @@ TEST_F(AccountReuseReconfigurationTest,
     const std::string exp_output = kBootstrapSuccessMsg;
     const std::string exp_username = kAccountUser;
     const std::string exp_password = "";
-    const std::string exp_password_hash =
-        "*BE1BDEC0AA74B4DCB079943E70528096CCA985F8";
     const std::set<std::string> exp_attempt_create_hosts = {"%"};
     CustomResponses cr =
         gen_sql_for_creating_accounts(exp_username, exp_attempt_create_hosts,
-                                      existing_hosts, true, exp_password_hash);
+                                      existing_hosts, true, exp_password);
     std::vector<std::string> exp_sql = cr.exp_sql;
     std::vector<std::string> unexp_sql = {
         "GRANT"};  // account should not be created
@@ -2076,11 +2050,9 @@ TEST_F(AccountReuseReconfigurationTest,
     set_mock_server_sql_statements(server_http_port, cr.stmts);
 
     // run bootstrap
-    ProcessWrapper &router =
-        launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
-                         args, root_password_on_cmdline);
-    add_login_hook(router, exp_password, exp_username,
-                   root_password_on_cmdline);
+    ProcessWrapper &router = launch_bootstrap(
+        exp_exit_code, server_port, bootstrap_directory.name(), args,
+        exp_password, exp_username, root_password_on_cmdline);
 
     // check outcome
     ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -2125,12 +2097,10 @@ TEST_F(AccountReuseReconfigurationTest,
     const std::string exp_output = kBootstrapSuccessMsg;
     const std::string exp_username = kAccountUser;
     const std::string exp_password = "";
-    const std::string exp_password_hash =
-        "*BE1BDEC0AA74B4DCB079943E70528096CCA985F8";
     const std::set<std::string> exp_attempt_create_hosts = {"%"};
     CustomResponses cr =
         gen_sql_for_creating_accounts(exp_username, exp_attempt_create_hosts,
-                                      existing_hosts, true, exp_password_hash);
+                                      existing_hosts, true, exp_password);
     std::vector<std::string> exp_sql = cr.exp_sql;
     std::vector<std::string> unexp_sql = {};
 
@@ -2142,11 +2112,9 @@ TEST_F(AccountReuseReconfigurationTest,
     set_mock_server_sql_statements(server_http_port, cr.stmts);
 
     // run bootstrap
-    ProcessWrapper &router =
-        launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
-                         args, root_password_on_cmdline);
-    add_login_hook(router, exp_password, exp_username,
-                   root_password_on_cmdline);
+    ProcessWrapper &router = launch_bootstrap(
+        exp_exit_code, server_port, bootstrap_directory.name(), args,
+        exp_password, exp_username, root_password_on_cmdline);
 
     // check outcome
     ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -2164,7 +2132,7 @@ TEST_F(AccountReuseReconfigurationTest,
  * @test
  * bootstrap --account against existing config
  * verify that:
- * - bootstap will use --account username (and ignore username from config)
+ * - bootstrap will use --account username (and ignore username from config)
  *   in CREATE USER and GRANT statements
  * - append new password to keyfile
  * ...
@@ -2204,11 +2172,9 @@ TEST_F(AccountReuseReconfigurationTest, noaccount_then_account) {
     set_mock_server_sql_statements(server_http_port, cr.stmts);
 
     // run bootstrap
-    ProcessWrapper &router =
-        launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
-                         args, root_password_on_cmdline);
-    add_login_hook(router, exp_password, exp_username,
-                   root_password_on_cmdline);
+    ProcessWrapper &router = launch_bootstrap(
+        exp_exit_code, server_port, bootstrap_directory.name(), args,
+        exp_password, exp_username, root_password_on_cmdline);
 
     // check outcome
     ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -2230,8 +2196,8 @@ TEST_F(AccountReuseReconfigurationTest, noaccount_then_account) {
  * @test
  * bootstrap against existing config previously bootstrapped with --account
  * verify that:
- * - bootstap will re-use the account in the config
- * - password in the keyring will be perserved
+ * - bootstrap will re-use the account in the config
+ * - password in the keyring will be preserved
  * ...
  */
 TEST_F(AccountReuseReconfigurationTest, account_then_noaccount) {
@@ -2268,11 +2234,9 @@ TEST_F(AccountReuseReconfigurationTest, account_then_noaccount) {
     set_mock_server_sql_statements(server_http_port, cr.stmts);
 
     // run bootstrap
-    ProcessWrapper &router =
-        launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
-                         args, root_password_on_cmdline);
-    add_login_hook(router, exp_password, exp_username,
-                   root_password_on_cmdline);
+    ProcessWrapper &router = launch_bootstrap(
+        exp_exit_code, server_port, bootstrap_directory.name(), args,
+        exp_password, exp_username, root_password_on_cmdline);
 
     // check outcome
     ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -2290,9 +2254,9 @@ TEST_F(AccountReuseReconfigurationTest, account_then_noaccount) {
  * @test
  * bootstrap against existing config previously bootstrapped without --account
  * (user exists, Router is registered) verify that:
- * - bootstap will re-use the account in the config (will NOT DROP and re-CREATE
- * it)
- * - password in the keyring will be perserved
+ * - bootstrap will re-use the account in the config (will NOT DROP and
+ * re-CREATE it)
+ * - password in the keyring will be preserved
  * - verify config is written again and contains the same username as before
  * - verify expected password prompts are presented
  *
@@ -2318,12 +2282,11 @@ TEST_F(AccountReuseReconfigurationTest, noaccount_then_noaccount) {
     const std::string exp_output = kBootstrapSuccessMsg;
     const std::string exp_username = kAutoGenUser;
     const std::string exp_password = kAutoGenUserPassword;
-    const std::string exp_password_hash = kAutoGenUserPasswordHash;
     const std::set<std::string> exp_attempt_create_hosts = {"%"};
 
     CustomResponses cr =
         gen_sql_for_creating_accounts(exp_username, exp_attempt_create_hosts,
-                                      existing_hosts, true, exp_password_hash);
+                                      existing_hosts, true, exp_password);
     std::vector<std::string> exp_sql = cr.exp_sql;
     std::vector<std::string> unexp_sql = {"DROP USER", "GRANT"};
 
@@ -2335,11 +2298,9 @@ TEST_F(AccountReuseReconfigurationTest, noaccount_then_noaccount) {
     set_mock_server_sql_statements(server_http_port, cr.stmts);
 
     // run bootstrap
-    ProcessWrapper &router =
-        launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
-                         args, root_password_on_cmdline);
-    add_login_hook(router, exp_password, exp_username,
-                   root_password_on_cmdline);
+    ProcessWrapper &router = launch_bootstrap(
+        exp_exit_code, server_port, bootstrap_directory.name(), args,
+        exp_password, exp_username, root_password_on_cmdline);
 
     // check outcome
     ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -2358,7 +2319,7 @@ TEST_F(AccountReuseReconfigurationTest, noaccount_then_noaccount) {
  * bootstrap against existing config previously bootstrapped with --account,
  * keyring is missing
  * verify that:
- * - bootstap will re-use the account in the config
+ * - bootstrap will re-use the account in the config
  * - try to read password from keyring and fail with appropriate message
  */
 TEST_F(AccountReuseReconfigurationTest, account_then_noaccount___no_keyring) {
@@ -2387,9 +2348,9 @@ TEST_F(AccountReuseReconfigurationTest, account_then_noaccount___no_keyring) {
   set_mock_server_sql_statements(server_http_port, cr.stmts);
 
   // run bootstrap
-  ProcessWrapper &router = launch_bootstrap(exp_exit_code, server_port,
-                                            bootstrap_directory.name(), args);
-  add_login_hook(router, exp_password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       args, exp_password);
 
   // check outcome
   ASSERT_NO_THROW(check_exit_code(router, exp_exit_code));
@@ -2420,7 +2381,7 @@ TEST_F(AccountReuseReconfigurationTest, account_then_noaccount___no_keyring) {
  * bootstrap against existing config previously bootstrapped with --account,
  * keyring exists but doesn't contain the password for the user of interest
  * verify that:
- * - bootstap will re-use the account in the config
+ * - bootstrap will re-use the account in the config
  * - try to read password from keyring and fail with appropriate message
  */
 TEST_F(AccountReuseReconfigurationTest,
@@ -2461,9 +2422,9 @@ TEST_F(AccountReuseReconfigurationTest,
   launch_mock_server(server_port, server_http_port);
 
   // run bootstrap
-  ProcessWrapper &router = launch_bootstrap(exp_exit_code, server_port,
-                                            bootstrap_directory.name(), args);
-  add_login_hook(router, exp_password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       args, exp_password);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -2482,7 +2443,7 @@ TEST_F(AccountReuseReconfigurationTest,
  * bootstrap against existing config bootstrapped previously with --account
  * (user exists, Router is registered), but keyring contains INCORRECT password
  * verify that:
- * - bootstap will re-use the account in the config
+ * - bootstrap will re-use the account in the config
  * - it will proceed with account setup
  * - will fail account validation (due to auth failure) when trying to log in
  *   using bad password
@@ -2525,13 +2486,11 @@ TEST_F(AccountReuseReconfigurationTest,
 
   const std::string exp_username = kAccountUser;
   const std::string exp_password = kIncorrectPassword;
-  const std::string exp_password_hash =
-      "*9069521302781A37BA17CF929625B9C91B886386";
   const std::set<std::string> exp_attempt_create_hosts = {"%"};
 
   CustomResponses cr =
       gen_sql_for_creating_accounts(exp_username, exp_attempt_create_hosts,
-                                    existing_hosts, true, exp_password_hash);
+                                    existing_hosts, true, exp_password);
   std::vector<std::string> exp_sql = cr.exp_sql;
   std::vector<std::string> unexp_sql = {
       "DROP USER",
@@ -2554,9 +2513,9 @@ TEST_F(AccountReuseReconfigurationTest,
   // mock level, only with simpler code
 
   // run bootstrap
-  ProcessWrapper &router = launch_bootstrap(exp_exit_code, server_port,
-                                            bootstrap_directory.name(), args);
-  add_login_hook(router, "account password will not be asked");
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       args, "account password will not be asked");
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_exit_code(router, exp_exit_code));
@@ -2639,9 +2598,9 @@ TEST_F(ShowWarningsProcessorTest, no_accounts_exist) {
     extra_args.push_back(h);
   }
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(
-      exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-  add_login_hook(router, password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       extra_args, password);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -2721,9 +2680,9 @@ TEST_F(ShowWarningsProcessorTest, one_account_exists) {
     extra_args.push_back(h);
   }
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(
-      exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-  add_login_hook(router, password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       extra_args, password);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -2803,9 +2762,9 @@ TEST_F(ShowWarningsProcessorTest, two_accounts_exist) {
     extra_args.push_back(h);
   }
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(
-      exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-  add_login_hook(router, password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       extra_args, password);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -2875,9 +2834,9 @@ TEST_F(ShowWarningsProcessorTest, all_accounts_exist) {
     extra_args.push_back(h);
   }
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(
-      exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-  add_login_hook(router, password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       extra_args, password);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -2972,9 +2931,9 @@ TEST_F(ShowWarningsProcessorTest,
     extra_args.push_back(h);
   }
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(
-      exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-  add_login_hook(router, password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       extra_args, password);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -3061,9 +3020,9 @@ TEST_F(ShowWarningsProcessorTest, show_warnings_returns_unrecognised_hostname) {
     extra_args.push_back(h);
   }
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(
-      exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-  add_login_hook(router, password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       extra_args, password);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -3160,9 +3119,9 @@ TEST_F(ShowWarningsProcessorTest,
     extra_args.push_back(h);
   }
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(
-      exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-  add_login_hook(router, password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       extra_args, password);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -3249,9 +3208,9 @@ TEST_F(ShowWarningsProcessorTest, show_warnings_returns_invalid_column_names) {
       extra_args.push_back(h);
     }
     TempDirectory bootstrap_directory;
-    ProcessWrapper &router = launch_bootstrap(
-        exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-    add_login_hook(router, password);
+    ProcessWrapper &router =
+        launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                         extra_args, password);
 
     // check outcome
     ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -3365,9 +3324,9 @@ TEST_F(ShowWarningsProcessorTest,
     extra_args.push_back(h);
   }
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(
-      exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-  add_login_hook(router, password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       extra_args, password);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -3445,9 +3404,9 @@ TEST_F(ShowWarningsProcessorTest, show_warnings_fails_to_execute) {
     extra_args.push_back(h);
   }
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(
-      exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-  add_login_hook(router, password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       extra_args, password);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -3498,7 +3457,7 @@ INSTANTIATE_TEST_SUITE_P(
 
         // In bootstrap code, GRANT #1, #2 and #3 are just iterations of the
         // same loop, therefore testing all above combinations for GRANTs #2 and
-        // #3 shouldn't be neccessary as the code path is the same.  Therefore
+        // #3 shouldn't be necessary as the code path is the same.  Therefore
         // to save on test time, we only test a subset of combinations:
         UndoCreateUserTestParams{2, {"h1", "h2", "h3"}, {"h1", "h3"}},
         UndoCreateUserTestParams{3, {"h1", "h2", "h3"}, {"h2"}},
@@ -3651,9 +3610,9 @@ TEST_P(UndoCreateUserTestP, grant_fails) {
     extra_args.push_back(h);
   }
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(
-      exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-  add_login_hook(router, password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       extra_args, password);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -3796,9 +3755,9 @@ TEST_P(UndoCreateUserTestP, grant_fails_and_drop_user_also_fails) {
     extra_args.push_back(h);
   }
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(
-      exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-  add_login_hook(router, password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       extra_args, password);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -3821,7 +3780,7 @@ class UndoCreateUserTest : public AccountReuseTestBase {};
  * bootstrap with 3 --account-host, 2 already exist, then trigger failure after
  * account creation stage (in this case, that's the config-writing stage).
  * purpose: verify that "undo CREATE USER" logic will also get triggered by
- * failures that occurr after account creation stage verify that:
+ * failures that occur after account creation stage verify that:
  * - the failure we're trying to induce really happens
  * - the "undo CREATE USER" logic will kick in and remove the newly-created
  * account
@@ -3905,9 +3864,9 @@ TEST_F(UndoCreateUserTest, failure_after_account_creation) {
     extra_args.emplace_back("--account-host");
     extra_args.push_back(h);
   }
-  ProcessWrapper &router = launch_bootstrap(
-      exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-  add_login_hook(router, password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       extra_args, password);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -3923,7 +3882,7 @@ TEST_F(UndoCreateUserTest, failure_after_account_creation) {
  * bootstrap with 3 --account-host, 2 already exist, then trigger failure after
  * account creation stage (in this case, that's the config-writing stage). when
  * the "undo CREATE USER" logic kicks in, DROP USER also fails purpose: verify
- * that "undo CREATE USER" logic will also get triggered by failures that occurr
+ * that "undo CREATE USER" logic will also get triggered by failures that occur
  * after account creation stage verify that:
  * - the failure we're trying to induce really happens
  * - the "undo CREATE USER" logic will kick in and report the accounts to erase
@@ -4015,9 +3974,9 @@ TEST_F(UndoCreateUserTest,
     extra_args.emplace_back("--account-host");
     extra_args.push_back(h);
   }
-  ProcessWrapper &router = launch_bootstrap(
-      exp_exit_code, server_port, bootstrap_directory.name(), extra_args);
-  add_login_hook(router, password);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       extra_args, password);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(check_bootstrap_success(router, exp_output));
@@ -4074,9 +4033,9 @@ TEST_F(AccountValidationTest, sunny_day_scenario) {
 
   // run bootstrap
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(exp_exit_code, server_port,
-                                            bootstrap_directory.name(), args);
-  add_login_hook(router, exp_password, exp_username);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       args, exp_password, exp_username);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(
@@ -4094,7 +4053,7 @@ TEST_F(AccountValidationTest, sunny_day_scenario) {
  * @test
  * Bootstrap: no --strict, bootstrap against existing account but enter wrong
  * password.  Verify that:
- * - account validation fails (appopriate failure message is printed)
+ * - account validation fails (appropriate failure message is printed)
  * - failed validation does not cause a fatal error
  * - bootstrap succeeds
  * - CREATE USER is NOT reverted (account existed before bootstrapping)
@@ -4140,9 +4099,9 @@ TEST_F(AccountValidationTest, account_exists_wrong_password) {
 
   // run bootstrap
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(exp_exit_code, server_port,
-                                            bootstrap_directory.name(), args);
-  add_login_hook(router, exp_password, exp_username);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       args, exp_password, exp_username);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(
@@ -4160,7 +4119,7 @@ TEST_F(AccountValidationTest, account_exists_wrong_password) {
  * @test
  * Bootstrap: with --strict, bootstrap against existing account but enter wrong
  * password.  Verify that:
- * - account validation fails (appopriate failure message is printed)
+ * - account validation fails (appropriate failure message is printed)
  * - failed validation is a fatal error
  * - bootstrap fails
  * - CREATE USER is NOT reverted (account existed before bootstrapping)
@@ -4205,9 +4164,9 @@ TEST_F(AccountValidationTest, account_exists_wrong_password_strict) {
 
   // run bootstrap
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(exp_exit_code, server_port,
-                                            bootstrap_directory.name(), args);
-  add_login_hook(router, exp_password, exp_username);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       args, exp_password, exp_username);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(
@@ -4225,7 +4184,7 @@ TEST_F(AccountValidationTest, account_exists_wrong_password_strict) {
  * @test
  * Bootstrap: no --strict, account validation fails on connection attempt.
  * Verify that:
- * - account validation fails (appopriate failure message is printed)
+ * - account validation fails (appropriate failure message is printed)
  * - failed validation does not cause a fatal error
  * - bootstrap succeeds
  * - CREATE USER is NOT reverted
@@ -4268,9 +4227,9 @@ TEST_F(AccountValidationTest, warn_on_conn_failure) {
 
   // run bootstrap
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(exp_exit_code, server_port,
-                                            bootstrap_directory.name(), args);
-  add_login_hook(router, exp_password, exp_username);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       args, exp_password, exp_username);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(
@@ -4288,7 +4247,7 @@ TEST_F(AccountValidationTest, warn_on_conn_failure) {
  * @test
  * Bootstrap: with --strict, account validation fails on connection attempt.
  * Verify that:
- * - account validation fails (appopriate failure message is printed)
+ * - account validation fails (appropriate failure message is printed)
  * - failed validation is a fatal error
  * - bootstrap fails
  * - CREATE USER is reverted via DROP USER
@@ -4330,9 +4289,9 @@ TEST_F(AccountValidationTest, error_on_conn_failure) {
 
   // run bootstrap
   TempDirectory bootstrap_directory;
-  ProcessWrapper &router = launch_bootstrap(exp_exit_code, server_port,
-                                            bootstrap_directory.name(), args);
-  add_login_hook(router, exp_password, exp_username);
+  ProcessWrapper &router =
+      launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                       args, exp_password, exp_username);
 
   // check outcome
   ASSERT_NO_FATAL_FAILURE(
@@ -4349,7 +4308,7 @@ TEST_F(AccountValidationTest, error_on_conn_failure) {
 /**
  * @test
  * Bootstrap: no --strict, account validation fails on SQL query.  Verify that:
- * - account validation fails (appopriate failure message is printed)
+ * - account validation fails (appropriate failure message is printed)
  * - failed validation does not cause a fatal error
  * - bootstrap succeeds
  * - CREATE USER is NOT reverted
@@ -4395,9 +4354,9 @@ TEST_F(AccountValidationTest, warn_on_query_failure) {
 
     // run bootstrap
     TempDirectory bootstrap_directory;
-    ProcessWrapper &router = launch_bootstrap(exp_exit_code, server_port,
-                                              bootstrap_directory.name(), args);
-    add_login_hook(router, exp_password, exp_username);
+    ProcessWrapper &router =
+        launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                         args, exp_password, exp_username);
 
     // check outcome
     ASSERT_NO_FATAL_FAILURE(
@@ -4416,7 +4375,7 @@ TEST_F(AccountValidationTest, warn_on_query_failure) {
  * @test
  * Bootstrap: with --strict, account validation fails on SQL query.  Verify
  * that:
- * - account validation fails (appopriate failure message is printed)
+ * - account validation fails (appropriate failure message is printed)
  * - failed validation is a fatal error
  * - bootstrap fails
  * - CREATE USER is reverted via DROP USER
@@ -4463,9 +4422,9 @@ TEST_F(AccountValidationTest, error_on_query_failure) {
 
     // run bootstrap
     TempDirectory bootstrap_directory;
-    ProcessWrapper &router = launch_bootstrap(exp_exit_code, server_port,
-                                              bootstrap_directory.name(), args);
-    add_login_hook(router, exp_password, exp_username);
+    ProcessWrapper &router =
+        launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                         args, exp_password, exp_username);
 
     // check outcome
     ASSERT_NO_FATAL_FAILURE(
@@ -4484,7 +4443,7 @@ TEST_F(AccountValidationTest, error_on_query_failure) {
  * @test
  * Bootstrap: no --strict, user exists without proper GRANTs (account validation
  * fails on SQL query).  Verify that:
- * - account validation fails (appopriate failure message is printed)
+ * - account validation fails (appropriate failure message is printed)
  * - failed validation does not cause a fatal error
  * - bootstrap succeeds
  * - CREATE USER is NOT reverted
@@ -4533,9 +4492,9 @@ TEST_F(AccountValidationTest, existing_user_missing_grants___no_strict) {
 
     // run bootstrap
     TempDirectory bootstrap_directory;
-    ProcessWrapper &router = launch_bootstrap(exp_exit_code, server_port,
-                                              bootstrap_directory.name(), args);
-    add_login_hook(router, exp_password, exp_username);
+    ProcessWrapper &router =
+        launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                         args, exp_password, exp_username);
 
     // check outcome
     ASSERT_NO_FATAL_FAILURE(
@@ -4554,7 +4513,7 @@ TEST_F(AccountValidationTest, existing_user_missing_grants___no_strict) {
  * @test
  * Bootstrap: with --strict, user exists without proper GRANTs (account
  * validation fails on SQL query).  Verify that:
- * - account validation fails (appopriate failure message is printed)
+ * - account validation fails (appropriate failure message is printed)
  * - failed validation is a fatal error
  * - bootstrap fails
  * - CREATE USER is NOT reverted via DROP USER (it can't be, because it didn't
@@ -4604,9 +4563,9 @@ TEST_F(AccountValidationTest, existing_user_missing_grants___strict) {
 
     // run bootstrap
     TempDirectory bootstrap_directory;
-    ProcessWrapper &router = launch_bootstrap(exp_exit_code, server_port,
-                                              bootstrap_directory.name(), args);
-    add_login_hook(router, exp_password, exp_username);
+    ProcessWrapper &router =
+        launch_bootstrap(exp_exit_code, server_port, bootstrap_directory.name(),
+                         args, exp_password, exp_username);
 
     // check outcome
     ASSERT_NO_FATAL_FAILURE(
@@ -4647,14 +4606,10 @@ TEST_F(RouterAccountHostTest, multiple_host_patterns) {
         launch_mysql_server_mock(json_stmts, server_port, EXIT_SUCCESS, false);
 
     // launch the router in bootstrap mode
-    auto &router = launch_router_for_bootstrap(cmdline);
-
-    // add login hook
-    router.register_response("Please enter MySQL password for root: ",
-                             kRootPassword + "\n"s);
+    auto &router = launch_router_for_bootstrap(cmdline, EXIT_SUCCESS, true);
 
     EXPECT_NO_THROW(router.wait_for_exit());
-    // check if the bootstraping was successful
+    // check if the bootstrapping was successful
     EXPECT_THAT(router.get_full_output(),
                 ::testing::HasSubstr(
                     "MySQL Router configured for the InnoDB Cluster 'test'"));
@@ -4670,8 +4625,8 @@ TEST_F(RouterAccountHostTest, multiple_host_patterns) {
   // --bootstrap before --account-host
   {
     TempDirectory bootstrap_directory;
-    test_it({"--bootstrap=127.0.0.1:" + std::to_string(server_port),
-             "--report-host", my_hostname, "-d", bootstrap_directory.name(),
+    test_it({"--bootstrap=127.0.0.1:" + std::to_string(server_port), "-d",
+             bootstrap_directory.name(),    //
              "--account-host", "host1",     // 2nd CREATE USER
              "--account-host", "%",         // 1st CREATE USER
              "--account-host", "host1",     // \_ redundant, ignored
@@ -4682,8 +4637,8 @@ TEST_F(RouterAccountHostTest, multiple_host_patterns) {
   // --bootstrap after --account-host
   {
     TempDirectory bootstrap_directory;
-    test_it({"-d", bootstrap_directory.name(), "--report-host", my_hostname,
-             "--account-host", "host1",   // 2nd CREATE USER
+    test_it({"-d", bootstrap_directory.name(), "--account-host",
+             "host1",                     // 2nd CREATE USER
              "--account-host", "%",       // 1st CREATE USER
              "--account-host", "host1",   // \_ redundant, ignored
              "--account-host", "host1",   // /
@@ -4707,7 +4662,7 @@ TEST_F(RouterAccountHostTest, argument_missing) {
       EXIT_FAILURE);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(router.get_full_output(),
               ::testing::HasSubstr(
                   "option '--account-host' expects a value, got nothing"));
@@ -4725,7 +4680,7 @@ TEST_F(RouterAccountHostTest, without_bootstrap_flag) {
       launch_router_for_bootstrap({"--account-host", "host1"}, EXIT_FAILURE);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(router.get_full_output(),
               ::testing::HasSubstr("Option --account-host can only be used "
                                    "together with -B/--bootstrap"));
@@ -4748,16 +4703,13 @@ TEST_F(RouterAccountHostTest, illegal_hostname) {
 
   // launch the router in bootstrap mode
   auto &router = launch_router_for_bootstrap(
-      {"--bootstrap=127.0.0.1:" + std::to_string(server_port), "--report-host",
-       my_hostname, "-d", bootstrap_directory.name(), "--account-host",
+      {"--bootstrap=127.0.0.1:" + std::to_string(server_port), "-d",
+       bootstrap_directory.name(), "--account-host",
        "veryveryveryveryveryveryveryveryveryveryveryveryveryveryverylonghost"},
-      EXIT_FAILURE);
-  // add login hook
-  router.register_response("Please enter MySQL password for root: ",
-                           kRootPassword + "\n"s);
+      EXIT_FAILURE, true);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(router.get_full_output(),
               ::testing::ContainsRegex(
                   "Error executing MySQL query \".*\": String "
@@ -4784,17 +4736,14 @@ TEST_F(RouterReportHostTest, typical_usage) {
         launch_mysql_server_mock(json_stmts, server_port, EXIT_SUCCESS, false);
 
     // launch the router in bootstrap mode
-    auto &router = launch_router_for_bootstrap(cmdline);
-
-    // add login hook
-    router.register_response("Please enter MySQL password for root: ",
-                             kRootPassword + "\n"s);
+    auto &router = launch_router_for_bootstrap(cmdline, EXIT_SUCCESS, true,
+                                               /*add_report_host=*/false);
 
     EXPECT_NO_THROW(router.wait_for_exit());
-    // check if the bootstraping was successful
+    // check if the bootstrapping was successful
     EXPECT_THAT(router.get_full_output(),
                 ::testing::HasSubstr("MySQL Router configured for the "
-                                     "InnoDB Cluster 'mycluster'"));
+                                     "InnoDB Cluster 'test'"));
     check_exit_code(router, EXIT_SUCCESS);
 
     server_mock.kill();
@@ -4822,13 +4771,13 @@ TEST_F(RouterReportHostTest, typical_usage) {
  */
 TEST_F(RouterReportHostTest, multiple_hostnames) {
   // launch the router in bootstrap mode
-  auto &router =
-      launch_router_for_bootstrap({"--bootstrap=1.2.3.4:5678", "--report-host",
-                                   "host1", "--report-host", "host2"},
-                                  1);
+  auto &router = launch_router_for_bootstrap(
+      {"--bootstrap=1.2.3.4:5678", "--report-host", "host1", "--report-host",
+       "host2"},
+      EXIT_FAILURE, true, /*add_report_host=*/false);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(
       router.get_full_output(),
       ::testing::HasSubstr("Option --report-host can only be used once."));
@@ -4844,10 +4793,11 @@ TEST_F(RouterReportHostTest, multiple_hostnames) {
 TEST_F(RouterReportHostTest, argument_missing) {
   // launch the router in bootstrap mode
   auto &router = launch_router_for_bootstrap(
-      {"--bootstrap=1.2.3.4:5678", "--report-host"}, EXIT_FAILURE);
+      {"--bootstrap=1.2.3.4:5678", "--report-host"}, EXIT_FAILURE, true,
+      /*add_report_host=*/false);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(router.get_full_output(),
               ::testing::HasSubstr(
                   "option '--report-host' expects a value, got nothing"));
@@ -4862,10 +4812,11 @@ TEST_F(RouterReportHostTest, argument_missing) {
 TEST_F(RouterReportHostTest, without_bootstrap_flag) {
   // launch the router in bootstrap mode
   auto &router =
-      launch_router_for_bootstrap({"--report-host", "host1"}, EXIT_FAILURE);
+      launch_router_for_bootstrap({"--report-host", "host1"}, EXIT_FAILURE,
+                                  true, /*add_report_host=*/false);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(router.get_full_output(),
               ::testing::HasSubstr("Option --report-host can only be used "
                                    "together with -B/--bootstrap"));
@@ -4881,16 +4832,16 @@ TEST_F(RouterReportHostTest, without_bootstrap_flag) {
  *        There's a separate suite of unit tests which tests the validating code
  *        which determines if the hostname is valid or not - therefore here we
  *        only focus on how this invalid hostname will be handled - we don't
- *        concern outselves with correctness of hostname validation itself.
+ *        concern ourselves with correctness of hostname validation itself.
  */
 TEST_F(RouterReportHostTest, invalid_hostname) {
   // launch the router in bootstrap mode
   auto &router = launch_router_for_bootstrap(
       {"--bootstrap", "1.2.3.4:5678", "--report-host", "^bad^hostname^"},
-      EXIT_FAILURE);
+      EXIT_FAILURE, true, /*add_report_host=*/false);
 
   EXPECT_NO_THROW(router.wait_for_exit());
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   EXPECT_THAT(router.get_full_output(),
               ::testing::HasSubstr(
                   "Error: Option --report-host has an invalid value."));

@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,14 +24,13 @@
 */
 
 #include <array>
+#include <fstream>
 
 #include <gmock/gmock.h>
 
-#include "common.h"
 #include "router_component_system_layout.h"
 #include "router_component_test.h"
 #include "tcp_port_pool.h"
-#include "utils.h"
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -47,7 +47,7 @@ using namespace std::chrono_literals;
  */
 #ifndef SKIP_BOOTSTRAP_SYSTEM_DEPLOYMENT_TESTS
 
-class RouterBootstrapSystemDeploymentTest : public RouterComponentTest,
+class RouterBootstrapSystemDeploymentTest : public RouterComponentBootstrapTest,
                                             public RouterSystemLayout {
  protected:
   void SetUp() override {
@@ -74,14 +74,6 @@ class RouterBootstrapSystemDeploymentTest : public RouterComponentTest,
     return server_mock;
   }
 
-  ProcessWrapper &launch_router_for_bootstrap(
-      const std::vector<std::string> &params,
-      int expected_exit_code = EXIT_SUCCESS) {
-    return ProcessManager::launch_router(
-        params, expected_exit_code, /*catch_stderr=*/true, /*with_sudo=*/false,
-        /*wait_for_notify_ready=*/-1s);
-  }
-
   uint16_t server_port_;
 };
 
@@ -97,15 +89,9 @@ TEST_F(RouterBootstrapSystemDeploymentTest, BootstrapPass) {
   auto &router = launch_router_for_bootstrap({
       "--bootstrap=127.0.0.1:" + std::to_string(server_port_),
       "--connect-timeout=1",
-      "--report-host",
-      "dont.query.dns",
   });
 
-  // add login hook
-  router.register_response("Please enter MySQL password for root: ",
-                           "fake-pass\n");
-
-  // check if the bootstraping was successful
+  // check if the bootstrapping was successful
   check_exit_code(router, EXIT_SUCCESS);
 
   EXPECT_TRUE(
@@ -132,14 +118,8 @@ TEST_F(RouterBootstrapSystemDeploymentTest,
       {
           "--bootstrap=127.0.0.1:" + std::to_string(server_port_),
           "--connect-timeout=1",
-          "--report-host",
-          "dont.query.dns",
       },
       EXIT_FAILURE);
-
-  // add login hook
-  router.register_response("Please enter MySQL password for root: ",
-                           "fake-pass\n");
 
   check_exit_code(router, EXIT_FAILURE);
 
@@ -170,14 +150,8 @@ TEST_F(RouterBootstrapSystemDeploymentTest,
       {
           "--bootstrap=127.0.0.1:" + std::to_string(server_port_),
           "--connect-timeout=1",
-          "--report-host",
-          "dont.query.dns",
       },
       EXIT_FAILURE);
-
-  // add login hook
-  router.register_response("Please enter MySQL password for root: ",
-                           "fake-pass\n");
 
   check_exit_code(router, EXIT_FAILURE);
 
@@ -220,14 +194,8 @@ TEST_F(RouterBootstrapSystemDeploymentTest,
       {
           "--bootstrap=127.0.0.1:" + std::to_string(server_port_),
           "--connect-timeout=1",
-          "--report-host",
-          "dont.query.dns",
       },
       EXIT_FAILURE);
-
-  // add login hook
-  router.register_response("Please enter MySQL password for root: ",
-                           "fake-pass\n");
 
   check_exit_code(router, EXIT_FAILURE);
 
@@ -265,14 +233,8 @@ TEST_F(RouterBootstrapSystemDeploymentTest,
       {
           "--bootstrap=127.0.0.1:" + std::to_string(server_port_),
           "--connect-timeout=1",
-          "--report-host",
-          "dont.query.dns",
       },
       EXIT_FAILURE);
-
-  // add login hook
-  router.register_response("Please enter MySQL password for root: ",
-                           "fake-pass\n");
 
   check_exit_code(router, EXIT_FAILURE);
 

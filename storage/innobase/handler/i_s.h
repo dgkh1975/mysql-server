@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2007, 2021, Oracle and/or its affiliates.
+Copyright (c) 2007, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -34,7 +35,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #define i_s_h
 
 class THD;
-struct TABLE_LIST;
+class Table_ref;
 
 extern struct st_mysql_plugin i_s_innodb_trx;
 extern struct st_mysql_plugin i_s_innodb_cmp;
@@ -58,7 +59,6 @@ extern struct st_mysql_plugin i_s_innodb_tables;
 extern struct st_mysql_plugin i_s_innodb_tablestats;
 extern struct st_mysql_plugin i_s_innodb_indexes;
 extern struct st_mysql_plugin i_s_innodb_columns;
-extern struct st_mysql_plugin i_s_innodb_fields;
 extern struct st_mysql_plugin i_s_innodb_foreign;
 extern struct st_mysql_plugin i_s_innodb_foreign_cols;
 extern struct st_mysql_plugin i_s_innodb_tablespaces;

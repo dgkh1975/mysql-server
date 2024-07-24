@@ -1,17 +1,18 @@
 /***********************************************************************
 
-Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -114,7 +115,7 @@ typedef struct mci_item {
  Register InnoDB Callback functions */
 void register_innodb_cb(
     /*===============*/
-    void *p); /*!<in: Pointer to callback function arrary */
+    void *p); /*!<in: Pointer to callback function array */
 
 /*********************************************************************
 Open a table and return a cursor for the table. */
@@ -123,7 +124,7 @@ ib_err_t innodb_api_begin(
     innodb_engine_t *engine,       /*!< in: InnoDB Memcached engine */
     const char *dbname,            /*!< in: database name */
     const char *name,              /*!< in: table name */
-    innodb_conn_data_t *conn_data, /*!< in/out: connnection specific
+    innodb_conn_data_t *conn_data, /*!< in/out: connection specific
                                    data */
     ib_trx_t ib_trx,               /*!< in: transaction */
     ib_crsr_t *crsr,               /*!< out: innodb cursor */
@@ -342,10 +343,10 @@ ib_err_t innodb_cb_read_row(
 /*****************************************************************/ /**
  Get a column type, length and attributes from the tuple.
  @return len of column data */
-ib_ulint_t innodb_cb_col_get_meta(
+uint64_t innodb_cb_col_get_meta(
     /*===================*/
     ib_tpl_t ib_tpl,             /*!< in: tuple instance */
-    ib_ulint_t i,                /*!< in: column index in tuple */
+    uint64_t i,                  /*!< in: column index in tuple */
     ib_col_meta_t *ib_col_meta); /*!< out: column meta data */
 
 /*****************************************************************/ /**
@@ -357,7 +358,7 @@ void innodb_cb_tuple_delete(
 /*****************************************************************/ /**
  Return the number of columns in the tuple definition.
  @return number of columns */
-ib_ulint_t innodb_cb_tuple_get_n_cols(
+uint64_t innodb_cb_tuple_get_n_cols(
     /*=======================*/
     const ib_tpl_t ib_tpl); /*!< in: Tuple for table/index */
 
@@ -367,7 +368,7 @@ ib_ulint_t innodb_cb_tuple_get_n_cols(
 const void *innodb_cb_col_get_value(
     /*====================*/
     ib_tpl_t ib_tpl, /*!< in: tuple instance */
-    ib_ulint_t i);   /*!< in: column index in tuple */
+    uint64_t i);     /*!< in: column index in tuple */
 
 /********************************************************************/ /**
  Open a table using the table name.
@@ -384,7 +385,7 @@ ib_err_t innodb_cb_open_table(
 const char *innodb_cb_col_get_name(
     /*===================*/
     ib_crsr_t ib_crsr, /*!< in: InnoDB cursor instance */
-    ib_ulint_t i);     /*!< in: column index in tuple */
+    uint64_t i);       /*!< in: column index in tuple */
 
 /*****************************************************************/ /**
  Open an InnoDB secondary index cursor and return a cursor handle to it.

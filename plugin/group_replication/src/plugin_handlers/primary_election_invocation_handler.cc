@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,6 +25,7 @@
 #include "plugin/group_replication/include/plugin.h"
 #include "plugin/group_replication/include/plugin_handlers/member_actions_handler.h"
 #include "plugin/group_replication/include/plugin_handlers/primary_election_utils.h"
+#include "plugin/group_replication/include/services/system_variable/get_system_variable.h"
 
 Primary_election_handler::Primary_election_handler(
     ulong components_stop_timeout)
@@ -93,8 +95,9 @@ int Primary_election_handler::execute_primary_election(
 
   bool has_primary_changed;
   bool in_primary_mode;
-  Group_member_info *primary_member_info = nullptr;
-  std::vector<Group_member_info *> *all_members_info =
+  Group_member_info primary_member_info;
+  bool primary_member_info_not_found = true;
+  Group_member_info_list *all_members_info =
       group_member_mgr->get_all_members();
 
   bool appointed_uuid = !primary_uuid.empty();
@@ -107,8 +110,11 @@ int Primary_election_handler::execute_primary_election(
       } else {
         // If the requested primary is not there, ignore the request.
         LogPluginErr(WARNING_LEVEL, ER_GRP_RPL_APPOINTED_PRIMARY_NOT_PRESENT);
-        group_events_observation_manager->after_primary_election("", false,
-                                                                 mode);
+        group_events_observation_manager->after_primary_election(
+            "",
+            enum_primary_election_primary_change_status::
+                PRIMARY_DID_NOT_CHANGE_NO_CANDIDATE,
+            mode);
         goto end;
       }
       /* purecov: end */
@@ -119,9 +125,10 @@ int Primary_election_handler::execute_primary_election(
     pick_primary_member(primary_uuid, all_members_info);
   }
 
-  primary_member_info = group_member_mgr->get_group_member_info(primary_uuid);
+  primary_member_info_not_found = group_member_mgr->get_group_member_info(
+      primary_uuid, primary_member_info);
 
-  if (primary_member_info == nullptr) {
+  if (primary_member_info_not_found) {
     if (all_members_info->size() != 1) {
       // There are no servers in the group or they are all recovering WARN the
       // user
@@ -129,8 +136,11 @@ int Primary_election_handler::execute_primary_election(
                    ER_GRP_RPL_NO_SUITABLE_PRIMARY_MEM); /* purecov: inspected */
     }
     group_events_observation_manager->after_primary_election(
-        "", false, mode, PRIMARY_ELECTION_NO_CANDIDATES_ERROR);
-    if (enable_server_read_mode(PSESSION_DEDICATED_THREAD)) {
+        "",
+        enum_primary_election_primary_change_status::
+            PRIMARY_DID_NOT_CHANGE_NO_CANDIDATE,
+        mode, PRIMARY_ELECTION_NO_CANDIDATES_ERROR);
+    if (enable_server_read_mode()) {
       LogPluginErr(WARNING_LEVEL,
                    ER_GRP_RPL_ENABLE_READ_ONLY_FAILED); /* purecov: inspected */
     }
@@ -139,7 +149,7 @@ int Primary_election_handler::execute_primary_election(
 
   in_primary_mode = local_member_info->in_primary_mode();
   has_primary_changed = Group_member_info::MEMBER_ROLE_PRIMARY !=
-                            primary_member_info->get_role() ||
+                            primary_member_info.get_role() ||
                         !in_primary_mode;
   if (has_primary_changed) {
     /*
@@ -182,30 +192,31 @@ int Primary_election_handler::execute_primary_election(
             "relay logs.");
 
       LogPluginErr(SYSTEM_LEVEL, ER_GRP_RPL_NEW_PRIMARY_ELECTED,
-                   primary_member_info->get_hostname().c_str(),
-                   primary_member_info->get_port(), message.c_str());
+                   primary_member_info.get_hostname().c_str(),
+                   primary_member_info.get_port(), message.c_str());
       internal_primary_election(primary_uuid, mode);
     } else {
       // retain the old message
       LogPluginErr(SYSTEM_LEVEL, ER_GRP_RPL_NEW_PRIMARY_ELECTED,
-                   primary_member_info->get_hostname().c_str(),
-                   primary_member_info->get_port(),
+                   primary_member_info.get_hostname().c_str(),
+                   primary_member_info.get_port(),
                    "Enabling conflict detection until the new primary applies "
                    "all relay logs.");
       legacy_primary_election(primary_uuid);
     }
   } else {
-    group_events_observation_manager->after_primary_election("", false, mode);
+    group_events_observation_manager->after_primary_election(
+        "", enum_primary_election_primary_change_status::PRIMARY_DID_NOT_CHANGE,
+        mode);
   }
 
 end:
   // clean the members
-  std::vector<Group_member_info *>::iterator it;
+  Group_member_info_list_iterator it;
   for (it = all_members_info->begin(); it != all_members_info->end(); it++) {
     delete (*it);
   }
   delete all_members_info;
-  delete primary_member_info;
   return 0;
 }
 
@@ -213,16 +224,9 @@ void Primary_election_handler::print_gtid_info_in_log() {
   Replication_thread_api applier_channel("group_replication_applier");
   std::string applier_retrieved_gtids;
   std::string server_executed_gtids;
-  Sql_service_command_interface *sql_command_interface =
-      new Sql_service_command_interface();
-  if (sql_command_interface->establish_session_connection(
-          PSESSION_DEDICATED_THREAD, GROUPREPL_USER, get_plugin_pointer())) {
-    /* purecov: begin inspected */
-    LogPluginErr(WARNING_LEVEL, ER_GRP_RPL_CONN_INTERNAL_PLUGIN_FAIL);
-    goto err;
-    /* purecov: end */
-  }
-  if (sql_command_interface->get_server_gtid_executed(server_executed_gtids)) {
+  Get_system_variable *get_system_variable = new Get_system_variable();
+
+  if (get_system_variable->get_global_gtid_executed(server_executed_gtids)) {
     /* purecov: begin inspected */
     LogPluginErr(WARNING_LEVEL, ER_GRP_RPL_GTID_EXECUTED_EXTRACT_ERROR);
     goto err;
@@ -241,7 +245,7 @@ void Primary_election_handler::print_gtid_info_in_log() {
                "applier channel received_transaction_set",
                applier_retrieved_gtids.c_str());
 err:
-  delete sql_command_interface;
+  delete get_system_variable;
 }
 
 int Primary_election_handler::internal_primary_election(
@@ -258,8 +262,7 @@ int Primary_election_handler::internal_primary_election(
     primary_election_handler
         .wait_on_election_process_termination(); /* purecov: inspected */
 
-  std::vector<Group_member_info *> *members_info =
-      group_member_mgr->get_all_members();
+  Group_member_info_list *members_info = group_member_mgr->get_all_members();
 
   /* Declare at this point that all members are in primary mode for switch
    * cases*/
@@ -286,8 +289,10 @@ int Primary_election_handler::legacy_primary_election(
     std::string &primary_uuid) {
   const bool is_primary_local =
       !primary_uuid.compare(local_member_info->get_uuid());
-  Group_member_info *primary_member_info =
-      group_member_mgr->get_group_member_info(primary_uuid);
+  Group_member_info primary_member_info;
+  const bool primary_member_info_not_found =
+      group_member_mgr->get_group_member_info(primary_uuid,
+                                              primary_member_info);
 
   /*
     A new primary was elected, inform certifier to enable conflict
@@ -302,7 +307,7 @@ int Primary_election_handler::legacy_primary_election(
     member_actions_handler->trigger_actions(
         Member_actions::AFTER_PRIMARY_ELECTION);
   } else {
-    if (enable_server_read_mode(PSESSION_DEDICATED_THREAD)) {
+    if (enable_server_read_mode()) {
       LogPluginErr(WARNING_LEVEL,
                    ER_GRP_RPL_ENABLE_READ_ONLY_FAILED); /* purecov: inspected */
     }
@@ -318,21 +323,28 @@ int Primary_election_handler::legacy_primary_election(
     internal_primary_election(primary_uuid, LEGACY_ELECTION_PRIMARY);
   } else {
     set_election_running(false);
-    LogPluginErr(SYSTEM_LEVEL, ER_GRP_RPL_SRV_SECONDARY_MEM,
-                 primary_member_info->get_hostname().c_str(),
-                 primary_member_info->get_port());
+    if (primary_member_info_not_found) {
+      LogPluginErr(WARNING_LEVEL, ER_GRP_RPL_MEMBER_INFO_DOES_NOT_EXIST,
+                   "as the primary by the member uuid", primary_uuid.c_str(),
+                   "a primary election. The group will heal itself on the next "
+                   "primary election that will be triggered automatically");
+    } else {
+      LogPluginErr(SYSTEM_LEVEL, ER_GRP_RPL_SRV_SECONDARY_MEM,
+                   primary_member_info.get_hostname().c_str(),
+                   primary_member_info.get_port());
+    }
   }
 
-  group_events_observation_manager->after_primary_election(primary_uuid, true,
-                                                           DEAD_OLD_PRIMARY);
-  delete primary_member_info;
+  group_events_observation_manager->after_primary_election(
+      primary_uuid,
+      enum_primary_election_primary_change_status::PRIMARY_DID_CHANGE,
+      DEAD_OLD_PRIMARY);
 
   return 0;
 }
 
 bool Primary_election_handler::pick_primary_member(
-    std::string &primary_uuid,
-    std::vector<Group_member_info *> *all_members_info) {
+    std::string &primary_uuid, Group_member_info_list *all_members_info) {
   DBUG_TRACE;
 
   bool am_i_leaving = true;
@@ -341,8 +353,8 @@ bool Primary_election_handler::pick_primary_member(
 #endif
   Group_member_info *the_primary = nullptr;
 
-  std::vector<Group_member_info *>::iterator it;
-  std::vector<Group_member_info *>::iterator lowest_version_end;
+  Group_member_info_list_iterator it;
+  Group_member_info_list_iterator lowest_version_end;
 
   /* sort members based on member_version and get first iterator position
      where member version differs
@@ -414,10 +426,9 @@ bool Primary_election_handler::pick_primary_member(
   return false;
 }
 
-std::vector<Group_member_info *>::iterator
-sort_and_get_lowest_version_member_position(
-    std::vector<Group_member_info *> *all_members_info) {
-  std::vector<Group_member_info *>::iterator it;
+Group_member_info_list_iterator sort_and_get_lowest_version_member_position(
+    Group_member_info_list *all_members_info) {
+  Group_member_info_list_iterator it;
 
   // sort in ascending order of lower member version
   std::sort(all_members_info->begin(), all_members_info->end(),
@@ -426,8 +437,7 @@ sort_and_get_lowest_version_member_position(
   /* if vector contains only single version then leader should be picked from
      all members
    */
-  std::vector<Group_member_info *>::iterator lowest_version_end =
-      all_members_info->end();
+  Group_member_info_list_iterator lowest_version_end = all_members_info->end();
 
   /* first member will have lowest version as members are already
      sorted above using member_version.
@@ -482,8 +492,8 @@ sort_and_get_lowest_version_member_position(
 }
 
 void sort_members_for_election(
-    std::vector<Group_member_info *> *all_members_info,
-    std::vector<Group_member_info *>::iterator lowest_version_end) {
+    Group_member_info_list *all_members_info,
+    Group_member_info_list_iterator lowest_version_end) {
   Group_member_info *first_member = *(all_members_info->begin());
   Member_version lowest_version = first_member->get_member_version();
 

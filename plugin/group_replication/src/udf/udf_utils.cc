@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -106,14 +107,7 @@ void log_privilege_status_result(privilege_result const &privilege,
 
 std::pair<bool, std::string> check_super_read_only_is_disabled() {
   bool read_only_mode = false, super_read_only_mode = false;
-
-  Sql_service_command_interface *sql_command_interface =
-      new Sql_service_command_interface();
-  bool error = sql_command_interface->establish_session_connection(
-                   PSESSION_USE_THREAD, GROUPREPL_USER, get_plugin_pointer()) ||
-               get_read_mode_state(sql_command_interface, &read_only_mode,
-                                   &super_read_only_mode);
-  delete sql_command_interface;
+  bool error = get_read_mode_state(&read_only_mode, &super_read_only_mode);
 
   if (error) {
     /* purecov: begin inspected */
@@ -176,9 +170,7 @@ bool validate_uuid_parameter(std::string &uuid, size_t length,
   }
 
   if (group_member_mgr) {
-    std::unique_ptr<Group_member_info> member_info{
-        group_member_mgr->get_group_member_info(uuid)};
-    if (member_info.get() == nullptr) {
+    if (!group_member_mgr->is_member_info_present(uuid)) {
       *error_message = server_uuid_not_on_group_str;
       return true;
     }
@@ -264,8 +256,7 @@ bool group_contains_member_older_than(
   bool constexpr ALL_MEMBERS_OK = false;
   bool result = OLDER_MEMBER_EXISTS;
 
-  std::vector<Group_member_info *> *members =
-      group_member_mgr->get_all_members();
+  Group_member_info_list *members = group_member_mgr->get_all_members();
   auto it =
       std::find_if(members->begin(), members->end(),
                    [&min_required_version](Group_member_info *member) {
@@ -319,7 +310,8 @@ bool Charset_service::set_args_charset(UDF_ARGS *args,
                                        const std::string &charset_name) {
   char *charset = const_cast<char *>(charset_name.c_str());
   for (uint index = 0; index < args->arg_count; ++index) {
-    if (udf_metadata_service->argument_set(args, Charset_service::arg_type,
+    if (args->arg_type[index] == STRING_RESULT &&
+        udf_metadata_service->argument_set(args, Charset_service::arg_type,
                                            index,
                                            static_cast<void *>(charset))) {
       return true;

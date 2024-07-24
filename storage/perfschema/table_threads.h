@@ -1,15 +1,16 @@
-/* Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -55,17 +56,11 @@ struct row_threads {
   /** Length in bytes of @c m_name. */
   uint m_name_length;
   /** Column PROCESSLIST_USER. */
-  char m_username[USERNAME_LENGTH];
-  /** Length in bytes of @c m_username. */
-  uint m_username_length;
+  PFS_user_name m_user_name;
   /** Column PROCESSLIST_HOST. */
-  char m_hostname[HOSTNAME_LENGTH];
-  /** Length in bytes of @c m_hostname. */
-  uint m_hostname_length;
+  PFS_host_name m_host_name;
   /** Column PROCESSLIST_DB. */
-  char m_dbname[NAME_LEN];
-  /** Length in bytes of @c m_dbname. */
-  uint m_dbname_length;
+  PFS_schema_name m_db_name;
   /** Column PROCESSLIST_COMMAND. */
   int m_command;
   /** Column PROCESSLIST_TIME. */
@@ -94,6 +89,12 @@ struct row_threads {
   char m_groupname[NAME_LEN];
   /** Length in bytes of @c m_groupname. */
   uint m_groupname_length;
+  /** Column EXECUTION_ENGINE. */
+  bool m_secondary;
+  /** CURRENT_CONTROLLED_MEMORY, ... */
+  PFS_session_all_memory_stat_row m_session_all_memory_row;
+  /** Column TELEMETRY_ACTIVE (read). */
+  bool m_telemetry_active;
 };
 
 class PFS_index_threads_by_thread_id : public PFS_index_threads {

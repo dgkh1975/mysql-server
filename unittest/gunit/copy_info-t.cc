@@ -1,15 +1,16 @@
-/* Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -62,7 +63,7 @@ class Mock_field : public Field_long {
   explicit Mock_field(uchar auto_flags_arg)
       : Field_long(nullptr, 0, nullptr, 0, auto_flags_arg, "", false, false) {}
 
-  MOCK_METHOD1(store_timestamp, void(const timeval *));
+  MOCK_METHOD1(store_timestamp, void(const my_timeval *));
 };
 
 /*
@@ -285,7 +286,7 @@ TEST_F(CopyInfoTest, setFunctionDefaults) {
   // We do not care about the argument to store_timestamp().
   EXPECT_CALL(b, store_timestamp(_)).Times(1);
   EXPECT_CALL(c, store_timestamp(_)).Times(0);
-  insert.set_function_defaults(&table);
+  EXPECT_FALSE(insert.set_function_defaults(&table));
 }
 
 }  // namespace copy_info_unittest

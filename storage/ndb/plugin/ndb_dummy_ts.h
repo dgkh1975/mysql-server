@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -44,7 +45,7 @@ namespace ndb_dummy_ts {
   @retval		false		success
   @retval		true		failure
 */
-static bool sdi_create(dd::Tablespace *tablespace MY_ATTRIBUTE((unused))) {
+static bool sdi_create(dd::Tablespace *tablespace [[maybe_unused]]) {
   assert(false);  // Never called
   return false;   // Success
 }
@@ -56,7 +57,7 @@ static bool sdi_create(dd::Tablespace *tablespace MY_ATTRIBUTE((unused))) {
   @retval		false		success
   @retval		true		failure
 */
-static bool sdi_drop(dd::Tablespace *tablespace MY_ATTRIBUTE((unused))) {
+static bool sdi_drop(dd::Tablespace *tablespace [[maybe_unused]]) {
   assert(false);  // Never called
   return false;   // Success
 }
@@ -68,9 +69,8 @@ static bool sdi_drop(dd::Tablespace *tablespace MY_ATTRIBUTE((unused))) {
   @retval		false		success
   @retval		true		failure
 */
-static bool sdi_get_keys(const dd::Tablespace &tablespace
-                             MY_ATTRIBUTE((unused)),
-                         sdi_vector_t &vector MY_ATTRIBUTE((unused))) {
+static bool sdi_get_keys(const dd::Tablespace &tablespace [[maybe_unused]],
+                         sdi_vector_t &vector [[maybe_unused]]) {
   assert(false);  // Never called
   return false;   // Success
 }
@@ -84,10 +84,10 @@ static bool sdi_get_keys(const dd::Tablespace &tablespace
   @retval		false		success
   @retval		true		failure
 */
-static bool sdi_get(const dd::Tablespace &tablespace MY_ATTRIBUTE((unused)),
-                    const sdi_key_t *sdi_key MY_ATTRIBUTE((unused)),
-                    void *sdi MY_ATTRIBUTE((unused)),
-                    uint64 *sdi_len MY_ATTRIBUTE((unused))) {
+static bool sdi_get(const dd::Tablespace &tablespace [[maybe_unused]],
+                    const sdi_key_t *sdi_key [[maybe_unused]],
+                    void *sdi [[maybe_unused]],
+                    uint64 *sdi_len [[maybe_unused]]) {
   assert(false);  // Never called
   return false;   // Success
 }
@@ -103,12 +103,12 @@ static bool sdi_get(const dd::Tablespace &tablespace MY_ATTRIBUTE((unused)),
   @retval		false		success
   @retval		true		failure
 */
-static bool sdi_set(handlerton *hton MY_ATTRIBUTE((unused)),
-                    const dd::Tablespace &tablespace MY_ATTRIBUTE((unused)),
-                    const dd::Table *table MY_ATTRIBUTE((unused)),
-                    const sdi_key_t *sdi_key MY_ATTRIBUTE((unused)),
-                    const void *sdi MY_ATTRIBUTE((unused)),
-                    uint64 sdi_len MY_ATTRIBUTE((unused))) {
+static bool sdi_set(handlerton *hton [[maybe_unused]],
+                    const dd::Tablespace &tablespace [[maybe_unused]],
+                    const dd::Table *table [[maybe_unused]],
+                    const sdi_key_t *sdi_key [[maybe_unused]],
+                    const void *sdi [[maybe_unused]],
+                    uint64 sdi_len [[maybe_unused]]) {
   return false;  // Success
 }
 
@@ -121,9 +121,9 @@ static bool sdi_set(handlerton *hton MY_ATTRIBUTE((unused)),
   @retval		false		success
   @retval		true		failure
 */
-static bool sdi_delete(const dd::Tablespace &tablespace MY_ATTRIBUTE((unused)),
-                       const dd::Table *table MY_ATTRIBUTE((unused)),
-                       const sdi_key_t *sdi_key MY_ATTRIBUTE((unused))) {
+static bool sdi_delete(const dd::Tablespace &tablespace [[maybe_unused]],
+                       const dd::Table *table [[maybe_unused]],
+                       const sdi_key_t *sdi_key [[maybe_unused]]) {
   return false;  // Success
 }
 }  // namespace ndb_dummy_ts

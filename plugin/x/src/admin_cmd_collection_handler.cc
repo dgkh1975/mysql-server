@@ -1,16 +1,17 @@
 /*
- * Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+ * Copyright (c) 2019, 2024, Oracle and/or its affiliates.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2.0,
  * as published by the Free Software Foundation.
  *
- * This program is also distributed with certain software (including
+ * This program is designed to work with certain software (including
  * but not limited to OpenSSL) that is licensed under separate terms,
  * as designated in a particular file or component or in included license
  * documentation.  The authors of MySQL hereby grant you an additional
  * permission to link the program and your derivative works with the
- * separately licensed software that they have included with MySQL.
+ * separately licensed software that they have either included with
+ * the program or referenced in the documentation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -271,7 +272,7 @@ ngs::Error_code Admin_command_collection_handler::modify_collection_validation(
     qb.put(" MODIFY COLUMN _json_schema JSON GENERATED ALWAYS AS (")
         .quote_json_string(schema_string)
         .put(") VIRTUAL, ALTER CHECK ")
-        .put(constraint_name)
+        .quote_identifier(constraint_name)
         .put(is_enforced ? " ENFORCED" : " NOT ENFORCED");
   else if (validation.fld(0).key() == "schema")
     qb.put(" MODIFY COLUMN _json_schema JSON GENERATED ALWAYS AS (")
@@ -279,7 +280,7 @@ ngs::Error_code Admin_command_collection_handler::modify_collection_validation(
         .put(") VIRTUAL");
   else if (validation.fld(0).key() == "level")
     qb.put(" ALTER CHECK ")
-        .put(constraint_name)
+        .quote_identifier(constraint_name)
         .put(is_enforced ? " ENFORCED" : " NOT ENFORCED");
 
   const ngs::PFS_string &tmp(qb.get());
@@ -311,7 +312,7 @@ ngs::Error_code Admin_command_collection_handler::modify_collection_validation(
           .put(" ADD COLUMN _json_schema JSON GENERATED ALWAYS AS (")
           .quote_json_string(new_schema)
           .put(") VIRTUAL, ADD CONSTRAINT ")
-          .put(constraint_name)
+          .quote_identifier(constraint_name)
           .put(" CHECK (JSON_SCHEMA_VALID(_json_schema, doc)) ")
           .put(is_enforced ? "ENFORCED" : "NOT ENFORCED");
 

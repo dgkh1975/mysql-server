@@ -1,15 +1,16 @@
-/* Copyright (c) 2013, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2013, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,7 +24,9 @@
 #ifndef RPL_GROUP_REPLICATION_INCLUDED
 #define RPL_GROUP_REPLICATION_INCLUDED
 
+#include <violite.h>
 #include <string>
+
 class THD;
 class View_change_log_event;
 struct GROUP_REPLICATION_CONNECTION_STATUS_CALLBACKS;
@@ -72,5 +75,20 @@ std::string get_group_replication_group_name();
       @retval true    Error
 */
 bool get_group_replication_view_change_uuid(std::string &uuid);
+
+/**
+  Checks if this member is part of a group in single-primary mode and if
+  this member is a secondary.
+
+  @return status
+    @retval true  this member is part of a group in single-primary mode
+                  and is a secondary
+    @retval false otherwise
+*/
+bool is_group_replication_member_secondary();
+
+// Callback definition for socket donation
+typedef void (*gr_incoming_connection_cb)(THD *thd, int fd, SSL *ssl_ctx);
+void set_gr_incoming_connection(gr_incoming_connection_cb x);
 
 #endif /* RPL_GROUP_REPLICATION_INCLUDED */

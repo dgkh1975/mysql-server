@@ -1,15 +1,16 @@
-/* Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -53,6 +54,8 @@ struct row_setup_instruments {
   bool m_update_enabled;
   /** True if column TIMED can be updated. */
   bool m_update_timed;
+  /** True if column FLAGS can be updated. */
+  bool m_update_flags;
 };
 
 /** Position of a cursor on PERFORMANCE_SCHEMA.SETUP_INSTRUMENTS. */
@@ -60,14 +63,14 @@ struct pos_setup_instruments : public PFS_double_index,
                                public PFS_instrument_view_constants {
   pos_setup_instruments() : PFS_double_index(FIRST_INSTRUMENT, 1) {}
 
-  inline void reset(void) {
+  inline void reset() {
     m_index_1 = FIRST_INSTRUMENT;
     m_index_2 = 1;
   }
 
-  inline bool has_more_view(void) { return (m_index_1 <= LAST_INSTRUMENT); }
+  inline bool has_more_view() { return (m_index_1 <= LAST_INSTRUMENT); }
 
-  inline void next_view(void) {
+  inline void next_view() {
     m_index_1++;
     m_index_2 = 1;
   }
@@ -94,7 +97,7 @@ class table_setup_instruments : public PFS_engine_table {
   static PFS_engine_table *create(PFS_engine_table_share *);
   static ha_rows get_row_count();
 
-  void reset_position(void) override;
+  void reset_position() override;
 
   int rnd_next() override;
   int rnd_pos(const void *pos) override;

@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -180,7 +181,8 @@ class CacheStorageTest : public ::testing::Test, public Test_MDL_context_owner {
   MDL_request m_request;
 
  private:
-  GTEST_DISALLOW_COPY_AND_ASSIGN_(CacheStorageTest);
+  CacheStorageTest(CacheStorageTest const &) = delete;
+  CacheStorageTest &operator=(CacheStorageTest const &) = delete;
 };
 
 template <typename T>
@@ -1273,7 +1275,7 @@ TEST_F(CacheStorageTest, TestTransactionMaxSePrivateId) {
 //   dd::cache::Dictionary_client::Auto_releaser releaser(&dc);
 
 //   // Create a new tablespace.
-//   dd::Object_id tablespace_id MY_ATTRIBUTE((unused));
+//   dd::Object_id tablespace_id [[maybe_unused]];
 //   {
 //     std::unique_ptr<dd::Tablespace> obj(dd::create_object<dd::Tablespace>());
 //     dd_unittest::set_attributes(obj.get(), "test_tablespace");
@@ -1393,7 +1395,7 @@ TEST_F(CacheStorageTest, TestTriggers) {
 
   dd::String_type obj_name =
       dd::Table::DD_table::instance().name() + dd::String_type("_trigs");
-  dd::Object_id id MY_ATTRIBUTE((unused));
+  dd::Object_id id [[maybe_unused]];
 
   //
   // Create table object

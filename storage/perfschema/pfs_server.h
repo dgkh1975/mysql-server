@@ -1,15 +1,16 @@
-/* Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -55,13 +56,13 @@
 #define PFS_AUTOSIZE_VALUE (-1)
 
 #ifndef PFS_MAX_MUTEX_CLASS
-#define PFS_MAX_MUTEX_CLASS 300
+#define PFS_MAX_MUTEX_CLASS 350
 #endif
 #ifndef PFS_MAX_RWLOCK_CLASS
 #define PFS_MAX_RWLOCK_CLASS 60
 #endif
 #ifndef PFS_MAX_COND_CLASS
-#define PFS_MAX_COND_CLASS 100
+#define PFS_MAX_COND_CLASS 150
 #endif
 #ifndef PFS_MAX_THREAD_CLASS
 #define PFS_MAX_THREAD_CLASS 100
@@ -99,9 +100,9 @@ struct PFS_sizing_hints {
   /** Value of @c Sys_table_def_size */
   ulong m_table_definition_cache;
   /** Value of @c Sys_table_cache_size */
-  long m_table_open_cache;
+  ulong m_table_open_cache;
   /** Value of @c Sys_max_connections */
-  long m_max_connections;
+  ulong m_max_connections;
   /** Value of @c Sys_open_files_limit */
   long m_open_files_limit;
   /** Value of @c Sys_max_prepared_stmt_count */
@@ -116,6 +117,7 @@ struct PFS_global_param {
   bool m_consumer_events_stages_current_enabled;
   bool m_consumer_events_stages_history_enabled;
   bool m_consumer_events_stages_history_long_enabled;
+  bool m_consumer_events_statements_cpu_enabled;
   bool m_consumer_events_statements_current_enabled;
   bool m_consumer_events_statements_history_enabled;
   bool m_consumer_events_statements_history_long_enabled;
@@ -296,14 +298,6 @@ struct PFS_global_param {
 extern PFS_global_param pfs_param;
 
 /**
-  Global flag used to enable and disable SHOW PROCESSLIST in the
-  performance schema. This flag only takes effect if the performance schema
-  is configured to support SHOW PROCESSLIST.
-  @sa performance-schema-enable-processlist
-*/
-extern bool pfs_processlist_enabled;
-
-/**
   Null initialization.
   Disable all instrumentation, size all internal buffers to 0.
   This pre initialization step is needed to ensure that events can be collected
@@ -336,7 +330,6 @@ void pre_initialize_performance_schema();
   @param [out] system_bootstrap System instrumentation service bootstrap
   @param [out] tls_channel_bootstrap TLS channel instrumentation service
   bootstrap
-  @returns
   @retval 0 success
 */
 int initialize_performance_schema(

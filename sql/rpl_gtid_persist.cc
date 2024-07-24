@@ -1,15 +1,16 @@
-/* Copyright (c) 2013, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2013, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -185,7 +186,7 @@ bool Gtid_table_access_context::deinit(THD *thd, TABLE *table, bool error,
   /*
     If Gtid is inserted through Attachable_trx_rw its has been done
     in the above close_table() through ha_commit_trans().
-    It does not have any side effect to the global transaction state
+    It does not have any side effect on the global transaction state
     as the only vulnerable part there relates to gtid (and is blocked
     from recursive invocation).
   */
@@ -193,7 +194,7 @@ bool Gtid_table_access_context::deinit(THD *thd, TABLE *table, bool error,
     thd->end_attachable_transaction();
 
   thd->is_operating_gtid_table_implicitly = false;
-  /* Reenable binlog */
+  /* Re-enable binlog */
   if (m_is_write)
     thd->variables.option_bits = m_tmp_disable_binlog__save_options;
   if (this->m_skip_readonly_set) {
@@ -609,7 +610,7 @@ int Gtid_table_persistor::reset(THD *thd) {
     error = 1;
     goto end;
   }
-  /* Reseting the counter as gtid_executed table will also
+  /* Resetting the counter as gtid_executed table will also
      be emptied.
   */
   m_atomic_count = 0;

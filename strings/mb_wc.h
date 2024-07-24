@@ -1,28 +1,33 @@
 #ifndef MB_WC_INCLUDED
 #define MB_WC_INCLUDED
 
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License, version 2.0, as published by the Free Software Foundation.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License, version 2.0,
+   as published by the Free Software Foundation.
 
-   This library is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
-   permission to link the library and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   permission to link the program and your derivative works with the
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
-   This library is distributed in the hope that it will be useful,
+   Without limiting anything contained in the foregoing, this file,
+   which is part of C Driver for MySQL (Connector/C), is also subject to the
+   Universal FOSS Exception, version 1.0, a copy of which can be found at
+   http://oss.oracle.com/licenses/universal-foss-exception.
+
+   This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License, version 2.0, for more details.
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License, version 2.0, for more details.
 
-   You should have received a copy of the GNU Library General Public
-   License along with this library; if not, write to the Free
-   Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
-   MA 02110-1301  USA */
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 /**
   @file mb_wc.h
@@ -38,7 +43,7 @@
   just a single byte load and a predictable compare) that the call overhead
   in a tight loop is significant, and these routines tend to take up a lot
   of CPU time when sorting. Typically, at the outermost level, you'd simply
-  compare cs->cset->mb_wc with my_mb_wc_{utf8,utf8mb4}_thunk, and if so,
+  compare cs->cset->mb_wc with my_mb_wc_{utf8mb3,utf8mb4}_thunk, and if so,
   instantiate your function with the given class. If it doesn't match,
   you can use Mb_wc_through_function_pointer, which calls through the
   function pointer as usual. (It will cache the function pointer for you,
@@ -57,19 +62,19 @@ template <bool RANGE_CHECK, bool SUPPORT_MB4>
 static int my_mb_wc_utf8_prototype(my_wc_t *pwc, const uchar *s,
                                    const uchar *e);
 
-static int my_mb_wc_utf8(my_wc_t *pwc, const uchar *s, const uchar *e);
+static int my_mb_wc_utf8mb3(my_wc_t *pwc, const uchar *s, const uchar *e);
 static int my_mb_wc_utf8mb4(my_wc_t *pwc, const uchar *s, const uchar *e);
 
 /**
   Functor that converts a UTF-8 multibyte sequence (up to three bytes)
   to a wide character.
 */
-struct Mb_wc_utf8 {
-  Mb_wc_utf8() = default;
+struct Mb_wc_utf8mb3 {
+  Mb_wc_utf8mb3() = default;
 
   ALWAYS_INLINE
   int operator()(my_wc_t *pwc, const uchar *s, const uchar *e) const {
-    return my_mb_wc_utf8(pwc, s, e);
+    return my_mb_wc_utf8mb3(pwc, s, e);
   }
 };
 
@@ -188,14 +193,15 @@ static ALWAYS_INLINE int my_mb_wc_utf8_prototype(my_wc_t *pwc, const uchar *s,
   @return the number of bytes read from s, or a value <= 0 for failure
     (see m_ctype.h)
 */
-static inline int my_mb_wc_utf8(my_wc_t *pwc, const uchar *s, const uchar *e) {
+static inline int my_mb_wc_utf8mb3(my_wc_t *pwc, const uchar *s,
+                                   const uchar *e) {
   return my_mb_wc_utf8_prototype</*RANGE_CHECK=*/true, /*SUPPORT_MB4=*/false>(
       pwc, s, e);
 }
 
 /**
   Parses a single UTF-8 character from a byte string. The difference
-  between this and my_mb_wc_utf8 is that this function also can handle
+  between this and my_mb_wc_utf8mb3 is that this function also can handle
   four-byte UTF-8 characters.
 
   @param[out] pwc the parsed character, if any
@@ -212,11 +218,11 @@ static ALWAYS_INLINE int my_mb_wc_utf8mb4(my_wc_t *pwc, const uchar *s,
 }
 
 // Non-inlined versions of the above. These are used as function pointers
-// in MY_CHARSET_HANDLER structs, and you can compare againt them to see
+// in MY_CHARSET_HANDLER structs, and you can compare against them to see
 // if using the Mb_wc_utf8* functors would be appropriate.
 
-extern "C" int my_mb_wc_utf8_thunk(const CHARSET_INFO *cs, my_wc_t *pwc,
-                                   const uchar *s, const uchar *e);
+extern "C" int my_mb_wc_utf8mb3_thunk(const CHARSET_INFO *cs, my_wc_t *pwc,
+                                      const uchar *s, const uchar *e);
 
 extern "C" int my_mb_wc_utf8mb4_thunk(const CHARSET_INFO *cs, my_wc_t *pwc,
                                       const uchar *s, const uchar *e);

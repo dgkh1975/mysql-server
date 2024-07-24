@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -355,9 +356,6 @@
 
 // forward declarations [step 1]
 namespace mysqlrouter {
-class MySQLSession;
-}
-namespace mysqlrouter {
 class Ofstream;
 }
 namespace mysql_harness {
@@ -405,14 +403,6 @@ class HARNESS_EXPORT DIM {  // DIM = Dependency Injection Manager
       const std::function<void(mysql_harness::logging::Registry *)> &deleter) {
     factory_LoggingRegistry_ = factory;
     deleter_LoggingRegistry_ = deleter;
-  }
-
-  // MySQLSession
-  void set_MySQLSession(
-      const std::function<mysqlrouter::MySQLSession *(void)> &factory,
-      const std::function<void(mysqlrouter::MySQLSession *)> &deleter) {
-    factory_MySQLSession_ = factory;
-    deleter_MySQLSession_ = deleter;
   }
 
   // RandomGenerator
@@ -472,15 +462,6 @@ class HARNESS_EXPORT DIM {  // DIM = Dependency Injection Manager
                                 deleter_DynamicState_);
   }
 
-  ////////////////////////////////////////////////////////////////////////////////
-  // object creators [step 3] (used for non-singleton objects)
-  ////////////////////////////////////////////////////////////////////////////////
-
-  // MySQLSession
-  UniquePtr<mysqlrouter::MySQLSession> new_MySQLSession() const {
-    return new_generic(factory_MySQLSession_, deleter_MySQLSession_);
-  }
-
  private:
   ////////////////////////////////////////////////////////////////////////////////
   // factory and deleter functions [step 4]
@@ -492,10 +473,6 @@ class HARNESS_EXPORT DIM {  // DIM = Dependency Injection Manager
   std::function<void(mysql_harness::logging::Registry *)>
       deleter_LoggingRegistry_;
   UniquePtr<mysql_harness::logging::Registry> instance_LoggingRegistry_;
-
-  // MySQLSession
-  std::function<mysqlrouter::MySQLSession *(void)> factory_MySQLSession_;
-  std::function<void(mysqlrouter::MySQLSession *)> deleter_MySQLSession_;
 
   // RandomGenerator
   std::function<mysql_harness::RandomGeneratorInterface *(void)>

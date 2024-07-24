@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -31,6 +32,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 #include "my_dbug.h"
 #include "sql/current_thd.h"
 #include "sql/field.h"
+#include "sql/mysqld.h"  // mysqld_server_started
 #include "sql/mysqld_thd_manager.h"
 #include "sql/sql_base.h"
 #include "sql/sql_class.h"
@@ -519,7 +521,7 @@ class Table_access_impl {
 
  private:
   /** Array of size m_max_count. */
-  TABLE_LIST *m_table_array;
+  Table_ref *m_table_array;
   /** Array of size m_max_count. */
   Table_state *m_table_state_array;
   size_t m_current_count;
@@ -555,7 +557,7 @@ class TA_key_impl {
   TA_key_impl();
   ~TA_key_impl() {}
 
-  void key_copy(uchar *record);
+  void key_copy(uchar *record, uint key_length);
 
  public:
   /* Metadata */
@@ -564,7 +566,7 @@ class TA_key_impl {
 
   /* Data */
   uchar m_key[MAX_KEY_LENGTH];
-  size_t m_key_length;
+  uint m_key_length;
 };
 
 TA_key_impl::TA_key_impl() {
@@ -574,18 +576,29 @@ TA_key_impl::TA_key_impl() {
   m_key_length = 0;
 }
 
-void TA_key_impl::key_copy(uchar *record) {
+void TA_key_impl::key_copy(uchar *record, uint key_length) {
+  /* Actual key may be a prefix */
+  assert(key_length <= m_key_info->key_length);
+  m_key_length = key_length;
   ::key_copy(m_key, record, m_key_info, m_key_length);
 }
 
 Table_access_impl::Table_access_impl(THD *thd, size_t count)
     : m_current_count(0), m_max_count(count), m_write(false), m_in_tx(false) {
-  assert(thd != nullptr);
   m_parent_thd = thd;
 
   m_child_thd = new THD(true);
 
-  m_child_thd->copy_table_access_properties(m_parent_thd);
+  if (m_parent_thd)
+    m_child_thd->copy_table_access_properties(m_parent_thd);
+  else {
+    void *dummy_p = nullptr;
+    m_child_thd->thread_stack = (char *)&dummy_p;
+    m_child_thd->security_context()->assign_user(
+        STRING_WITH_LEN("table_access"));
+    m_child_thd->security_context()->skip_grants("", "");
+    my_thread_init();
+  }
 
   m_child_thd->real_id = my_thread_self();
   m_child_thd->set_new_thread_id();
@@ -602,7 +615,7 @@ Table_access_impl::Table_access_impl(THD *thd, size_t count)
   */
   Global_THD_manager::get_instance()->add_thd(m_child_thd);
 
-  m_table_array = new TABLE_LIST[m_max_count];
+  m_table_array = new Table_ref[m_max_count];
   m_table_state_array = new Table_state[m_max_count];
 }
 
@@ -613,10 +626,18 @@ Table_access_impl::~Table_access_impl() {
 
   close_thread_tables(m_child_thd);
 
+  if (!mysqld_server_started) {
+    /*
+      After initialization of the server, InnoDB's data dictionary cache is
+      reset. It requires all tables, including the cached ones, to be released.
+    */
+    close_cached_tables(m_child_thd, m_table_array, false, LONG_TIMEOUT);
+  }
+
   m_child_thd->release_resources();
   m_child_thd->restore_globals();
 
-  m_parent_thd->store_globals();
+  if (m_parent_thd) m_parent_thd->store_globals();
 
   Global_THD_manager::get_instance()->remove_thd(m_child_thd);
 
@@ -624,6 +645,8 @@ Table_access_impl::~Table_access_impl() {
 
   delete[] m_table_array;
   delete[] m_table_state_array;
+
+  if (!m_parent_thd) my_thread_end();
 
   // FIXME : kill flag ?
   // FIXME : nested THD status variables ?
@@ -694,21 +717,21 @@ size_t Table_access_impl::add_table(const char *schema_name,
       table_name, table_name_length, cs, &errors);
   state->m_table_name[state->m_table_name_length] = '\0';
 
-  TABLE_LIST *current = &m_table_array[m_current_count];
+  Table_ref *current = &m_table_array[m_current_count];
 
   // FIXME : passing alias = table_name to force MDL key init.
-  *current = TABLE_LIST(state->m_schema_name, state->m_schema_name_length,
-                        state->m_table_name, state->m_table_name_length,
-                        state->m_table_name, lock_type);
+  *current = Table_ref(state->m_schema_name, state->m_schema_name_length,
+                       state->m_table_name, state->m_table_name_length,
+                       state->m_table_name, lock_type);
   assert(current->mdl_request.key.length() != 0);
 
   current->next_local = nullptr;
   current->next_global = nullptr;
   current->open_type = OT_BASE_ONLY;  // TODO: VIEWS ?
-  current->open_strategy = TABLE_LIST::OPEN_IF_EXISTS;
+  current->open_strategy = Table_ref::OPEN_IF_EXISTS;
 
   if (m_current_count > 0) {
-    TABLE_LIST *prev = &m_table_array[m_current_count - 1];
+    Table_ref *prev = &m_table_array[m_current_count - 1];
     prev->next_local = current;
     prev->next_global = current;
   }
@@ -717,7 +740,18 @@ size_t Table_access_impl::add_table(const char *schema_name,
 }
 
 int Table_access_impl::begin() {
-  if (m_write) {
+  /*
+    Read lock must be acquired during entire open_and_lock_tables function
+    call, because shutdown process can make its internals unavailable in the
+    middle of the call. If tables are acquired before the shutdown process, the
+    shutdown process will not deallocate internals until tables are closed.
+   */
+  rwlock_scoped_lock rdlock(&LOCK_server_shutting_down, false, __FILE__,
+                            __LINE__);
+
+  if (server_shutting_down) return TA_ERROR_OPEN;
+
+  if (m_write && m_parent_thd != nullptr) {
     if (m_parent_thd->global_read_lock.is_acquired()) {
       /*
         Avoid waiting in the child THD session
@@ -1048,8 +1082,6 @@ int impl_index_read_map(Table_access /* api_ta */, TA_table api_table,
   assert(num_parts > 0);
   assert(num_parts <= key->m_key_info->actual_key_parts);
 
-  key->key_copy(table->record[0]);
-
   /*
     NUM_PARTS | KEY_PART_MAP
     ------------------------
@@ -1061,8 +1093,12 @@ int impl_index_read_map(Table_access /* api_ta */, TA_table api_table,
   */
   key_part_map map = make_prev_keypart_map(num_parts);
 
-  result = table->file->ha_index_read_idx_map(
-      table->record[0], key->m_key_index, key->m_key, map, HA_READ_KEY_EXACT);
+  uint key_len = calculate_key_len(table, key->m_key_index, map);
+
+  key->key_copy(table->record[0], key_len);
+
+  result = table->file->ha_index_read_map(table->record[0], key->m_key, map,
+                                          HA_READ_KEY_EXACT);
 
   if (result == 0) {
     if (table->record[1]) {
@@ -1269,7 +1305,7 @@ int impl_get_field_varchar_value(Table_access /* api_ta */, TA_table api_table,
   assert(value != nullptr);
 
   assert(!f->is_null());
-  String *s_ptr MY_ATTRIBUTE((unused));
+  String *s_ptr [[maybe_unused]];
   s_ptr = f->val_str(value, value);
   assert(s_ptr == value);
 
@@ -1301,7 +1337,7 @@ int impl_get_field_any_value(Table_access /* api_ta */, TA_table api_table,
   assert(value != nullptr);
 
   assert(!f->is_null());
-  String *s_ptr MY_ATTRIBUTE((unused));
+  String *s_ptr [[maybe_unused]];
   s_ptr = f->val_str(value, value);
   assert(s_ptr == value);
 

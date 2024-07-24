@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -50,39 +51,8 @@ class MockReceiver {
   MOCK_METHOD3(FoundSubgraphPair, bool(NodeMap, NodeMap, int));
 };
 
-class TrivialReceiver {
- public:
-  explicit TrivialReceiver(const Hypergraph &g) : m_g(g) {}
-
-  bool HasSeen(NodeMap subgraph) const {
-    return seen_subgraphs.count(subgraph) != 0;
-  }
-  bool FoundSingleNode(int node_idx) {
-    printf("Found node R%d\n", node_idx + 1);
-    seen_subgraphs.insert(TableBitmap(node_idx));
-    return false;
-  }
-
-  // Called EmitCsgCmp() in the paper.
-  bool FoundSubgraphPair(NodeMap left, NodeMap right,
-                         int edge_idx MY_ATTRIBUTE((unused))) {
-    printf("Found sets %s and %s, connected by edge %s-%s\n",
-           PrintSet(left).c_str(), PrintSet(right).c_str(),
-           PrintSet(m_g.edges[edge_idx].left).c_str(),
-           PrintSet(m_g.edges[edge_idx].right).c_str());
-    assert(left != 0);
-    assert(right != 0);
-    assert((left & right) == 0);
-    seen_subgraphs.insert(left | right);
-    return false;
-  }
-
- private:
-  std::unordered_set<NodeMap> seen_subgraphs;
-  const Hypergraph &m_g;
-};
-
 TEST(DPhypTest, ExampleHypergraph) {
+  MEM_ROOT mem_root;
   /*
     The example graph from the DPhyp paper. One large
     hyperedge and four simple edges.
@@ -93,7 +63,7 @@ TEST(DPhypTest, ExampleHypergraph) {
       |   / \   |
       R3-'   `-R6
    */
-  Hypergraph g;
+  Hypergraph g(&mem_root);
   g.AddNode();                    // R1
   g.AddNode();                    // R2
   g.AddNode();                    // R3
@@ -188,6 +158,7 @@ TEST(DPhypTest, ExampleHypergraph) {
 }
 
 TEST(DPhypTest, Loop) {
+  MEM_ROOT mem_root;
   /*
     Shows that we can go around a loop and connect R1 to {R2,R3,R4,R5}
     graph through {R2,R5}, even though R5 was not part of R1's
@@ -203,7 +174,7 @@ TEST(DPhypTest, Loop) {
             \     |
             R5----R4
    */
-  Hypergraph g;
+  Hypergraph g(&mem_root);
   g.AddNode();                  // R1
   g.AddNode();                  // R2
   g.AddNode();                  // R3
@@ -307,12 +278,13 @@ TEST(DPhypTest, Loop) {
 }
 
 TEST(DPhypTest, AbortWithError) {
+  MEM_ROOT mem_root;
   /*
     A simple chain.
 
       R1--R2--R3
    */
-  Hypergraph g;
+  Hypergraph g(&mem_root);
   g.AddNode();                    // R1
   g.AddNode();                    // R2
   g.AddNode();                    // R3
@@ -436,7 +408,8 @@ struct BenchmarkReceiver {
 TEST(DPhypTest, Chain) {
   constexpr int num_elements = 20;
 
-  Hypergraph g;
+  MEM_ROOT mem_root;
+  Hypergraph g(&mem_root);
   for (int i = 0; i < num_elements; ++i) {
     g.AddNode();
     if (i != 0) {
@@ -496,6 +469,7 @@ TEST(DPhypTest, Chain) {
 // This test doesn't test precise call ordering, only that we get all the
 // expected sets.
 TEST(DPhypTest, SmallStar) {
+  MEM_ROOT mem_root;
   /*
      R2
      |
@@ -505,7 +479,7 @@ TEST(DPhypTest, SmallStar) {
      |
      R4
    */
-  Hypergraph g;
+  Hypergraph g(&mem_root);
   g.AddNode();                  // R1
   g.AddNode();                  // R2
   g.AddNode();                  // R3
@@ -569,7 +543,8 @@ TEST(DPhypTest, Clique) {
 
   int edge_indexes[num_elements][num_elements];
 
-  Hypergraph g;
+  MEM_ROOT mem_root;
+  Hypergraph g(&mem_root);
   for (int i = 0; i < num_elements; ++i) {
     g.AddNode();
     for (int j = 0; j < i; ++j) {
@@ -624,7 +599,8 @@ TEST(DPhypTest, Clique) {
 TEST(DPhypTest, OuterJoinChain) {
   constexpr int num_nodes = 5;
 
-  Hypergraph g;
+  MEM_ROOT mem_root;
+  Hypergraph g(&mem_root);
   g.AddNode();                  // R1
   g.AddNode();                  // R2
   g.AddNode();                  // R3
@@ -672,7 +648,8 @@ static void BM_Chain20(size_t num_iterations) {
   StopBenchmarkTiming();
   constexpr int num_nodes = 20;
 
-  Hypergraph g;
+  MEM_ROOT mem_root;
+  Hypergraph g(&mem_root);
   for (int i = 0; i < num_nodes; ++i) {
     g.AddNode();
     if (i != 0) {
@@ -706,7 +683,8 @@ static void BM_NestedOuterJoin20(size_t num_iterations) {
   StopBenchmarkTiming();
   constexpr int num_nodes = 20;
 
-  Hypergraph g;
+  MEM_ROOT mem_root;
+  Hypergraph g(&mem_root);
   for (int i = 0; i < num_nodes; ++i) {
     g.AddNode();
   }
@@ -730,7 +708,8 @@ static void BM_HyperCycle16(size_t num_iterations) {
   StopBenchmarkTiming();
   constexpr int num_nodes = 16;  // A multiple of four.
 
-  Hypergraph g;
+  MEM_ROOT mem_root;
+  Hypergraph g(&mem_root);
   for (int i = 0; i < num_nodes; ++i) {
     g.AddNode();
   }
@@ -759,7 +738,8 @@ static void BM_Star17(size_t num_iterations) {
   StopBenchmarkTiming();
   constexpr int num_nodes = 17;
 
-  Hypergraph g;
+  MEM_ROOT mem_root;
+  Hypergraph g(&mem_root);
   g.AddNode();  // The central node.
   for (int i = 1; i < num_nodes; ++i) {
     g.AddNode();
@@ -782,7 +762,8 @@ static void BM_HyperStar17_ManyHyperedges(size_t num_iterations) {
   StopBenchmarkTiming();
   constexpr int num_nodes = 17;  // A multiple of four, plus one.
 
-  Hypergraph g;
+  MEM_ROOT mem_root;
+  Hypergraph g(&mem_root);
   g.AddNode();  // The central node.
   for (int i = 1; i < num_nodes; ++i) {
     g.AddNode();
@@ -812,7 +793,8 @@ static void BM_HyperStar17_SingleLargeHyperedge(size_t num_iterations) {
   StopBenchmarkTiming();
   constexpr int num_nodes = 17;  // A multiple of two, plus one.
 
-  Hypergraph g;
+  MEM_ROOT mem_root;
+  Hypergraph g(&mem_root);
   g.AddNode();  // The central node.
   for (int i = 1; i < num_nodes; ++i) {
     g.AddNode();

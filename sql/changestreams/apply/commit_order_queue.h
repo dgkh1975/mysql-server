@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,7 +34,7 @@
 namespace cs {
 namespace apply {
 /**
-  Queue to maintan the ordered sequence of workers waiting for commit.
+  Queue to maintain the ordered sequence of workers waiting for commit.
 
   The queue has a static list of elements, each one representing each worker
   commit information.
@@ -46,7 +47,7 @@ namespace apply {
   - Each queue element holds a member variable that points to the next worker to
     commit, the `next`.
   - Pushing a new element will move the `tail`.
-  - Poping an element will move the `head`.
+  - Popping an element will move the `head`.
 
   Atomics are used to make the queue thread-safe without the need for an
   explicit lock.
@@ -108,7 +109,7 @@ class Commit_order_queue {
     bool freeze_commit_sequence_nr(Commit_order_queue::sequence_type expected);
     /**
       Removes the frozen mark from the commit request sequence number this
-      node's worker is processing iff it was previosly frozen.
+      node's worker is processing if it was previously frozen.
 
       Commit request sequence numbers are monotonically ever increasing
       numbers that are used by worker threads to ensure ownership of the
@@ -129,7 +130,7 @@ class Commit_order_queue {
         Commit_order_queue::sequence_type previously_frozen);
 
    private:
-    // No commit request sequence number assiged
+    // No commit request sequence number assigned
     static constexpr Commit_order_queue::sequence_type NO_SEQUENCE_NR{0};
     // Commit request sequence number is marked as frozen
     static constexpr Commit_order_queue::sequence_type SEQUENCE_NR_FROZEN{1};
@@ -246,7 +247,7 @@ class Commit_order_queue {
    */
   Commit_order_queue::queue_type::enum_queue_state get_state();
   /**
-    Whether or not there are more workers to commmit.
+    Whether or not there are more workers to commit.
 
     @return True if there are no more workers, false otherwise.
    */
@@ -323,6 +324,16 @@ class Commit_order_queue {
     out << to_output.to_string() << std::flush;
     return out;
   }
+
+  /**
+    Returns the expected next number in the ticket sequence.
+
+    @param current_seq_nr The current sequence number, for which the next
+                          should be computed.
+
+    @return The expected next number in the ticket sequence.
+   */
+  static sequence_type get_next_sequence_nr(sequence_type current_seq_nr);
 
  private:
   /** The commit sequence number counter */

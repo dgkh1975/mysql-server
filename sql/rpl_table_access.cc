@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +39,7 @@
 #include "sql/sql_base.h"   // close_thread_tables
 #include "sql/sql_class.h"  // THD
 #include "sql/sql_lex.h"    // Query_tables_list
-#include "sql/table.h"      // TABLE_LIST
+#include "sql/table.h"      // Table_ref
 
 bool System_table_access::open_table(THD *thd, const LEX_CSTRING dbstr,
                                      const LEX_CSTRING tbstr,
@@ -72,10 +73,10 @@ bool System_table_access::open_table(THD *thd, std::string dbstr,
   thd->reset_n_backup_open_tables_state(backup,
                                         Open_tables_state::SYSTEM_TABLES);
 
-  TABLE_LIST tables(dbstr.c_str(), dbstr.length(), tbstr.c_str(),
-                    tbstr.length(), tbstr.c_str(), lock_type);
+  Table_ref tables(dbstr.c_str(), dbstr.length(), tbstr.c_str(), tbstr.length(),
+                   tbstr.c_str(), lock_type);
 
-  tables.open_strategy = TABLE_LIST::OPEN_IF_EXISTS;
+  tables.open_strategy = Table_ref::OPEN_IF_EXISTS;
 
   if (!open_n_lock_single_table(thd, &tables, tables.lock_descriptor().type,
                                 m_flags)) {

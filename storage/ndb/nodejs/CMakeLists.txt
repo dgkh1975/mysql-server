@@ -1,15 +1,16 @@
-# Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,7 +27,7 @@
 
 SET(WITH_NODEJS_INCLUDE_PATH "" CACHE PATH "location of node.js header files")
 
-SET(NODE_VERSION 12.22.1)
+SET(NODE_VERSION 18.12.1)
 
 IF(NDB_NODEJS_EXTRAS_PATH)
   SET(NODE_LIBRARIES ${NDB_NODEJS_EXTRAS_PATH}/windows-libs/${NODE_VERSION})
@@ -134,12 +135,23 @@ FOREACH(warning
     "unused-parameter"
     "undef"
     "undefined-reinterpret-cast"
+    "odr"
+    "lto-type-mismatch"
+    "non-virtual-dtor"
     )
   MY_CHECK_CXX_COMPILER_WARNING("${warning}" HAS_WARN_FLAG)
   IF(HAS_WARN_FLAG)
     STRING_APPEND(CMAKE_CXX_FLAGS " ${HAS_WARN_FLAG}")
   ENDIF()
 ENDFOREACH()
+
+IF(MY_COMPILER_IS_GNU AND NOT CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10)
+  # It's tricky to check alloc-size-larger-than warning in
+  # MY_CHECK_CXX_COMPILER_WARNING(). Handle it differently
+  # as done in sql/CMakeLists.txt
+  STRING_APPEND(CMAKE_CXX_FLAGS " -Wno-alloc-size-larger-than")
+ENDIF()
+
 
 ADD_LIBRARY(ndb_adapter MODULE ${ADAPTER_SOURCE_FILES})
 
@@ -151,8 +163,6 @@ IF(APPLE)
   SET(FINAL_LINK_FLAGS "-undefined dynamic_lookup")
 ELSEIF(WIN32)
   SET(FINAL_LINK_FLAGS "/FORCE:MULTIPLE")
-ELSEIF(CMAKE_C_COMPILER_ID MATCHES "SunPro")
-  SET(FINAL_LINK_FLAGS "-z muldefs")
 ENDIF()
 
 SET_TARGET_PROPERTIES(ndb_adapter PROPERTIES

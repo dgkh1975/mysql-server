@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -78,7 +79,7 @@ class GcsXComXComCache : public GcsBaseTest {
   void SetUp() override {
     m_synode = {1, 1, 0};
     m_addr = new std::string("127.0.0.1:12345");
-    char *names[] = {const_cast<char *>(m_addr->c_str())};
+    char const *names[]{m_addr->c_str()};
     m_na = new_node_address(1, names);
     m_sd = new_site_def();
     init_site_def(1, m_na, m_sd);

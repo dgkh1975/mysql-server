@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -57,6 +58,54 @@ static_assert(
     net::is_const_buffer_sequence<
         net::prepared_buffers<net::const_buffer>>::value,
     "net::prepared_buffers<net::const_buffer> MUST be a const_buffer_sequence");
+
+TEST(net_buffer, from_string_view) {
+  std::string_view o{"abc"};
+  auto b = net::buffer(o);
+
+  EXPECT_EQ(b.size(), o.size());
+  EXPECT_EQ(b.data(), o.data());
+}
+
+TEST(net_buffer, from_empty_string_view) {
+  std::string_view o;
+  auto b = net::buffer(o);
+
+  EXPECT_EQ(b.size(), o.size());
+  EXPECT_EQ(b.data(), nullptr);
+}
+
+TEST(net_buffer, from_string) {
+  std::string o{"abc"};
+  auto b = net::buffer(o);
+
+  EXPECT_EQ(b.size(), o.size());
+  EXPECT_EQ(b.data(), o.data());
+}
+
+TEST(net_buffer, from_empty_string) {
+  std::string o;
+  auto b = net::buffer(o);
+
+  EXPECT_EQ(b.size(), o.size());
+  EXPECT_EQ(b.data(), nullptr);
+}
+
+TEST(net_buffer, from_vector) {
+  std::vector<char> o{'a', 'b', 'c'};
+  auto b = net::buffer(o);
+
+  EXPECT_EQ(b.size(), o.size());
+  EXPECT_EQ(b.data(), o.data());
+}
+
+TEST(net_buffer, from_empty_vector) {
+  std::vector<char> o;
+  auto b = net::buffer(o);
+
+  EXPECT_EQ(b.size(), o.size());
+  EXPECT_EQ(b.data(), nullptr);
+}
 
 TEST(dynamic_string_buffer, size_empty) {
   std::string s;

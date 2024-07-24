@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -63,9 +64,9 @@ class Sdi_Decompressor {
       switch (ret) {
         case Z_BUF_ERROR:
 #ifdef UNIV_NO_ERR_MSGS
-          ib::fatal()
+          ib::fatal(UT_LOCATION_HERE)
 #else
-          ib::fatal(ER_IB_ERR_ZLIB_BUF_ERROR)
+          ib::fatal(UT_LOCATION_HERE, ER_IB_ERR_ZLIB_BUF_ERROR)
 #endif
 
               << "retval = Z_BUF_ERROR";
@@ -73,27 +74,27 @@ class Sdi_Decompressor {
 
         case Z_MEM_ERROR:
 #ifdef UNIV_NO_ERR_MSGS
-          ib::fatal()
+          ib::fatal(UT_LOCATION_HERE)
 #else
-          ib::fatal(ER_IB_ERR_ZLIB_MEM_ERROR)
+          ib::fatal(UT_LOCATION_HERE, ER_IB_ERR_ZLIB_MEM_ERROR)
 #endif
               << "retval = Z_MEM_ERROR";
           break;
 
         case Z_DATA_ERROR:
 #ifdef UNIV_NO_ERR_MSGS
-          ib::fatal()
+          ib::fatal(UT_LOCATION_HERE)
 #else
-          ib::fatal(ER_IB_ERR_ZLIB_DATA_ERROR)
+          ib::fatal(UT_LOCATION_HERE, ER_IB_ERR_ZLIB_DATA_ERROR)
 #endif
               << "retval = Z_DATA_ERROR";
           break;
 
         default:
 #ifdef UNIV_NO_ERR_MSGS
-          ib::fatal()
+          ib::fatal(UT_LOCATION_HERE)
 #else
-          ib::fatal(ER_IB_ERR_ZLIB_UNKNOWN_ERROR)
+          ib::fatal(UT_LOCATION_HERE, ER_IB_ERR_ZLIB_UNKNOWN_ERROR)
 #endif
               << "retval = UNKNOWN_ERROR";
           break;

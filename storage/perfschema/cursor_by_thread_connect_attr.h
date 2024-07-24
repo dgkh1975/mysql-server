@@ -1,15 +1,16 @@
-/* Copyright (c) 2012, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2012, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -45,12 +46,12 @@
 struct pos_connect_attr_by_thread_by_attr : public PFS_double_index {
   pos_connect_attr_by_thread_by_attr() : PFS_double_index(0, 0) {}
 
-  inline void next_thread(void) {
+  inline void next_thread() {
     m_index_1++;
     m_index_2 = 0;
   }
 
-  inline void reset(void) {
+  inline void reset() {
     m_index_1 = 0;
     m_index_2 = 0;
   }
@@ -61,7 +62,7 @@ class cursor_by_thread_connect_attr : public PFS_engine_table {
  public:
   static ha_rows get_row_count();
 
-  void reset_position(void) override;
+  void reset_position() override;
 
   int rnd_next() override;
   int rnd_pos(const void *pos) override;
@@ -70,7 +71,7 @@ class cursor_by_thread_connect_attr : public PFS_engine_table {
   int index_next() override { return 1; }
 
  protected:
-  cursor_by_thread_connect_attr(const PFS_engine_table_share *share);
+  explicit cursor_by_thread_connect_attr(const PFS_engine_table_share *share);
 
  public:
   ~cursor_by_thread_connect_attr() override = default;

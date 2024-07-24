@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -168,7 +169,7 @@ class Gcs_log_event {
   usually the terminal, a file or a remote process.
 
   By default, the circular buffer has DEFAULT_ASYNC_BUFFERS entries and this
-  value can be changed by providing different contructor's paramaters. Note
+  value can be changed by providing different contructor's parameters. Note
   that, however, this is not currently exposed to the end-user. If there is no
   free slot available, the caller thread will be temporarily blocked until it
   can copy its message into a free slot. Only one thread will read the entries
@@ -196,7 +197,7 @@ class Gcs_async_buffer {
   std::vector<Gcs_log_event> m_buffer;
 
   /**
-    Number of avaiable slots in the buffer.
+    Number of available slots in the buffer.
   */
   int m_buffer_size;
 

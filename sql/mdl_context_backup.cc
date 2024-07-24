@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -81,7 +82,7 @@ class MDL_context_backup_manager::MDL_context_backup
 
   uint get_rand_seed() const override { return 1; }
 
-  bool is_connected() override { return true; }
+  bool is_connected(bool = false) override { return true; }
   // End implementation of MDL_context_owner interface.
 
  private:
@@ -158,7 +159,6 @@ bool MDL_context_backup_manager::create_backup(const MDL_context *context,
                                                const size_t keylen) {
   DBUG_TRACE;
 
-  bool result = false;
   try {
     MDL_context_backup_key key_obj(key, keylen);
 
@@ -170,23 +170,20 @@ bool MDL_context_backup_manager::create_backup(const MDL_context *context,
     */
     assert(!check_key_exist(key_obj));
 
-    std::unique_ptr<MDL_context_backup> element(new (std::nothrow)
-                                                    MDL_context_backup());
-
-    if (element == nullptr) {
-      my_error(ER_OUTOFMEMORY, MYF(ME_FATALERROR), sizeof(element));
-      return true;
-    }
-
+    auto element = std::make_unique<MDL_context_backup>();
     if (element->get_context()->clone_tickets(context, MDL_TRANSACTION))
       return true;
 
     MUTEX_LOCK(guard, &m_LOCK_mdl_context_backup);
-    m_backup_map.emplace(key_obj, std::move(element));
+    // Do this before inserting into the map, to avoid having to remove
+    DBUG_EXECUTE_IF("xaprep_create_mdl_backup_fail",
+                    { throw std::bad_alloc(); });
+    m_backup_map.emplace(std::move(key_obj), std::move(element));
   } catch (std::bad_alloc &) {
-    result = true;
+    my_error(ER_OUT_OF_RESOURCES, MYF(ME_FATALERROR));
+    return true;
   }
-  return result;
+  return false;
 }
 
 bool MDL_context_backup_manager::create_backup(MDL_request_list *mdl_requests,

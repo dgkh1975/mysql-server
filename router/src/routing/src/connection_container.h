@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -45,7 +46,7 @@ class MySQLRoutingConnectionBase;
  * @brief Basic Concurrent Map
  *
  * The concurrent_map is a hash-map, with fixed number of buckets.
- * The numer of buckets can be specified in constructor parameter
+ * The number of buckets can be specified in constructor parameter
  * (num_buckets), by default is set to 23.
  */
 template <typename Key, typename Value, typename Hash = std::hash<Key>>
@@ -69,7 +70,7 @@ class concurrent_map {
   }
 
   template <typename Predicate>
-  void for_each(Predicate &p) {
+  void for_each(Predicate p) {
     for (auto &each_bucket : buckets_) {
       each_bucket.for_each(p);
     }
@@ -165,7 +166,7 @@ class concurrent_map {
  */
 class ConnectionContainer {
   concurrent_map<MySQLRoutingConnectionBase *,
-                 std::unique_ptr<MySQLRoutingConnectionBase>>
+                 std::shared_ptr<MySQLRoutingConnectionBase>>
       connections_;
 
  public:
@@ -197,7 +198,7 @@ class ConnectionContainer {
    *
    * @param connection The connection to MySQL server
    */
-  void add_connection(std::unique_ptr<MySQLRoutingConnectionBase> connection);
+  void add_connection(std::shared_ptr<MySQLRoutingConnectionBase> connection);
 
   /**
    * @brief Disconnects all connections to servers that are not allowed any
@@ -205,13 +206,23 @@ class ConnectionContainer {
    *
    * @param nodes Allowed servers. Connections to servers that are not in nodes
    *        are closed.
+   * @returns number of connections marked to be disconnected
    */
-  void disconnect(const AllowedNodes &nodes);
+  unsigned disconnect(const AllowedNodes &nodes);
 
   /**
    * @brief Disconnects all connection in the ConnectionContainer.
    */
   void disconnect_all();
+
+  /**
+   * @brief Retrieve the connection object for the given client endpoint
+   *
+   * @param client_endpoint The endpoint string
+   * @returns the connection object, or nullptr
+   */
+  MySQLRoutingConnectionBase *get_connection(
+      const std::string &client_endpoint);
 
   /**
    * @brief removes connection from container

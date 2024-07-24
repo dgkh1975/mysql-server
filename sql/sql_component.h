@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -32,6 +33,9 @@
 #include "sql/sql_cmd.h"
 
 class THD;
+class PT_item_list;
+class String;
+struct PT_install_component_set_element;
 
 /**
    This class implements the INSTALL COMPONENT statement.
@@ -39,8 +43,9 @@ class THD;
 
 class Sql_cmd_install_component : public Sql_cmd {
  public:
-  Sql_cmd_install_component(const Mem_root_array_YY<LEX_STRING> &urns)
-      : m_urns(urns) {}
+  Sql_cmd_install_component(const Mem_root_array_YY<LEX_STRING> &urns,
+                            List<PT_install_component_set_element> *set_exprs)
+      : m_urns(urns), m_set_exprs(set_exprs) {}
 
   enum_sql_command sql_command_code() const override {
     return SQLCOM_INSTALL_COMPONENT;
@@ -55,8 +60,12 @@ class Sql_cmd_install_component : public Sql_cmd {
   */
   bool execute(THD *thd) override;
 
+  char **m_arg_list{nullptr};
+  int m_arg_list_size{0};
+
  private:
   const Mem_root_array_YY<LEX_STRING> m_urns;
+  List<PT_install_component_set_element> *m_set_exprs;
 };
 
 /**
@@ -90,7 +99,8 @@ class Sql_cmd_uninstall_component : public Sql_cmd {
 */
 class Deployed_components final {
  public:
-  explicit Deployed_components(const std::string program_name);
+  explicit Deployed_components(const std::string program_name,
+                               const std::string instance_path);
   ~Deployed_components();
   bool valid() const { return valid_; }
   bool components_loaded() const { return loaded_; }
@@ -104,6 +114,7 @@ class Deployed_components final {
 
  private:
   std::string program_name_;
+  std::string instance_path_;
   std::string components_;
   std::string last_error_;
   bool valid_;

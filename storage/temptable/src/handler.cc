@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -24,6 +25,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 TempTable public handler API implementation. */
 
 #include "storage/temptable/include/temptable/handler.h"
+
+#include <string.h>
+
 #include "my_base.h"
 #include "my_dbug.h"
 #include "mysql/plugin.h"
@@ -46,7 +50,7 @@ static Sharded_key_value_store<KV_STORE_SHARDS_COUNT> kv_store_shard;
  * */
 static Lock_free_shared_block_pool<SHARED_BLOCK_POOL_SIZE> shared_block_pool;
 
-/** Small helper function which debug-prints the miscelaneous statistics which
+/** Small helper function which debug-prints the miscellaneous statistics which
  * key-value store has collected.
  * */
 void kv_store_shards_debug_dump() { kv_store_shard.dbug_print(); }
@@ -129,11 +133,20 @@ int Handler::create(const char *table_name, TABLE *mysql_table,
     DBUG_EXECUTE_IF("temptable_create_return_non_result_type_exception",
                     throw 42;);
 
+    // Calculate m_number_of_elements_per_page, see Table::Table():
+    if (all_columns_are_fixed_size) {
+      Storage rows_of_the_table = Storage(nullptr);
+      rows_of_the_table.element_size(mysql_table->s->rec_buff_length);
+      if (rows_of_the_table.number_of_elements_per_page() == 0)
+        DBUG_RET(Result::TOO_BIG_ROW);
+    }
+
+    size_t per_table_limit = thd_get_tmp_table_size(ha_thd());
     auto &kv_store = kv_store_shard[thd_thread_id(ha_thd())];
     const auto insert_result = kv_store.emplace(
         std::piecewise_construct, std::forward_as_tuple(table_name),
         std::forward_as_tuple(mysql_table, m_shared_block,
-                              all_columns_are_fixed_size));
+                              all_columns_are_fixed_size, per_table_limit));
 
     ret = insert_result.second ? Result::OK : Result::TABLE_EXIST;
 
@@ -305,7 +318,8 @@ int Handler::rnd_pos(uchar *mysql_row, uchar *position) {
 
   handler::ha_statistic_increment(&System_status_var::ha_read_rnd_count);
 
-  Storage::Element *row = *reinterpret_cast<Storage::Element **>(position);
+  Storage::Element *row;
+  memcpy(&row, position, sizeof(row));
 
   m_rnd_iterator = Storage::Iterator(&m_opened_table->rows(), row);
 
@@ -840,8 +854,8 @@ uint Handler::max_supported_key_length() const {
   return length;
 }
 
-uint Handler::max_supported_key_part_length(
-    HA_CREATE_INFO *create_info MY_ATTRIBUTE((unused))) const {
+uint Handler::max_supported_key_part_length(HA_CREATE_INFO *create_info
+                                            [[maybe_unused]]) const {
   DBUG_TRACE;
 
   const uint length = std::numeric_limits<uint>::max();

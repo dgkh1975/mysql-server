@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,7 +28,7 @@
 #include "config_builder.h"
 #include "mysql/harness/utility/string.h"
 #include "router_component_test.h"
-#include "temp_dir.h"
+#include "test/temp_directory.h"
 
 using namespace std::chrono_literals;
 
@@ -53,14 +54,14 @@ TEST_P(RouterTestBrokenConfig, ensure) {
   init_keyring(default_section, conf_dir_.name());
 
   const std::string conf_file{create_config_file(
-      conf_dir_.name(), mysql_harness::join(GetParam().sections, "\n"),
+      conf_dir_.name(), mysql_harness::join(GetParam().sections, ""),
       &default_section)};
   auto &router{
       launch_router({"-c", conf_file}, EXIT_FAILURE, true, false, -1s)};
 
   check_exit_code(router, EXIT_FAILURE);
 
-  EXPECT_THAT(router.get_full_logfile(),
+  EXPECT_THAT(router.get_logfile_content(),
               ::testing::HasSubstr(GetParam().expected_logfile_substring));
   EXPECT_THAT(router.get_full_output(),
               ::testing::HasSubstr(GetParam().expected_stderr_substring));
@@ -234,7 +235,7 @@ static const BrokenConfigParams broken_config_params[]{
                                                          {"user", "foobar"},
                                                      }),
      },
-     "list of metadata-servers is empty: 'bootstrap_server_addresses' is the "
+     "list of metadata-servers is empty: 'bootstrap_server_addresses' in the "
      "configuration file is empty or not set and no known "
      "'dynamic_config'-file",
      ""},
@@ -244,10 +245,10 @@ static const BrokenConfigParams broken_config_params[]{
              "metadata_cache",
              {
                  {"user", "foobar"},
-                 {"bootstrap_server_address", ""},
+                 {"bootstrap_server_addresses", ""},
              }),
      },
-     "list of metadata-servers is empty: 'bootstrap_server_addresses' is the "
+     "list of metadata-servers is empty: 'bootstrap_server_addresses' in the "
      "configuration file is empty or not set and no known "
      "'dynamic_config'-file",
      ""},
@@ -342,6 +343,20 @@ static const BrokenConfigParams broken_config_params[]{
      "in [routing:tests]: '127.0.0.1:99999' is not a valid endpoint",
      ""},
 
+    {"routing_bind_address_ambiguous_port",
+     {
+         mysql_harness::ConfigBuilder::build_section(
+             "routing:tests",
+             {
+                 {"bind_address", "127.0.0.1:3307"},
+                 {"bind_port", "3308"},
+                 {"destinations", "127.0.0.1:3306"},
+                 {"routing_strategy", "round-robin"},
+             }),
+     },
+     "port in bind_address and bind_port are ambiguous",
+     ""},
+
     {"routing_bind_address_invalid_address",
      // '....' should be invalid in all environments as each "label" is 0 chars
      // which isn't allowed.
@@ -424,8 +439,8 @@ static const BrokenConfigParams broken_config_params_unix[]{
                  {"socket", "/this/path/does/not/exist/socket"},
              }),
      },
-     "Failed setting up named socket service "
-     "'/this/path/does/not/exist/socket': No such file or directory",
+     "Failed setting up acceptor on '/this/path/does/not/exist/socket': "
+     "No such file or directory",
      ""},
 };
 
@@ -514,8 +529,8 @@ TEST_F(RouterCmdlineTest, one_plugin_works) {
   std::vector<std::string> sections{
       mysql_harness::ConfigBuilder::build_section("routertestplugin_magic", {}),
   };
-  const std::string conf_file{create_config_file(
-      conf_dir_.name(), mysql_harness::join(sections, "\n"))};
+  const std::string conf_file{
+      create_config_file(conf_dir_.name(), mysql_harness::join(sections, ""))};
   auto &router{launch_router({"-c", conf_file})};
 
   check_exit_code(router, EXIT_SUCCESS);

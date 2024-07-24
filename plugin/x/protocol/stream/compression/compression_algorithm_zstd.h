@@ -1,16 +1,17 @@
 /*
- * Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+ * Copyright (c) 2019, 2024, Oracle and/or its affiliates.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2.0,
  * as published by the Free Software Foundation.
  *
- * This program is also distributed with certain software (including
+ * This program is designed to work with certain software (including
  * but not limited to OpenSSL) that is licensed under separate terms,
  * as designated in a particular file or component or in included license
  * documentation.  The authors of MySQL hereby grant you an additional
  * permission to link the program and your derivative works with the
- * separately licensed software that they have included with MySQL.
+ * separately licensed software that they have either included with
+ * the program or referenced in the documentation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -53,8 +54,7 @@ class Compression_algorithm_zstd : public Compression_algorithm_interface {
 
   ~Compression_algorithm_zstd() override { ZSTD_freeCStream(m_stream); }
 
-  void set_pledged_source_size(
-      const int src_size MY_ATTRIBUTE((unused))) override {
+  void set_pledged_source_size(const int src_size [[maybe_unused]]) override {
     DBUG_TRACE;
     DBUG_LOG("debug", "set_pledged_source_size(" << src_size << ")");
 #if ZSTD_VERSION_NUMBER < 10400

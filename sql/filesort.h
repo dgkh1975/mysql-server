@@ -1,15 +1,16 @@
-/* Copyright (c) 2006, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2006, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -62,13 +63,11 @@ class Filesort {
   st_sort_field *sortorder;
   /// true means we are using Priority Queue for order by with limit.
   bool using_pq;
-  /// true means force stable sorting
-  bool m_force_stable_sort;
   bool m_remove_duplicates;
   // If true, we will always sort references to rows on table (and crucially,
   // the result iterators used will always position the underlying table on
   // the original row before returning from Read()).
-  bool m_force_sort_positions;
+  bool m_force_sort_rowids;
   // TODO: Consider moving this into private members of Filesort.
   Sort_param m_sort_param;
 
@@ -76,9 +75,8 @@ class Filesort {
   // some semijoin tables are missing from query_block->leaf_tables,
   // so we can't do that yet.
   Filesort(THD *thd, Mem_root_array<TABLE *> tables, bool keep_buffers,
-           ORDER *order, ha_rows limit_arg, bool force_stable_sort,
-           bool remove_duplicates, bool force_sort_positions,
-           bool unwrap_rollup);
+           ORDER *order, ha_rows limit_arg, bool remove_duplicates,
+           bool force_sort_rowids, bool unwrap_rollup);
 
   Addon_fields *get_addon_fields(Addon_fields_status *addon_fields_status,
                                  uint *plength, uint *ppackable_length);
@@ -120,7 +118,7 @@ void copy_integer(uchar *to, size_t to_length, const uchar *from,
 
 // Returns whether a sort involving this table would necessarily be on row ID,
 // even if not forced by other means.
-bool SortWillBeOnRowId(TABLE *table);
+bool SortWillBeOnRowId(const TABLE *table);
 
 static inline void copy_native_longlong(uchar *to, size_t to_length,
                                         longlong val, bool is_unsigned) {

@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,6 +34,7 @@
 #include "client/dump/stored_procedure.h"
 #include "client/dump/table.h"
 #include "client/dump/trigger.h"
+#include "client/dump/view.h"
 #endif
 #include <stddef.h>
 #include <boost/algorithm/string.hpp>
@@ -55,12 +57,12 @@ std::string parse_inclusion_string(
     const separator_t *sep = is_user_object ? &sep_user : &sep_object;
 
     tokenizer_t outer_tok(val, sep_csl);
-    for (titerator_t it = outer_tok.begin(); it != outer_tok.end(); it++) {
+    for (titerator_t it = outer_tok.begin(); it != outer_tok.end(); ++it) {
       std::string elt = *it;
       boost::trim(elt);
       tokenizer_t itok(elt, *sep);
       std::vector<std::string> object_parts;
-      for (titerator_t iit = itok.begin(); iit != itok.end(); iit++) {
+      for (titerator_t iit = itok.begin(); iit != itok.end(); ++iit) {
         std::string s = *iit;
         boost::trim(s);
         if (s.length() == 0)
@@ -215,7 +217,8 @@ bool Object_filter::is_object_included_in_dump(Abstract_data_object *object) {
   std::vector<std::pair<std::string, std::string>> *exclude_list;
   bool *dump_switch = nullptr;
 
-  if (dynamic_cast<Table *>(object) != nullptr) {
+  if (dynamic_cast<Table *>(object) != nullptr ||
+      dynamic_cast<View *>(object) != nullptr) {
     include_list = &m_tables_included;
     exclude_list = &m_tables_excluded;
   } else if (dynamic_cast<Database *>(object) != nullptr) {

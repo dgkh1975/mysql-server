@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -216,7 +217,7 @@ class Atomics_array {
     @param predicate The predicate to be evaluated
     @param start_from The index to start the search at
 
-    @return a tuple holding the value and the index of the first element
+    @return A tuple holding the value and the index of the first element
             for which the predicate evaluated to true. If the predicate
             doesn't evaluate to true for any of the elements, it returns a
             pair holding the default value for `T` and the size of the
@@ -226,7 +227,7 @@ class Atomics_array {
   template <typename Pred>
   std::tuple<T, size_t> find_if(Pred predicate, size_t start_from = 0) const;
   /**
-    First the first occurence of `to_find`, starting at `start_from` index.
+    First the first occurrence of `to_find`, starting at `start_from` index.
 
     @param to_find the value to find
     @param start_from the index to start the search from

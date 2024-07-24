@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -160,11 +161,11 @@ static bool deserialize_resource_groups(THD *thd) {
 
   auto res_grp_mgr = Resource_group_mgr::instance();
   for (const auto &resource_group : resource_group_vec) {
-    if (my_strcasecmp(&my_charset_utf8_general_ci,
+    if (my_strcasecmp(&my_charset_utf8mb3_general_ci,
                       resource_group->name().c_str(),
                       USR_DEFAULT_RESOURCE_GROUP_NAME) == 0)
       usr_default_in_dd = true;
-    else if (my_strcasecmp(&my_charset_utf8_general_ci,
+    else if (my_strcasecmp(&my_charset_utf8mb3_general_ci,
                            resource_group->name().c_str(),
                            SYS_DEFAULT_RESOURCE_GROUP_NAME) == 0)
       sys_default_in_dd = true;
@@ -375,7 +376,7 @@ bool Resource_group_mgr::init() {
 
   m_resource_group_hash =
       new collation_unordered_map<std::string, std::unique_ptr<Resource_group>>(
-          &my_charset_utf8_tolower_ci, PSI_INSTRUMENT_ME);
+          &my_charset_utf8mb3_tolower_ci, PSI_INSTRUMENT_ME);
   if (m_resource_group_hash == nullptr) {
     LogErr(ERROR_LEVEL, ER_FAILED_TO_ALLOCATE_MEMORY_FOR_RESOURCE_GROUP_HASH);
     return true;

@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,6 +25,7 @@
 #define GCS_XCOM_GROUP_MANAGEMENT_INCLUDED
 
 #include "plugin/group_replication/libmysqlgcs/include/mysql/gcs/gcs_group_management_interface.h"  // Base class: Gcs_group_management_interface
+#include "plugin/group_replication/libmysqlgcs/include/mysql/gcs/gcs_member_identifier.h"
 #include "plugin/group_replication/libmysqlgcs/include/mysql/gcs/xplatform/my_xp_mutex.h"
 #include "plugin/group_replication/libmysqlgcs/src/bindings/xcom/gcs_xcom_group_member_information.h"
 #include "plugin/group_replication/libmysqlgcs/src/bindings/xcom/gcs_xcom_proxy.h"
@@ -35,7 +37,8 @@
 class Gcs_xcom_group_management : public Gcs_group_management_interface {
  public:
   explicit Gcs_xcom_group_management(
-      Gcs_xcom_proxy *xcom_proxy, const Gcs_group_identifier &group_identifier);
+      Gcs_xcom_proxy *xcom_proxy, const Gcs_group_identifier &group_identifier,
+      Gcs_xcom_view_change_control_interface *view_control);
   ~Gcs_xcom_group_management() override;
 
   enum_gcs_error modify_configuration(
@@ -44,6 +47,13 @@ class Gcs_xcom_group_management : public Gcs_group_management_interface {
   enum_gcs_error get_write_concurrency(uint32_t &event_horizon) const override;
 
   enum_gcs_error set_write_concurrency(uint32_t event_horizon) override;
+
+  enum_gcs_error set_single_leader(
+      Gcs_member_identifier const &leader) override;
+  enum_gcs_error set_everyone_leader() override;
+  enum_gcs_error get_leaders(
+      std::vector<Gcs_member_identifier> &preferred_leaders,
+      std::vector<Gcs_member_identifier> &actual_leaders) override;
 
   uint32_t get_minimum_write_concurrency() const override;
 
@@ -117,6 +127,12 @@ class Gcs_xcom_group_management : public Gcs_group_management_interface {
     Mutex used to prevent concurrent access to nodes.
   */
   My_xp_mutex_impl m_nodes_mutex;
+
+  /*
+    Regulate the access to certain methods, mainly avoid sending requests
+    if this node is stopping.
+  */
+  Gcs_xcom_view_change_control_interface *m_view_control;
 
   /*
     Disabling the copy constructor and assignment operator.

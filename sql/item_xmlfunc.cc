@@ -1,15 +1,16 @@
-/* Copyright (c) 2005, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2005, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -73,7 +74,7 @@
        - preceding
 */
 
-/* Lexical analizer token */
+/* Lexical analyzer token */
 struct MY_XPATH_LEX {
   int term;        /* token type, see MY_XPATH_LEX_XXXXX below */
   const char *beg; /* beginnign of the token                   */
@@ -759,7 +760,7 @@ static Item *nodeset2bool(Item *item) {
 /*
   Create scalar comparator
 
-  SYNOPSYS
+  SYNOPSIS
     Create a comparator function for scalar arguments,
     for the given arguments and operation.
 
@@ -787,7 +788,7 @@ static Item_bool_func *eq_func(int oper, Item *a, Item *b) {
 /*
   Create scalar comparator
 
-  SYNOPSYS
+  SYNOPSIS
     Create a comparator function for scalar arguments,
     for the given arguments and reverse operation, e.g.
 
@@ -817,7 +818,7 @@ static Item_bool_func *eq_func_reverse(int oper, Item *a, Item *b) {
 /*
   Create a comparator
 
-  SYNOPSYS
+  SYNOPSIS
     Create a comparator for scalar or non-scalar arguments,
     for the given arguments and operation.
 
@@ -868,7 +869,7 @@ static Item *create_comparator(MY_XPATH *xpath, int oper, MY_XPATH_LEX *context,
 /*
   Create a step
 
-  SYNOPSYS
+  SYNOPSIS
     Create a step function for the given argument and axis.
 
   RETURN
@@ -919,7 +920,7 @@ static Item_nodeset_func *nametestfunc(MY_XPATH *xpath, int type, Item *arg,
 }
 
 /*
-  Tokens consisting of one character, for faster lexical analizer.
+  Tokens consisting of one character, for faster lexical analyzer.
 */
 static char simpletok[128] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -980,7 +981,7 @@ static struct my_xpath_keyword_names_st my_nodetype_names[] = {
 /*
   Lookup a keyword
 
-  SYNOPSYS
+  SYNOPSIS
     Check that the last scanned identifier is a keyword.
 
   RETURN
@@ -1133,7 +1134,7 @@ static MY_XPATH_FUNC my_func_names[] = {
 /*
   Lookup a function by name
 
-  SYNOPSYS
+  SYNOPSIS
     Lookup a function by its name.
 
   RETURN
@@ -1169,7 +1170,7 @@ static MY_XPATH_FUNC *my_xpath_function(const char *beg, const char *end) {
   return nullptr;
 }
 
-/* Initialize a lex analizer token */
+/* Initialize a lex analyzer token */
 static void my_xpath_lex_init(MY_XPATH_LEX *lex, const char *str,
                               const char *strend) {
   lex->beg = str;
@@ -1186,10 +1187,10 @@ static int my_xdigit(int c) { return ((c) >= '0' && (c) <= '9'); }
 /*
   Scan the next token
 
-  SYNOPSYS
+  SYNOPSIS
     Scan the next token from the input.
     lex->term is set to the scanned token type.
-    lex->beg and lex->end are set to the beginnig
+    lex->beg and lex->end are set to the beginning
     and to the end of the token.
   RETURN
     N/A
@@ -1212,7 +1213,7 @@ static void my_xpath_lex_scan(MY_XPATH *xpath, MY_XPATH_LEX *lex,
            xpath->cs, &ctype, reinterpret_cast<const uchar *>(beg),
            reinterpret_cast<const uchar *>(end))) > 0 &&
       ((ctype & (_MY_L | _MY_U)) || *beg == '_')) {
-    // scan untill the end of the idenfitier
+    // scan until the end of the idenfitier
     for (beg += length;
          (length = xpath->cs->cset->ctype(
               xpath->cs, &ctype, reinterpret_cast<const uchar *>(beg),
@@ -1288,7 +1289,7 @@ static void my_xpath_lex_scan(MY_XPATH *xpath, MY_XPATH_LEX *lex,
 /*
   Scan the given token
 
-  SYNOPSYS
+  SYNOPSIS
     Scan the given token and rotate lasttok to prevtok on success.
 
   RETURN
@@ -1308,7 +1309,7 @@ static int my_xpath_parse_term(MY_XPATH *xpath, int term) {
 /*
   Scan AxisName
 
-  SYNOPSYS
+  SYNOPSIS
     Scan an axis name and store the scanned axis type into xpath->axis.
 
   RETURN
@@ -1325,7 +1326,7 @@ static int my_xpath_parse_AxisName(MY_XPATH *xpath) {
 ** Grammar rules, according to http://www.w3.org/TR/xpath
 ** Implemented using recursive descendant method.
 ** All the following grammar processing functions accept
-** a signle "xpath" argument and return 1 on success and 0 on error.
+** a single "xpath" argument and return 1 on success and 0 on error.
 ** They also modify "xpath" argument by creating new items.
 */
 
@@ -1360,7 +1361,7 @@ static int my_xpath_parse_VariableReference(MY_XPATH *xpath);
 /*
   Scan LocationPath
 
-  SYNOPSYS
+  SYNOPSIS
 
     [1] LocationPath ::=   RelativeLocationPath
                          | AbsoluteLocationPath
@@ -1385,7 +1386,7 @@ static int my_xpath_parse_LocationPath(MY_XPATH *xpath) {
 /*
   Scan Absolute Location Path
 
-  SYNOPSYS
+  SYNOPSIS
 
     [2]     AbsoluteLocationPath ::=   '/' RelativeLocationPath?
                                      | AbbreviatedAbsoluteLocationPath
@@ -1419,7 +1420,7 @@ static int my_xpath_parse_AbsoluteLocationPath(MY_XPATH *xpath) {
 /*
   Scan Relative Location Path
 
-  SYNOPSYS
+  SYNOPSIS
 
     For better performance we combine these two rules
 
@@ -1455,7 +1456,7 @@ static int my_xpath_parse_RelativeLocationPath(MY_XPATH *xpath) {
 /*
   Scan non-abbreviated or abbreviated Step
 
-  SYNOPSYS
+  SYNOPSIS
 
   [4] Step ::=   AxisSpecifier NodeTest Predicate*
                | AbbreviatedStep
@@ -1513,7 +1514,7 @@ static int my_xpath_parse_Step(MY_XPATH *xpath) {
 /*
   Scan Abbreviated Axis Specifier
 
-  SYNOPSYS
+  SYNOPSIS
   [5] AxisSpecifier ::=  AxisName '::'
                          | AbbreviatedAxisSpecifier
 
@@ -1532,7 +1533,7 @@ static int my_xpath_parse_AbbreviatedAxisSpecifier(MY_XPATH *xpath) {
 /*
   Scan non-abbreviated axis specifier
 
-  SYNOPSYS
+  SYNOPSIS
 
   RETURN
     1 - success
@@ -1547,7 +1548,7 @@ static int my_xpath_parse_AxisName_colon_colon(MY_XPATH *xpath) {
 /*
   Scan Abbreviated AxisSpecifier
 
-  SYNOPSYS
+  SYNOPSIS
     [13] AbbreviatedAxisSpecifier  ::=  '@'?
 
   RETURN
@@ -1562,7 +1563,7 @@ static int my_xpath_parse_AxisSpecifier(MY_XPATH *xpath) {
 /*
   Scan NodeType followed by parens
 
-  SYNOPSYS
+  SYNOPSIS
 
   RETURN
     1 - success
@@ -1577,7 +1578,7 @@ static int my_xpath_parse_NodeTest_lp_rp(MY_XPATH *xpath) {
 /*
   Scan NodeTest
 
-  SYNOPSYS
+  SYNOPSIS
 
   [7] NodeTest ::=   NameTest
                    | NodeType '(' ')'
@@ -1593,7 +1594,7 @@ static int my_xpath_parse_NodeTest(MY_XPATH *xpath) {
 /*
   Scan Abbreviated Step
 
-  SYNOPSYS
+  SYNOPSIS
 
   [12] AbbreviatedStep  ::= '.'	| '..'
 
@@ -1612,7 +1613,7 @@ static int my_xpath_parse_AbbreviatedStep(MY_XPATH *xpath) {
 /*
   Scan Primary Expression
 
-  SYNOPSYS
+  SYNOPSIS
 
   [15] PrimaryExpr ::= VariableReference
                        | '(' Expr ')'   (RECURSIVE)
@@ -1651,7 +1652,7 @@ static int my_xpath_parse_PrimaryExpr(MY_XPATH *xpath) {
 /*
   Scan Function Call
 
-  SYNOPSYS
+  SYNOPSIS
     [16] FunctionCall ::= FunctionName '(' ( Argument ( ',' Argument )* )? ')'
     [17] Argument      ::= Expr (RECURSIVE)
     [14] Expr ::= OrExpr
@@ -1699,7 +1700,7 @@ right_paren:
 /*
   Scan Union Expression
 
-  SYNOPSYS
+  SYNOPSIS
     [18] UnionExpr ::=   PathExpr
                        | UnionExpr '|' PathExpr
 
@@ -1728,7 +1729,7 @@ static int my_xpath_parse_UnionExpr(MY_XPATH *xpath) {
 /*
   Scan Path Expression
 
-  SYNOPSYS
+  SYNOPSIS
 
   [19] PathExpr ::=   LocationPath
                     | FilterExpr
@@ -1778,7 +1779,7 @@ static int my_xpath_parse_PathExpr(MY_XPATH *xpath) {
 /*
   Scan Filter Expression
 
-  SYNOPSYS
+  SYNOPSIS
     [20]  FilterExpr ::=   PrimaryExpr
                          | FilterExpr Predicate
 
@@ -1798,7 +1799,7 @@ static int my_xpath_parse_FilterExpr(MY_XPATH *xpath) {
 /*
   Scan Or Expression
 
-  SYNOPSYS
+  SYNOPSIS
     [21] OrExpr ::=   AndExpr
                     | OrExpr 'or' AndExpr
 
@@ -1829,7 +1830,7 @@ static int my_xpath_parse_OrExpr(MY_XPATH *xpath) {
 /*
   Scan And Expression
 
-  SYNOPSYS
+  SYNOPSIS
     [22] AndExpr ::=   EqualityExpr
                      | AndExpr 'and' EqualityExpr
 
@@ -1856,7 +1857,7 @@ static int my_xpath_parse_AndExpr(MY_XPATH *xpath) {
 /*
   Scan Equality Expression
 
-  SYNOPSYS
+  SYNOPSIS
     [23] EqualityExpr ::=   RelationalExpr
                           | EqualityExpr '=' RelationalExpr
                           | EqualityExpr '!=' RelationalExpr
@@ -1915,7 +1916,7 @@ static int my_xpath_parse_EqualityExpr(MY_XPATH *xpath) {
 /*
   Scan Relational Expression
 
-  SYNOPSYS
+  SYNOPSIS
 
     [24] RelationalExpr ::=   AdditiveExpr
                             | RelationalExpr '<' AdditiveExpr
@@ -1968,7 +1969,7 @@ static int my_xpath_parse_RelationalExpr(MY_XPATH *xpath) {
 /*
   Scan Additive Expression
 
-  SYNOPSYS
+  SYNOPSIS
 
     [25] AdditiveExpr ::=   MultiplicativeExpr
                           | AdditiveExpr '+' MultiplicativeExpr
@@ -2003,7 +2004,7 @@ static int my_xpath_parse_AdditiveExpr(MY_XPATH *xpath) {
 /*
   Scan Multiplicative Expression
 
-  SYNOPSYS
+  SYNOPSIS
 
     [26] MultiplicativeExpr ::=   UnaryExpr
                                 | MultiplicativeExpr MultiplyOperator UnaryExpr
@@ -2037,7 +2038,7 @@ static int my_xpath_parse_MultiplicativeExpr(MY_XPATH *xpath) {
         xpath->item = new Item_func_mul(prev, xpath->item);
         break;
       case MY_XPATH_LEX_DIV:
-        xpath->item = new Item_func_int_div(prev, xpath->item);
+        xpath->item = new Item_func_div_int(prev, xpath->item);
         break;
       case MY_XPATH_LEX_MOD:
         xpath->item = new Item_func_mod(prev, xpath->item);
@@ -2050,7 +2051,7 @@ static int my_xpath_parse_MultiplicativeExpr(MY_XPATH *xpath) {
 /*
   Scan Unary Expression
 
-  SYNOPSYS
+  SYNOPSIS
 
     [27] UnaryExpr ::=   UnionExpr
                        | '-' UnaryExpr
@@ -2074,7 +2075,7 @@ static int my_xpath_parse_UnaryExpr(MY_XPATH *xpath) {
 /*
   Scan Number
 
-  SYNOPSYS
+  SYNOPSIS
 
     [30] Number ::= Digits ('.' Digits?)? | '.' Digits)
 
@@ -2089,7 +2090,7 @@ static int my_xpath_parse_UnaryExpr(MY_XPATH *xpath) {
   as it is in conflict with abbreviated step.
   1 + .123    does not work,
   1 + 0.123   does.
-  Perhaps it is better to move this code into lex analizer.
+  Perhaps it is better to move this code into lex analyzer.
 
   RETURN
     1 - success
@@ -2113,7 +2114,7 @@ static int my_xpath_parse_Number(MY_XPATH *xpath) {
 /*
   Scan NCName.
 
-  SYNOPSYS
+  SYNOPSIS
 
     The keywords AND, OR, MOD, DIV are valid identitiers
     when they are in identifier context:
@@ -2228,7 +2229,7 @@ static int my_xpath_parse_VariableReference(MY_XPATH *xpath) {
 /*
   Scan Name Test
 
-  SYNOPSYS
+  SYNOPSIS
 
     [37] NameTest ::=  '*'
                       | NCName ':' '*'
@@ -2259,7 +2260,7 @@ static int my_xpath_parse_NameTest(MY_XPATH *xpath) {
 /*
   Scan an XPath expression
 
-  SYNOPSYS
+  SYNOPSIS
     Scan xpath expression.
     The expression is returned in xpath->expr.
 
@@ -2291,7 +2292,7 @@ bool Item_xml_str_func::resolve_type(THD *thd) {
     /* UCS2 is not supported */
     my_printf_error(ER_UNKNOWN_ERROR,
                     "Character set '%s' is not supported by XPATH", MYF(0),
-                    replace_utf8_utf8mb3(collation.collation->csname));
+                    collation.collation->csname);
     return true;
   }
 
@@ -2349,10 +2350,10 @@ typedef struct {
 /*
   Process tag beginning
 
-  SYNOPSYS
+  SYNOPSIS
 
     A call-back function executed when XML parser
-    is entering a tag or an attribue.
+    is entering a tag or an attribute.
     Appends the new node into data->pxml.
     Increments data->level.
 
@@ -2383,10 +2384,10 @@ int xml_enter(MY_XML_PARSER *st, const char *attr, size_t len) {
 /*
   Process text node
 
-  SYNOPSYS
+  SYNOPSIS
 
     A call-back function executed when XML parser
-    is entering into a tag or an attribue textual value.
+    is entering into a tag or an attribute textual value.
     The value is appended into data->pxml.
 
   RETURN
@@ -2410,7 +2411,7 @@ int xml_value(MY_XML_PARSER *st, const char *attr, size_t len) {
 /*
   Leave a tag or an attribute
 
-  SYNOPSYS
+  SYNOPSIS
 
     A call-back function executed when XML parser
     is leaving a tag or an attribute.
@@ -2435,7 +2436,7 @@ int xml_leave(MY_XML_PARSER *st, const char *, size_t) {
 /*
   Parse raw XML
 
-  SYNOPSYS
+  SYNOPSIS
 
 
   RETURN
@@ -2498,21 +2499,24 @@ String *Item_func_xml_extractvalue::val_str(String *str) {
 }
 
 String *Item_func_xml_update::val_str(String *str) {
-  String *res, *rep;
-
   null_value = false;
   if (!nodeset_func && parse_xpath(args[1])) {
     assert(is_nullable());
-    null_value = true;
-    return nullptr;
+    return error_str();
   }
 
-  if (!nodeset_func || !(res = args[0]->val_str(str)) ||
-      !(rep = args[2]->val_str(&tmp_value)) || !parse_xml(res, &pxml) ||
-      (nodeset_func->type() != XPATH_NODESET)) {
-    null_value = true;
-    return nullptr;
-  }
+  if (nodeset_func == nullptr) return error_str();
+
+  String *res = eval_string_arg(collation.collation, args[0], str);
+  if (res == nullptr) return error_str();
+
+  StringBuffer<STRING_BUFFER_USUAL_SIZE> rep_buf(nullptr, 0,
+                                                 collation.collation);
+  String *rep = eval_string_arg(collation.collation, args[2], &rep_buf);
+  if (rep == nullptr) return error_str();
+
+  if (!parse_xml(res, &pxml)) return error_str();
+  if (nodeset_func->type() != XPATH_NODESET) return error_str();
 
   XPathFilter nodeset;
   down_cast<const Item_nodeset_func *>(nodeset_func)->val_nodeset(&nodeset);

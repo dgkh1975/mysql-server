@@ -1,15 +1,16 @@
-/* Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -98,7 +99,7 @@ class Mock_protocol : public Protocol {
   ulong get_client_capabilities() override { return 0; }
   bool has_client_capability(unsigned long) override { return false; }
   void end_partial_result_set() override {}
-  int shutdown(bool server_shutdown MY_ATTRIBUTE((unused)) = false) override {
+  int shutdown(bool server_shutdown [[maybe_unused]] = false) override {
     return 0;
   }
   SSL_handle get_ssl() { return nullptr; }
@@ -291,10 +292,10 @@ TEST_F(FieldTest, FieldTimef) {
 
   Mock_table m_table(thd());
   f->table = &m_table;
-  struct timeval tv;
+  my_timeval tv;
   int warnings = 0;
   EXPECT_FALSE(f->get_timestamp(&tv, &warnings));
-  EXPECT_EQ(123400, tv.tv_usec);
+  EXPECT_EQ(123400, tv.m_tv_usec);
 
   destroy(field);
 }

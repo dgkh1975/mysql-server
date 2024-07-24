@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -105,7 +106,7 @@ static bool dynamic_udf_init(UDF_INIT *initid, UDF_ARGS *, char *) {
   return false;
 }
 
-static void dynamic_udf_deinit(UDF_INIT *initid MY_ATTRIBUTE((unused))) {
+static void dynamic_udf_deinit(UDF_INIT *initid [[maybe_unused]]) {
   assert(initid->ptr == test_init || initid->ptr == test_udf);
 }
 
@@ -120,7 +121,7 @@ static long long dynamic_udf(UDF_INIT *initid, UDF_ARGS *,
   return 42;
 }
 
-static void dynamic_agg_deinit(UDF_INIT *initid MY_ATTRIBUTE((unused))) {
+static void dynamic_agg_deinit(UDF_INIT *initid [[maybe_unused]]) {
   assert(initid->ptr == test_init || initid->ptr == test_udf ||
          initid->ptr == test_udf_clear || initid->ptr == test_udf_add);
 }

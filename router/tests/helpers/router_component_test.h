@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,8 +31,8 @@
 #include <gmock/gmock.h>
 
 #include "mysql/harness/stdx/attribute.h"
-#include "mysql_session.h"
 #include "mysqlrouter/cluster_metadata.h"
+#include "mysqlrouter/mysql_session.h"
 #include "process_manager.h"
 #include "process_wrapper.h"
 #include "tcp_port_pool.h"
@@ -63,15 +64,28 @@ class RouterComponentTest : public ProcessManager, public ::testing::Test {
    * @return bool value indicating if the pattern was found in the log file or
    * not
    */
-  STDX_NODISCARD
-  bool wait_log_contains(const ProcessWrapper &process,
-                         const std::string &pattern,
-                         std::chrono::milliseconds timeout);
+  [[nodiscard]] bool wait_log_contains(const ProcessWrapper &process,
+                                       const std::string &pattern,
+                                       std::chrono::milliseconds timeout);
 
   /** @brief Sleep for a duration given as a parameter. The duration is
    * increased 10 times for the run with VALGRIND.
    */
   static void sleep_for(std::chrono::milliseconds duration);
+
+  std::pair<uint16_t, std::unique_ptr<MySQLSession>> make_new_connection_ok(
+      uint16_t router_port, std::vector<uint16_t> expected_node_ports) {
+    std::unique_ptr<MySQLSession> session{std::make_unique<MySQLSession>()};
+    EXPECT_NO_THROW(session->connect("127.0.0.1", router_port, "username",
+                                     "password", "", ""));
+
+    auto result{session->query_one("select @@port")};
+    const auto port =
+        static_cast<uint16_t>(std::strtoul((*result)[0], nullptr, 10));
+    EXPECT_THAT(expected_node_ports, ::testing::Contains(port));
+
+    return std::make_pair(port, std::move(session));
+  }
 
   std::unique_ptr<MySQLSession> make_new_connection_ok(
       uint16_t router_port, uint16_t expected_node_port) {
@@ -83,6 +97,15 @@ class RouterComponentTest : public ProcessManager, public ::testing::Test {
     EXPECT_EQ(std::strtoul((*result)[0], nullptr, 10), expected_node_port);
 
     return session;
+  }
+
+  uint16_t make_new_connection_ok(uint16_t router_port) {
+    MySQLSession session;
+    EXPECT_NO_THROW(session.connect("127.0.0.1", router_port, "username",
+                                    "password", "", ""));
+
+    auto result{session.query_one("select @@port")};
+    return static_cast<uint16_t>(std::strtoul((*result)[0], nullptr, 10));
   }
 
   void verify_new_connection_fails(uint16_t router_port) {
@@ -100,8 +123,29 @@ class RouterComponentTest : public ProcessManager, public ::testing::Test {
     }
   }
 
-  void verify_existing_connection_dropped(MySQLSession *session) {
-    ASSERT_ANY_THROW(session->query_one("select @@port"));
+  void verify_existing_connection_dropped(
+      MySQLSession *session,
+      std::chrono::milliseconds timeout = std::chrono::seconds(5)) {
+    if (getenv("WITH_VALGRIND")) {
+      timeout *= 10;
+    }
+
+    const auto MSEC_STEP = std::chrono::milliseconds(50);
+    const auto started = std::chrono::steady_clock::now();
+    do {
+      try {
+        session->query_one("select @@port");
+      } catch (mysqlrouter::MySQLSession::Error &) {
+        // query failed, connection dropped, all good
+        return;
+      }
+
+      auto step = std::min(timeout, MSEC_STEP);
+      RouterComponentTest::sleep_for(step);
+      timeout -= step;
+    } while (timeout > std::chrono::steady_clock::now() - started);
+
+    FAIL() << "Timed out waiting for the connection to drop";
   }
 
  protected:
@@ -113,13 +157,14 @@ class RouterComponentTest : public ProcessManager, public ::testing::Test {
  * Base class for the MySQLRouter component-like bootstrap tests.
  *
  **/
-class RouterComponentBootstrapTest : public RouterComponentTest {
+class RouterComponentBootstrapTest : virtual public RouterComponentTest {
  public:
-  static void SetUpTestCase() { my_hostname = "dont.query.dns"; }
+  using OutputResponder = ProcessWrapper::OutputResponder;
+
+  static const OutputResponder kBootstrapOutputResponder;
 
  protected:
   TempDirectory bootstrap_dir;
-  static std::string my_hostname;
   std::string config_file;
 
   struct Config {
@@ -138,7 +183,7 @@ class RouterComponentBootstrapTest : public RouterComponentTest {
       int expected_exitcode = 0,
       const std::vector<std::string> &expected_output_regex = {},
       std::chrono::milliseconds wait_for_exit_timeout =
-          std::chrono::seconds(10),
+          std::chrono::seconds(30),
       const mysqlrouter::MetadataSchemaVersion &metadata_version = {2, 0, 3},
       const std::vector<std::string> &extra_router_options = {});
 
@@ -147,11 +192,17 @@ class RouterComponentBootstrapTest : public RouterComponentTest {
       const std::vector<std::tuple<ProcessWrapper &, unsigned int>> &T);
 
   ProcessWrapper &launch_router_for_bootstrap(
-      std::vector<std::string> params, int expected_exit_code = EXIT_SUCCESS) {
-    params.push_back("--disable-rest");
+      std::vector<std::string> params, int expected_exit_code = EXIT_SUCCESS,
+      const bool disable_rest = true, const bool add_report_host = true,
+      const bool catch_stderr = true,
+      ProcessWrapper::OutputResponder output_responder =
+          RouterComponentBootstrapTest::kBootstrapOutputResponder) {
+    if (disable_rest) params.push_back("--disable-rest");
+    if (add_report_host) params.push_back("--report-host=dont.query.dns");
+
     return ProcessManager::launch_router(
-        params, expected_exit_code, /*catch_stderr=*/true, /*with_sudo=*/false,
-        /*wait_for_notify_ready=*/std::chrono::seconds(-1));
+        params, expected_exit_code, catch_stderr, /*with_sudo=*/false,
+        /*wait_for_notify_ready=*/std::chrono::seconds(-1), output_responder);
   }
 
   static constexpr const char kRootPassword[] = "fake-pass";

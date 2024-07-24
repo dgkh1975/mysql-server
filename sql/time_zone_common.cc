@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2004, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2004, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,7 +34,6 @@
 #include <sys/types.h>
 #include <time.h>
 
-#include "guard.h"
 #include "lex_string.h"
 #include "m_ctype.h"
 #include "m_string.h"  // strmake
@@ -51,12 +51,12 @@
 #include "my_psi_config.h"
 #include "my_sys.h"
 #include "my_time.h"  // MY_TIME_T_MIN
+#include "mysql/components/services/bits/mysql_mutex_bits.h"
 #include "mysql/components/services/bits/psi_bits.h"
+#include "mysql/components/services/bits/psi_memory_bits.h"
+#include "mysql/components/services/bits/psi_mutex_bits.h"
 #include "mysql/components/services/log_builtins.h"
 #include "mysql/components/services/log_shared.h"
-#include "mysql/components/services/mysql_mutex_bits.h"
-#include "mysql/components/services/psi_memory_bits.h"
-#include "mysql/components/services/psi_mutex_bits.h"
 #include "mysql/psi/mysql_file.h"
 #include "mysql/psi/mysql_memory.h"
 #include "mysql/psi/mysql_mutex.h"
@@ -91,9 +91,13 @@ using std::min;
 */
 
 bool prepare_tz_info(TIME_ZONE_INFO *sp, MEM_ROOT *storage) {
-  my_time_t cur_t = MY_TIME_T_MIN;
+  // We must allow values smaller than MYTIME_MIN_VALUE here (negative values)
+  // and values larger than MYTIME_MAX_VALUE
+  constexpr my_time_t MYTIME_MIN = std::numeric_limits<my_time_t>::min();
+  constexpr my_time_t MYTIME_MAX = std::numeric_limits<my_time_t>::max();
+  my_time_t cur_t = MYTIME_MIN;
   my_time_t cur_l, end_t, end_l = 0;
-  my_time_t cur_max_seen_l = MY_TIME_T_MIN;
+  my_time_t cur_max_seen_l = MYTIME_MIN;
   long cur_offset, cur_corr, cur_off_and_corr;
   uint next_trans_idx, next_leap_idx;
   uint i;
@@ -147,7 +151,7 @@ bool prepare_tz_info(TIME_ZONE_INFO *sp, MEM_ROOT *storage) {
   else
     cur_corr = 0;
 
-  /* Iterate trough t space */
+  /* Iterate through t space */
   while (sp->revcnt < TZ_MAX_REV_RANGES - 1) {
     cur_off_and_corr = cur_offset - cur_corr;
 
@@ -155,8 +159,8 @@ bool prepare_tz_info(TIME_ZONE_INFO *sp, MEM_ROOT *storage) {
       We assuming that cur_t could be only overflowed downwards,
       we also assume that end_t won't be overflowed in this case.
     */
-    if (cur_off_and_corr < 0 && cur_t < MY_TIME_T_MIN - cur_off_and_corr)
-      cur_t = MY_TIME_T_MIN - cur_off_and_corr;
+    if (cur_off_and_corr < 0 && cur_t < MYTIME_MIN - cur_off_and_corr)
+      cur_t = MYTIME_MIN - cur_off_and_corr;
 
     cur_l = cur_t + cur_off_and_corr;
 
@@ -166,21 +170,21 @@ bool prepare_tz_info(TIME_ZONE_INFO *sp, MEM_ROOT *storage) {
     */
     end_t =
         min((next_trans_idx < sp->timecnt) ? sp->ats[next_trans_idx] - 1
-                                           : MY_TIME_T_MAX,
+                                           : MYTIME_MAX,
             (next_leap_idx < sp->leapcnt) ? sp->lsis[next_leap_idx].ls_trans - 1
-                                          : MY_TIME_T_MAX);
+                                          : MYTIME_MAX);
     /*
       again assuming that end_t can be overlowed only in positive side
       we also assume that end_t won't be overflowed in this case.
     */
-    if (cur_off_and_corr > 0 && end_t > MY_TIME_T_MAX - cur_off_and_corr)
-      end_t = MY_TIME_T_MAX - cur_off_and_corr;
+    if (cur_off_and_corr > 0 && end_t > MYTIME_MAX - cur_off_and_corr)
+      end_t = MYTIME_MAX - cur_off_and_corr;
 
     end_l = end_t + cur_off_and_corr;
 
     if (end_l > cur_max_seen_l) {
       /* We want special handling in the case of first range */
-      if (cur_max_seen_l == MY_TIME_T_MIN) {
+      if (cur_max_seen_l == MYTIME_MIN) {
         revts[sp->revcnt] = cur_l;
         revtis[sp->revcnt].rt_offset = cur_off_and_corr;
         revtis[sp->revcnt].rt_type = 0;
@@ -208,8 +212,8 @@ bool prepare_tz_info(TIME_ZONE_INFO *sp, MEM_ROOT *storage) {
       }
     }
 
-    if (end_t == MY_TIME_T_MAX ||
-        ((cur_off_and_corr > 0) && (end_t >= MY_TIME_T_MAX - cur_off_and_corr)))
+    if (end_t == MYTIME_MAX ||
+        ((cur_off_and_corr > 0) && (end_t >= MYTIME_MAX - cur_off_and_corr)))
       /* end of t space */
       break;
 

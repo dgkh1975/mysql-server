@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -94,7 +95,7 @@ PFS_engine_table *table_data_locks::create(PFS_engine_table_share *) {
   return new table_data_locks();
 }
 
-ha_rows table_data_locks::get_row_count(void) {
+ha_rows table_data_locks::get_row_count() {
   // FIXME
   return 99999;
 }
@@ -121,7 +122,7 @@ void table_data_locks::destroy_iterators() {
 
 table_data_locks::~table_data_locks() { destroy_iterators(); }
 
-void table_data_locks::reset_position(void) {
+void table_data_locks::reset_position() {
   m_pos.reset();
   m_next_pos.reset();
   m_pk_pos.reset();
@@ -129,12 +130,12 @@ void table_data_locks::reset_position(void) {
   destroy_iterators();
 }
 
-int table_data_locks::rnd_next(void) {
+int table_data_locks::rnd_next() {
   row_data_lock *data;
 
   for (m_pos.set_at(&m_next_pos); m_pos.has_more_engine();
        m_pos.next_engine()) {
-    unsigned int index = m_pos.m_index_1;
+    const unsigned int index = m_pos.m_index_1;
 
     if (m_iterator[index] == nullptr) {
       if (g_data_lock_inspector[index] == nullptr) {
@@ -171,29 +172,21 @@ int table_data_locks::rnd_next(void) {
       */
 
       /*
-        PSI_engine_data_lock_iterator::scan() can return an unbounded number
-        of rows during a scan, depending on the application payload, as some
-        user sessions may have an unbounded number or records locked.
-        This can cause severe memory spike, which in turn can take the server
-        down if not handled properly. Here a select on the table
-        performance_schema.data_locks will fail with an error, instead of
-        taking the server down, if out of memory conditions occur.
+        The implementation of PSI_engine_data_lock_iterator::scan(),
+        inside a storage engine, is expected to:
+        - (1) not report all the data at once,
+        - (2) implement re-startable scans internally,
+        - (3) report a bounded number of rows per scan (1).
 
-        This is a fail safe only, the implementation of
-        PSI_engine_data_lock_iterator::scan() in each storage engine
-        should be constrained to return fewer rows at a time if necessary,
-        by making more calls to scan(), to handle the load gracefully.
+        This is to allow allocating only a bounded amount of memory
+        in the data container, to cap the peak memory consumption
+        of the container.
+
+        TODO: Innodb_data_lock_iterator::scan()
+        does not satisfy (3) currently.
       */
 
-      try {
-        DBUG_EXECUTE_IF("simulate_bad_alloc_exception_1",
-                        throw std::bad_alloc(););
-        iterator_done = it->scan(&m_container, true);
-      } catch (const std::bad_alloc &) {
-        my_error(ER_STD_BAD_ALLOC_ERROR, MYF(0),
-                 "while scanning data_locks table", "rnd_next");
-        return ER_STD_BAD_ALLOC_ERROR;
-      }
+      iterator_done = it->scan(&m_container, true);
     }
   }
 
@@ -211,7 +204,7 @@ int table_data_locks::rnd_pos(const void *pos) {
   */
   static_assert(COUNT_DATA_LOCK_ENGINES == 1,
                 "We don't support multiple engines yet.");
-  unsigned int index = 0;
+  const unsigned int index = 0;
 
   if (m_iterator[index] == nullptr) {
     if (g_data_lock_inspector[index] == nullptr) {
@@ -232,8 +225,7 @@ int table_data_locks::rnd_pos(const void *pos) {
   /*
     TODO: avoid requesting column LOCK_DATA if not used.
   */
-  it->fetch(&m_container, m_pk_pos.m_engine_lock_id,
-            m_pk_pos.m_engine_lock_id_length, true);
+  it->fetch(&m_container, m_pk_pos.str(), m_pk_pos.length(), true);
   data = m_container.get_row(0);
   if (data != nullptr) {
     m_row = data;
@@ -290,11 +282,11 @@ int table_data_locks::read_row_values(TABLE *table, unsigned char *buf,
     if (read_all || bitmap_is_set(table->read_set, f->field_index())) {
       switch (f->field_index()) {
         case 0: /* ENGINE */
-          set_field_varchar_utf8(f, m_row->m_engine);
+          set_field_varchar_utf8mb4(f, m_row->m_engine);
           break;
         case 1: /* ENGINE_LOCK_ID */
-          set_field_varchar_utf8(f, m_row->m_hidden_pk.m_engine_lock_id,
-                                 m_row->m_hidden_pk.m_engine_lock_id_length);
+          set_field_varchar_utf8mb4(f, m_row->m_hidden_pk.str(),
+                                    m_row->m_hidden_pk.length());
           break;
         case 2: /* ENGINE_TRANSACTION_ID */
           if (m_row->m_transaction_id != 0) {
@@ -318,41 +310,41 @@ int table_data_locks::read_row_values(TABLE *table, unsigned char *buf,
           }
           break;
         case 5: /* OBJECT_SCHEMA */
-          m_row->m_index_row.set_field(1, f);
+          m_row->m_index_row.set_nullable_field(1, f);
           break;
         case 6: /* OBJECT_NAME  */
-          m_row->m_index_row.set_field(2, f);
+          m_row->m_index_row.set_nullable_field(2, f);
           break;
         case 7: /* PARTITION_NAME */
           if (m_row->m_partition_name_length > 0) {
-            set_field_varchar_utf8(f, m_row->m_partition_name,
-                                   m_row->m_partition_name_length);
+            set_field_varchar_utf8mb4(f, m_row->m_partition_name,
+                                      m_row->m_partition_name_length);
           } else {
             f->set_null();
           }
           break;
         case 8: /* SUBPARTITION_NAME */
           if (m_row->m_sub_partition_name_length > 0) {
-            set_field_varchar_utf8(f, m_row->m_sub_partition_name,
-                                   m_row->m_sub_partition_name_length);
+            set_field_varchar_utf8mb4(f, m_row->m_sub_partition_name,
+                                      m_row->m_sub_partition_name_length);
           } else {
             f->set_null();
           }
           break;
         case 9: /* INDEX_NAME */
-          m_row->m_index_row.set_field(3, f);
+          m_row->m_index_row.set_nullable_field(3, f);
           break;
         case 10: /* OBJECT_INSTANCE_BEGIN */
           set_field_ulonglong(f, (intptr)m_row->m_identity);
           break;
         case 11: /* LOCK_TYPE */
-          set_field_varchar_utf8(f, m_row->m_lock_type);
+          set_field_varchar_utf8mb4(f, m_row->m_lock_type);
           break;
         case 12: /* LOCK_MODE */
-          set_field_varchar_utf8(f, m_row->m_lock_mode);
+          set_field_varchar_utf8mb4(f, m_row->m_lock_mode);
           break;
         case 13: /* LOCK_STATUS */
-          set_field_varchar_utf8(f, m_row->m_lock_status);
+          set_field_varchar_utf8mb4(f, m_row->m_lock_status);
           break;
         case 14: /* LOCK_DATA */
           if (m_row->m_lock_data != nullptr) {

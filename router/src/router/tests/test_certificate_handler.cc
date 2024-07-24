@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,15 +27,17 @@
 
 #include <fstream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <system_error>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "filesystem_utils.h"
 #include "mysql/harness/filesystem.h"
+#include "mysql/harness/tls_context.h"
 #include "test/helpers.h"
+#include "test/temp_directory.h"
 
 class CertificateHandlerTest : public ::testing::Test {
  public:
@@ -50,16 +53,16 @@ class CertificateHandlerTest : public ::testing::Test {
     mysql_harness::make_file_public(router_cert_path.str());
   }
 
-  TmpDir temp_dir;
+  TempDirectory temp_dir;
 
   const mysql_harness::Path ca_key_path =
-      mysql_harness::Path(temp_dir()).join("ca-key.pem");
+      mysql_harness::Path(temp_dir.name()).join("ca-key.pem");
   const mysql_harness::Path ca_cert_path =
-      mysql_harness::Path(temp_dir()).join("ca.pem");
+      mysql_harness::Path(temp_dir.name()).join("ca.pem");
   const mysql_harness::Path router_key_path =
-      mysql_harness::Path(temp_dir()).join("router-key.pem");
+      mysql_harness::Path(temp_dir.name()).join("router-key.pem");
   const mysql_harness::Path router_cert_path =
-      mysql_harness::Path(temp_dir()).join("router.pem");
+      mysql_harness::Path(temp_dir.name()).join("router.pem");
 
   CertificateHandler cert_handler{ca_key_path, ca_cert_path, router_key_path,
                                   router_cert_path};
@@ -99,24 +102,40 @@ TEST_F(CertificateHandlerTest, router_cert_file_exist) {
   EXPECT_FALSE(cert_handler.router_cert_files_exists());
 }
 
+namespace {
+std::string file_content(const std::string &filename) {
+  std::ifstream f(filename);
+  std::stringstream ss;
+  ss << f.rdbuf();
+
+  return ss.str();
+}
+}  // namespace
+
 TEST_F(CertificateHandlerTest, create_success) {
   EXPECT_NO_THROW(cert_handler.create());
 
-  EXPECT_TRUE(file_contains_regex(ca_key_path, "BEGIN RSA PRIVATE KEY"));
-  EXPECT_TRUE(file_contains_regex(router_key_path, "BEGIN RSA PRIVATE KEY"));
-  EXPECT_TRUE(file_contains_regex(ca_cert_path, "BEGIN CERTIFICATE"));
-  EXPECT_TRUE(file_contains_regex(router_cert_path, "BEGIN CERTIFICATE"));
+  EXPECT_THAT(file_content(ca_key_path.str()),
+              ::testing::HasSubstr("BEGIN RSA PRIVATE KEY"));
+  EXPECT_THAT(file_content(router_key_path.str()),
+              ::testing::HasSubstr("BEGIN RSA PRIVATE KEY"));
+  EXPECT_THAT(file_content(ca_cert_path.str()),
+              ::testing::HasSubstr("BEGIN CERTIFICATE"));
+  EXPECT_THAT(file_content(router_cert_path.str()),
+              ::testing::HasSubstr("BEGIN CERTIFICATE"));
 }
 
 TEST_F(CertificateHandlerTest, create_fail) {
   const mysql_harness::Path ca_key_path =
-      mysql_harness::Path(temp_dir()).join("not_there").join("ca-key.pem");
+      mysql_harness::Path(temp_dir.name()).join("not_there").join("ca-key.pem");
   const mysql_harness::Path ca_cert_path =
-      mysql_harness::Path(temp_dir()).join("not_there").join("ca.pem");
+      mysql_harness::Path(temp_dir.name()).join("not_there").join("ca.pem");
   const mysql_harness::Path router_key_path =
-      mysql_harness::Path(temp_dir()).join("not_there").join("router-key.pem");
+      mysql_harness::Path(temp_dir.name())
+          .join("not_there")
+          .join("router-key.pem");
   const mysql_harness::Path router_cert_path =
-      mysql_harness::Path(temp_dir()).join("not_there").join("router.pem");
+      mysql_harness::Path(temp_dir.name()).join("not_there").join("router.pem");
 
   CertificateHandler handler{ca_key_path, ca_cert_path, router_key_path,
                              router_cert_path};
@@ -126,6 +145,11 @@ TEST_F(CertificateHandlerTest, create_fail) {
 }
 
 int main(int argc, char *argv[]) {
+  // init openssl to avoid a crash with openssl-3.0.3:
+  //
+  // see https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1010958
+  TlsLibraryContext tls_lib_ctx;
+
   init_test_logger();
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

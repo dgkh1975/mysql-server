@@ -1,15 +1,16 @@
-/* Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -285,7 +286,7 @@ int check_source(const char *file_name) {
 
   @retval  number of detected issues
 */
-int check_stdin(void) {
+int check_stdin() {
   int count = 0;
 
   std::string line;
@@ -299,15 +300,16 @@ int check_stdin(void) {
 int main(int argc, char **argv) {
   if (argc == 1) {
     return check_stdin();
-  } else if (argc == 2) {
-    return check_source(argv[1]);
-  } else {
-    std::cerr << argv[0] << " [</path/to/source_file.cc>]"
-              << "\n\n"
-              << "If no source file is given, we will read file names, "
-              << "one per line, from stdin."
-              << "\n";
   }
+  if (argc == 2) {
+    return check_source(argv[1]);
+  }
+
+  std::cerr << argv[0] << " [</path/to/source_file.cc>]"
+            << "\n\n"
+            << "If no source file is given, we will read file names, "
+            << "one per line, from stdin."
+            << "\n";
 
   return 0;
 }

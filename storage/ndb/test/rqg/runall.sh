@@ -1,17 +1,18 @@
 #!/bin/sh
 
-# Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -105,7 +106,7 @@ mysql="$MYSQLINSTALL/bin/mysql --port=${port} --user=root"
 # Create database with a case sensitive collation to ensure a deterministic 
 # resultset when 'LIMIT' is specified:
 charset_spec="character set latin1 collate latin1_bin"
-#charset_spec="default character set utf8 default collate utf8_bin"
+#charset_spec="default character set utf8mb3 default collate utf8mb3_bin"
 
 export RQG_HOME
 if [ "$load" ]

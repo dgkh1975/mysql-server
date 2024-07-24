@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -28,9 +29,9 @@
 #include "plugin/group_replication/include/plugin_handlers/read_mode_handler.h"
 #include "plugin/group_replication/include/plugin_handlers/stage_monitor_handler.h"
 
-[[noreturn]] void *Autorejoin_thread::launch_thread(void *arg) {
+void *Autorejoin_thread::launch_thread(void *arg) {
   Autorejoin_thread *thd = static_cast<Autorejoin_thread *>(arg);
-  thd->autorejoin_thread_handle();
+  thd->autorejoin_thread_handle();  // Does not return.
 }
 
 Autorejoin_thread::Autorejoin_thread()
@@ -218,7 +219,7 @@ void Autorejoin_thread::execute_rejoin_process() {
     LogPluginErr(SYSTEM_LEVEL, ER_GRP_RPL_FINISHED_AUTO_REJOIN,
                  num_attempts - 1UL, m_attempts, " not");
 
-    enable_server_read_mode(PSESSION_INIT_THREAD);
+    enable_server_read_mode();
     /*
       Only abort() if the auto-rejoin thread wasn't explicitly stopped, i.e.
       if someone called Autorejoin_thread::abort(), because that implies an
@@ -235,7 +236,7 @@ void Autorejoin_thread::execute_rejoin_process() {
           break;
         }
         case EXIT_STATE_ACTION_OFFLINE_MODE:
-          enable_server_offline_mode(PSESSION_INIT_THREAD);
+          enable_server_offline_mode();
           break;
       }
     }
@@ -273,11 +274,10 @@ void Autorejoin_thread::execute_rejoin_process() {
   global_thd_manager_remove_thd(m_thd);
   delete m_thd;
   m_thd = nullptr;
+  my_thread_end();
   m_autorejoin_thd_state.set_terminated();
   mysql_cond_broadcast(&m_run_cond);
   mysql_mutex_unlock(&m_run_lock);
 
-  // And finally, terminate the thread.
-  my_thread_end();
   my_thread_exit(nullptr);
 }

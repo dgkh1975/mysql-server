@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -119,7 +120,7 @@ bool ndb_dd_sdi_deserialize(THD *thd, const dd::sdi_t &sdi, dd::Table *table) {
 dd::sdi_t ndb_dd_sdi_serialize(THD *thd, const dd::Table &table,
                                const dd::String_type &schema_name) {
 #ifndef NDEBUG
-  // Verify that dd::serialize generates SDI in minimzed format
+  // Verify that dd::serialize generates SDI in minimized format
   dd::sdi_t sdi = dd::serialize(thd, table, schema_name);
   assert(minify(sdi) == sdi);
 #endif

@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -44,15 +45,15 @@ class Arch_Recv_Group_Info {
     m_reset_pos.init();
     m_write_pos.init();
 
-    m_last_reset_block =
-        static_cast<byte *>(ut_zalloc(ARCH_PAGE_BLK_SIZE, mem_key_archive));
-    m_last_data_block =
-        static_cast<byte *>(ut_zalloc(ARCH_PAGE_BLK_SIZE, mem_key_archive));
+    m_last_reset_block = static_cast<byte *>(ut::zalloc_withkey(
+        ut::make_psi_memory_key(mem_key_archive), ARCH_PAGE_BLK_SIZE));
+    m_last_data_block = static_cast<byte *>(ut::zalloc_withkey(
+        ut::make_psi_memory_key(mem_key_archive), ARCH_PAGE_BLK_SIZE));
   }
 
   ~Arch_Recv_Group_Info() {
-    ut_free(m_last_reset_block);
-    ut_free(m_last_data_block);
+    ut::free(m_last_reset_block);
+    ut::free(m_last_data_block);
   }
 
   /** Disable assignment. */
@@ -137,10 +138,7 @@ class Arch_Dblwr_Ctx {
   Arch_Dblwr_Ctx() = default;
 
   ~Arch_Dblwr_Ctx() {
-    if (m_buf != nullptr) {
-      UT_DELETE_ARRAY(m_buf);
-    }
-
+    ut::free(m_buf);
     m_file_ctx.close();
   }
 
@@ -231,13 +229,13 @@ class Arch_Page_Sys::Recovery {
  private:
   /** Read all the group directories and store information related to them
   required for parsing.
-  @param[in]	file_path	file path information */
+  @param[in]    file_path       file path information */
   void read_group_dirs(const std::string file_path);
 
   /** Read all the archived files belonging to a group and store information
   related to them required for parsing.
-  @param[in]	dir_path	dir path information
-  @param[in]	file_path	file path information */
+  @param[in]    dir_path        dir path information
+  @param[in]    file_path       file path information */
   void read_group_files(const std::string dir_path,
                         const std::string file_path);
 
@@ -271,7 +269,7 @@ class Arch_Group::Recovery {
 
   /** Check and replace blocks in archived files belonging to a group
   from the doublewrite buffer if required.
-  @param[in]      dblwr_ctx	Doublewrite context which has the doublewrite
+  @param[in]      dblwr_ctx     Doublewrite context which has the doublewrite
   buffer blocks
   @return error code */
   dberr_t replace_pages_from_dblwr(Arch_Dblwr_Ctx *dblwr_ctx);
@@ -313,7 +311,7 @@ class Arch_File_Ctx::Recovery {
 
 #ifdef UNIV_DEBUG
   /** Print recovery related data.
-  @param[in]	file_start_index	file index from where to begin */
+  @param[in]    file_start_index        file index from where to begin */
   void reset_print(uint file_start_index);
 #endif
 

@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2020, Oracle and/or its affiliates.
+Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -128,8 +129,6 @@ class os0file_t : public ::testing::Test {
   pfs_os_file_t test_file;
   static constexpr char TEST_FILE_NAME[] = "os0file-t-temp.txt";
 };
-
-constexpr char os0file_t::TEST_FILE_NAME[];
 
 TEST_F(os0file_t, hundred_10_byte_writes_reads_flushes_with_fsync) {
   srv_use_fdatasync = false;

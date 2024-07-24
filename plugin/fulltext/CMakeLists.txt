@@ -1,15 +1,16 @@
-# Copyright (c) 2006, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2006, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -36,10 +37,16 @@ MYSQL_ADD_PLUGIN(ngram_parser
   MODULE_OUTPUT_NAME "libpluginngram"
   )
 
-# Mecab parser
+# Mecab parser, OFF by default.
 LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 INCLUDE(mecab)
 MYSQL_CHECK_MECAB()
+
+SET(MECAB_WARN_GIVEN)
+WARN_MISSING_SYSTEM_MECAB(MECAB_WARN_GIVEN)
+IF(MECAB_WARN_GIVEN)
+  MESSAGE(FATAL_ERROR "-DWITH_MECAB=system, but missing system libraries")
+ENDIF()
 
 IF(WITH_DEBUG)
   ADD_DEFINITIONS(-DDEBUG)

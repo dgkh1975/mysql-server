@@ -1,15 +1,16 @@
-/* Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,8 +31,11 @@
 #include "storage/perfschema/pfs_instr.h"
 #include "storage/perfschema/pfs_stat.h"
 #include "storage/perfschema/pfs_user.h"
+#include "storage/perfschema/unittest/stub_digest.h"
 #include "storage/perfschema/unittest/stub_pfs_global.h"
 #include "storage/perfschema/unittest/stub_pfs_plugin_table.h"
+#include "storage/perfschema/unittest/stub_pfs_tls_channel.h"
+#include "storage/perfschema/unittest/stub_server_telemetry.h"
 #include "unittest/mytap/tap.h"
 
 static void test_oom() {
@@ -97,6 +101,22 @@ static void test_oom() {
   param.m_max_digest_length = 0;
   param.m_max_sql_text_length = 0;
   param.m_error_sizing = 0;
+  param.m_consumer_events_stages_current_enabled = false;
+  param.m_consumer_events_stages_history_enabled = false;
+  param.m_consumer_events_stages_history_long_enabled = false;
+  param.m_consumer_events_statements_cpu_enabled = false;
+  param.m_consumer_events_statements_current_enabled = false;
+  param.m_consumer_events_statements_history_enabled = false;
+  param.m_consumer_events_statements_history_long_enabled = false;
+  param.m_consumer_events_transactions_current_enabled = false;
+  param.m_consumer_events_transactions_history_enabled = false;
+  param.m_consumer_events_transactions_history_long_enabled = false;
+  param.m_consumer_events_waits_current_enabled = false;
+  param.m_consumer_events_waits_history_enabled = false;
+  param.m_consumer_events_waits_history_long_enabled = false;
+  param.m_consumer_global_instrumentation_enabled = false;
+  param.m_consumer_thread_instrumentation_enabled = false;
+  param.m_consumer_statement_digest_enabled = false;
 
   /* Setup */
 
@@ -114,10 +134,11 @@ static void test_oom() {
       PSI_CURRENT_THREAD_VERSION);
 
   PSI_thread_key thread_key_1;
-  PSI_thread_info all_thread[] = {{&thread_key_1, "T-1", 0, 0, ""}};
+  PSI_thread_info all_thread[] = {{&thread_key_1, "T-1", "T-1", 0, 0, ""}};
   thread_service->register_thread("test", all_thread, 1);
 
-  PSI_thread *thread_1 = thread_service->new_thread(thread_key_1, nullptr, 0);
+  PSI_thread *thread_1 =
+      thread_service->new_thread(thread_key_1, 0, nullptr, 0);
   thread_service->set_thread(thread_1);
 
   /* Tests */

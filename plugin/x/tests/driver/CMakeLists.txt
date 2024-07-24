@@ -1,15 +1,16 @@
-# Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,8 +23,9 @@
 
 
 INCLUDE(source_files.cmake)
-LIST(APPEND XTEST_SRC "${CMAKE_SOURCE_DIR}/sql-common/net_ns.cc")
-
+IF(HAVE_SETNS)
+  LIST(APPEND XTEST_SRC "${CMAKE_SOURCE_DIR}/sql-common/net_ns.cc")
+ENDIF()
 
 INCLUDE_DIRECTORIES(
   ${MYSQLX_GENERATE_DIR}
@@ -32,8 +34,6 @@ INCLUDE_DIRECTORIES(
   ${MYSQLX_CLIENT_INCLUDE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}
 )
-
-MY_INCLUDE_SYSTEM_DIRECTORIES(LIBEVENT)
 
 MYSQL_ADD_EXECUTABLE(mysqlxtest
   ${XTEST_SRC}
@@ -45,8 +45,9 @@ MYSQL_ADD_EXECUTABLE(mysqlxtest
   mysqlclient
   ${MYSQLX_CLIENT_FULL_LIB}
   ${MYSQLX_PROTOCOL_FULL_LIB}
-  ${PROTOBUF_LIBRARY}
-  ${LZ4_LIBRARY}
+  ext::libprotobuf
+  ext::lz4
+  extra::rapidjson
 )
 
 IF(UNIX_INSTALL_RPATH_ORIGIN_PRIV_LIBDIR)
@@ -58,7 +59,7 @@ MYSQLX_APPEND_COMPILE_FLAGS(mysqlxtest
 )
 
 MYSQLX_APPEND_COMPILE_DEFINITIONS(mysqlxtest
-  "NGS_DISABLE_LOGGING;USE_MYSQLX_FULL_PROTO"
+  "NGS_DISABLE_LOGGING"
 )
 
 MY_CHECK_CXX_COMPILER_WARNING("-Wunused-but-set-parameter" HAS_WARN_FLAG)

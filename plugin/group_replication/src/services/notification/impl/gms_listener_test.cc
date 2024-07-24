@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -54,6 +55,7 @@ bool log_notification_to_test_table(std::string msg) {
   Sql_resultset rset;
   ulong srv_err = 0;
   bool was_read_only = false;
+  bool read_only_mode = false, super_read_only_mode = false;
   Sql_service_command_interface *sql_cmd = new Sql_service_command_interface();
   Sql_service_interface *sql_intf = nullptr;
   enum_plugin_con_isolation trx_iso =
@@ -84,7 +86,8 @@ bool log_notification_to_test_table(std::string msg) {
     goto end; /* purecov: inspected */
   }
 
-  if (sql_cmd->get_server_super_read_only()) {
+  get_read_mode_state(&read_only_mode, &super_read_only_mode);
+  if (super_read_only_mode) {
     /*
       When joining the group the server is in super_read_only.
       Unset this temporarily.

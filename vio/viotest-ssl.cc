@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -50,17 +51,17 @@ void print_usage() {
 }
 
 int main(int argc, char **argv) {
-  char *server_key = 0;
-  char *server_cert = 0;
-  char *client_key = 0;
-  char *client_cert = 0;
-  char *ca_file = 0;
-  char *ca_path = 0;
+  char *server_key = nullptr;
+  char *server_cert = nullptr;
+  char *client_key = nullptr;
+  char *client_cert = nullptr;
+  char *ca_file = nullptr;
+  char *ca_path = nullptr;
   int child_pid, sv[2];
-  struct st_VioSSLAcceptorFd *ssl_acceptor = 0;
-  struct st_VioSSLConnectorFd *ssl_connector = 0;
-  Vio *client_vio = 0;
-  Vio *server_vio = 0;
+  struct st_VioSSLAcceptorFd *ssl_acceptor = nullptr;
+  struct st_VioSSLConnectorFd *ssl_connector = nullptr;
+  Vio *client_vio = nullptr;
+  Vio *server_vio = nullptr;
   enum enum_ssl_init_error ssl_init_error;
   unsigned long ssl_error;
 
@@ -81,8 +82,8 @@ int main(int argc, char **argv) {
   if (argc > 6) ca_path = argv[6];
   printf("Server key/cert : %s/%s\n", server_key, server_cert);
   printf("Client key/cert : %s/%s\n", client_key, client_cert);
-  if (ca_file != 0) printf("CAfile          : %s\n", ca_file);
-  if (ca_path != 0) printf("CApath          : %s\n", ca_path);
+  if (ca_file != nullptr) printf("CAfile          : %s\n", ca_file);
+  if (ca_path != nullptr) printf("CApath          : %s\n", ca_path);
 
   if (socketpair(PF_UNIX, SOCK_STREAM, IPPROTO_IP, sv) == -1)
     fatal_error("socketpair");

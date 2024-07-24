@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -54,7 +55,7 @@ bool Primary_election_validation_handler::initialize_validation_structures() {
   number_of_responses = 0;
   group_members_info.clear();
   if (group_member_mgr != nullptr) {
-    std::vector<Group_member_info *> *all_members_info =
+    Group_member_info_list *all_members_info =
         group_member_mgr->get_all_members();
     for (Group_member_info *member : *all_members_info) {
       bool is_primary =
@@ -199,7 +200,7 @@ Primary_election_validation_handler::validate_election(std::string &uuid,
           !member_info.second->member_left() &&
           member_info.second->has_channels()) {
         error_msg.assign(
-            "There is a slave channel running in the group's"
+            "There is a replica channel running in the group's"
             " current primary member.");
         return Primary_election_validation_handler::INVALID_PRIMARY;
       }
@@ -217,11 +218,11 @@ Primary_election_validation_handler::validate_election(std::string &uuid,
           if (Primary_election_validation_handler::INVALID_PRIMARY == result)
             error_msg.assign(
                 "There is a member of a major version that"
-                " has running slave channels"); /* purecov: inspected */
-          return result;                        /* purecov: inspected */
+                " has running replica channels"); /* purecov: inspected */
+          return result;                          /* purecov: inspected */
         } else {
           error_msg.assign(
-              "The requested primary is not valid as a slave channel"
+              "The requested primary is not valid as a replica channel"
               " is running on member " +
               valid_uuid);
           return INVALID_PRIMARY;
@@ -233,7 +234,7 @@ Primary_election_validation_handler::validate_election(std::string &uuid,
       if (Primary_election_validation_handler::INVALID_PRIMARY == result)
         error_msg.assign(
             "There is more than a member in the group with"
-            " running slave channels so no primary can be"
+            " running replica channels so no primary can be"
             " elected.");
       return result;
     }
@@ -308,7 +309,8 @@ int Primary_election_validation_handler::after_view_change(
 }
 
 int Primary_election_validation_handler::after_primary_election(
-    std::string, bool, enum_primary_election_mode, int) {
+    std::string, enum_primary_election_primary_change_status,
+    enum_primary_election_mode, int) {
   return 0; /* purecov: inspected */
 }
 

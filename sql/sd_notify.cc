@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -41,7 +42,6 @@
 
 #include <errno.h>   // errno
 #include <string.h>  // strcpy
-#include <iostream>  // std::cerr
 
 #include <mysqld_error.h>                            // error logging
 #include "my_sys.h"                                  // my_strerror
@@ -65,16 +65,16 @@ void notify_connect() {
   const char *sockstr = getenv("NOTIFY_SOCKET");
   if (sockstr == nullptr) {
 #ifdef WITH_SYSTEMD_DEBUG
-    sql_print_warning(
-        "NOTIFY_SOCKET not set in environment. sd_notify messages will not be "
-        "sent!");
+    LogErr(WARNING_LEVEL, ER_SYSTEMD_NOTIFY_DEBUG,
+           "NOTIFY_SOCKET not set in environment. sd_notify messages "
+           "will not be sent!",
+           "");
 #endif /* WITH_SYSTEMD_DEBUG */
     return;
   }
   size_t sockstrlen = strlen(sockstr);
   size_t sunpathlen = sizeof(sockaddr_un::sun_path) - 1;
   if (sockstrlen > sunpathlen) {
-    std::cerr << "Error: NOTIFY_SOCKET too long" << std::endl;
     LogErr(SYSTEM_LEVEL, ER_SYSTEMD_NOTIFY_PATH_TOO_LONG, sockstr, sockstrlen,
            sunpathlen);
     return;
@@ -125,11 +125,12 @@ void notify() {
 
 #ifdef WITH_SYSTEMD_DEBUG
   if (NotifyGlobals::socket == -1) {
-    sql_print_warning("Invalid systemd notify socket, cannot send: %s",
-                      note.c_str());
+    LogErr(WARNING_LEVEL, ER_SYSTEMD_NOTIFY_DEBUG,
+           "Invalid systemd notify socket, cannot send: ", note.c_str());
     return;
   }
-  std::cerr << "Send to systemd notify socket: " << note;
+  LogErr(INFORMATION_LEVEL, ER_SYSTEMD_NOTIFY_DEBUG,
+         "Send to systemd notify socket: ", note.c_str());
 #endif /* WITH_SYSTEMD_DEBUG */
 
   while (true) {
@@ -149,7 +150,7 @@ void notify() {
   }
   if (status == -1) {
     char errbuf[512];
-    LogErr(WARNING_LEVEL, ER_SYSTEMD_NOTIFY_WRITE_FAILED,
+    LogErr(WARNING_LEVEL, ER_SYSTEMD_NOTIFY_WRITE_FAILED, note.c_str(),
            my_strerror(errbuf, sizeof(errbuf) - 1, errno));
   }
 }

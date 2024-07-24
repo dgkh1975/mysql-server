@@ -1,15 +1,16 @@
-/* Copyright (c) 2010, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2010, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -75,14 +76,14 @@ static const char *charset_list[] = {
 
     "ujis_japanese_ci",   "ujis_bin",
 
-    "utf8_general_ci",    "utf8_unicode_ci", "utf8_bin",
+    "utf8mb3_general_ci", "utf8mb3_unicode_ci",
+    "utf8mb3_bin",
 };
 
 class LikeRangeTest : public ::testing::TestWithParam<const char *> {
  protected:
   void SetUp() override {
     MY_CHARSET_LOADER loader;
-    my_charset_loader_init_mysys(&loader);
     m_charset = my_collation_get_by_name(&loader, GetParam(), MYF(0));
     assert(m_charset);
   }

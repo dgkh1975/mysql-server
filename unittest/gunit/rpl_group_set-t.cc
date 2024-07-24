@@ -1,15 +1,16 @@
-/* Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -448,9 +449,9 @@ TEST_F(GroupTest, Group_containers) {
        method_i++) {                                                        \
     for (int sid_map_i = 0; sid_map_i < MAX_SID_MAP;                        \
          sid_map_i++, combination_i++) {                                    \
-      Gtid_set &gtid_set MY_ATTRIBUTE((unused)) =                           \
+      Gtid_set &gtid_set [[maybe_unused]] =                                 \
           containers[combination_i]->gtid_set;                              \
-      Sid_map *&sid_map MY_ATTRIBUTE((unused)) = sid_maps[sid_map_i];       \
+      Sid_map *&sid_map [[maybe_unused]] = sid_maps[sid_map_i];             \
       append_errtext(__LINE__, "sid_map_i=%d method_i=%d combination_i=%d", \
                      sid_map_i, method_i, combination_i);
 
@@ -466,13 +467,13 @@ TEST_F(GroupTest, Group_containers) {
     for (int end_i = 0; end_i < MAX_END; end_i++) {                            \
       for (int empty_i = 0; empty_i < MAX_EMPTY; empty_i++) {                  \
         for (int anon_i = 0; anon_i < MAX_ANON; anon_i++, combination_i++) {   \
-          Gtid_set &gtid_set MY_ATTRIBUTE((unused)) =                          \
+          Gtid_set &gtid_set [[maybe_unused]] =                                \
               containers[combination_i]->gtid_set;                             \
-          Group_cache &stmt_cache MY_ATTRIBUTE((unused)) =                     \
+          Group_cache &stmt_cache [[maybe_unused]] =                           \
               containers[combination_i]->stmt_cache;                           \
-          Group_cache &trx_cache MY_ATTRIBUTE((unused)) =                      \
+          Group_cache &trx_cache [[maybe_unused]] =                            \
               containers[combination_i]->trx_cache;                            \
-          Group_log_state &group_log_state MY_ATTRIBUTE((unused)) =            \
+          Group_log_state &group_log_state [[maybe_unused]] =                  \
               containers[combination_i]->group_log_state;                      \
           append_errtext(__LINE__,                                             \
                          "type_i=%d end_i=%d empty_i=%d "                      \

@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    Without limiting anything contained in the foregoing, this file,
    which is part of C Driver for MySQL (Connector/C), is also subject to the
@@ -109,7 +110,7 @@ static void store_param_type(unsigned char **pos, MYSQL_BIND *param) {
     param		MySQL bind param
 
   DESCRIPTION
-    These funtions are invoked from mysql_stmt_execute() by
+    These functions are invoked from mysql_stmt_execute() by
     MYSQL_BIND::store_param_func pointer. This pointer is set once per
     many executions in mysql_stmt_bind_param(). The caller must ensure
     that network buffer have enough capacity to store parameter
@@ -390,7 +391,7 @@ bool mysql_int_serialize_param_data(
     }
   }
   *ret_length = (ulong)(net->write_pos - net->buff);
-  /* TODO: Look into avoding the following memdup */
+  /* TODO: Look into avoiding the following memdup */
   if (!(*ret_data = pointer_cast<uchar *>(
             my_memdup(PSI_NOT_INSTRUMENTED, net->buff, *ret_length, MYF(0))))) {
     net->last_errno = CR_OUT_OF_MEMORY;

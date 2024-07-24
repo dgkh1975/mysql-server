@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,21 +39,31 @@ int Asynchronous_channels_state_observer::thread_start(
   if (is_plugin_auto_starting_on_non_bootstrap_member() &&
       strcmp(param->channel_name, "group_replication_recovery") != 0 &&
       strcmp(param->channel_name, "group_replication_applier") != 0) {
-    if (initiate_wait_on_start_process()) {
-      LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_SLAVE_THREAD_ERROR_ON_CLONE,
-                   "slave IO", param->channel_name);
-      return 1;
+    const enum_wait_on_start_process_result abort =
+        initiate_wait_on_start_process();
+    switch (abort) {
+      case WAIT_ON_START_PROCESS_SUCCESS:
+        break;
+      case WAIT_ON_START_PROCESS_ABORT_ON_CLONE:
+        LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_REPLICA_THREAD_ERROR_ON_CLONE,
+                     "replica IO", param->channel_name);
+        return 1;
+      case WAIT_ON_START_PROCESS_ABORT_SECONDARY_MEMBER:
+        LogPluginErr(ERROR_LEVEL,
+                     ER_GRP_RPL_REPLICA_THREAD_ERROR_ON_SECONDARY_MEMBER,
+                     "replica IO", param->channel_name);
+        return 1;
     }
 
     if (group_member_mgr && local_member_info->get_recovery_status() ==
                                 Group_member_info::MEMBER_ONLINE) {
-      LogPluginErr(INFORMATION_LEVEL, ER_GRP_RPL_SLAVE_IO_THREAD_UNBLOCKED,
+      LogPluginErr(INFORMATION_LEVEL, ER_GRP_RPL_REPLICA_IO_THREAD_UNBLOCKED,
                    param->channel_name);
     } else if (group_member_mgr && (local_member_info->get_recovery_status() ==
                                         Group_member_info::MEMBER_ERROR ||
                                     local_member_info->get_recovery_status() ==
                                         Group_member_info::MEMBER_OFFLINE)) {
-      LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_SLAVE_IO_THREAD_ERROR_OUT,
+      LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_REPLICA_IO_THREAD_ERROR_OUT,
                    param->channel_name);
       return 1;
     }
@@ -68,7 +79,7 @@ int Asynchronous_channels_state_observer::thread_start(
     group_member_mgr->get_primary_member_uuid(m_uuid);
 
     if (m_uuid == "UNDEFINED") {
-      LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_SLAVE_IO_THD_PRIMARY_UNKNOWN,
+      LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_REPLICA_IO_THD_PRIMARY_UNKNOWN,
                    param->channel_name);
       return 1;
     }
@@ -81,11 +92,18 @@ int Asynchronous_channels_state_observer::thread_start(
   }
 
   if (plugin_is_group_replication_running() &&
-      group_action_coordinator->is_group_action_running()) {
-    LogPluginErr(ERROR_LEVEL,
-                 ER_GRP_RPL_CHANNEL_THREAD_WHEN_GROUP_ACTION_RUNNING,
-                 "IO THREAD");
-    return 1;
+      !param->source_connection_auto_failover &&
+      !primary_election_handler->is_an_election_running()) {
+    std::pair<std::string, std::string> action_initiator_and_description;
+    if (group_action_coordinator->is_group_action_running(
+            action_initiator_and_description)) {
+      LogPluginErr(ERROR_LEVEL,
+                   ER_GRP_RPL_CHANNEL_THREAD_WHEN_GROUP_ACTION_RUNNING,
+                   "IO THREAD", param->channel_name,
+                   action_initiator_and_description.second.c_str(),
+                   action_initiator_and_description.first.c_str());
+      return 1;
+    }
   }
 
   return 0;
@@ -104,21 +122,32 @@ int Asynchronous_channels_state_observer::applier_start(
   if (is_plugin_auto_starting_on_non_bootstrap_member() &&
       strcmp(param->channel_name, "group_replication_recovery") != 0 &&
       strcmp(param->channel_name, "group_replication_applier") != 0) {
-    if (initiate_wait_on_start_process()) {
-      LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_SLAVE_THREAD_ERROR_ON_CLONE,
-                   "slave applier", param->channel_name);
-      return 1;
+    const enum_wait_on_start_process_result abort =
+        initiate_wait_on_start_process();
+    switch (abort) {
+      case WAIT_ON_START_PROCESS_SUCCESS:
+        break;
+      case WAIT_ON_START_PROCESS_ABORT_ON_CLONE:
+        LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_REPLICA_THREAD_ERROR_ON_CLONE,
+                     "replica applier", param->channel_name);
+        return 1;
+      case WAIT_ON_START_PROCESS_ABORT_SECONDARY_MEMBER:
+        LogPluginErr(ERROR_LEVEL,
+                     ER_GRP_RPL_REPLICA_THREAD_ERROR_ON_SECONDARY_MEMBER,
+                     "replica applier", param->channel_name);
+        return 1;
     }
 
     if (group_member_mgr && local_member_info->get_recovery_status() ==
                                 Group_member_info::MEMBER_ONLINE) {
-      LogPluginErr(INFORMATION_LEVEL, ER_GRP_RPL_SLAVE_APPLIER_THREAD_UNBLOCKED,
+      LogPluginErr(INFORMATION_LEVEL,
+                   ER_GRP_RPL_REPLICA_APPLIER_THREAD_UNBLOCKED,
                    param->channel_name);
     } else if (group_member_mgr && (local_member_info->get_recovery_status() ==
                                         Group_member_info::MEMBER_ERROR ||
                                     local_member_info->get_recovery_status() ==
                                         Group_member_info::MEMBER_OFFLINE)) {
-      LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_SLAVE_APPLIER_THREAD_ERROR_OUT,
+      LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_REPLICA_APPLIER_THREAD_ERROR_OUT,
                    param->channel_name);
       return 1;
     }
@@ -134,24 +163,31 @@ int Asynchronous_channels_state_observer::applier_start(
     group_member_mgr->get_primary_member_uuid(m_uuid);
 
     if (m_uuid == "UNDEFINED") {
-      LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_SLAVE_SQL_THD_PRIMARY_UNKNOWN,
+      LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_REPLICA_SQL_THD_PRIMARY_UNKNOWN,
                    param->channel_name);
       return 1;
     }
 
     if (m_uuid != local_member_info->get_uuid()) {
-      LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_SLAVE_SQL_THD_ON_SECONDARY_MEMBER,
+      LogPluginErr(ERROR_LEVEL, ER_GRP_RPL_REPLICA_SQL_THD_ON_SECONDARY_MEMBER,
                    param->channel_name);
       return 1;
     }
   }
 
   if (plugin_is_group_replication_running() &&
-      group_action_coordinator->is_group_action_running()) {
-    LogPluginErr(ERROR_LEVEL,
-                 ER_GRP_RPL_CHANNEL_THREAD_WHEN_GROUP_ACTION_RUNNING,
-                 "SQL THREAD");
-    return 1;
+      !param->source_connection_auto_failover &&
+      !primary_election_handler->is_an_election_running()) {
+    std::pair<std::string, std::string> action_initiator_and_description;
+    if (group_action_coordinator->is_group_action_running(
+            action_initiator_and_description)) {
+      LogPluginErr(ERROR_LEVEL,
+                   ER_GRP_RPL_CHANNEL_THREAD_WHEN_GROUP_ACTION_RUNNING,
+                   "SQL THREAD", param->channel_name,
+                   action_initiator_and_description.second.c_str(),
+                   action_initiator_and_description.first.c_str());
+      return 1;
+    }
   }
 
   return 0;

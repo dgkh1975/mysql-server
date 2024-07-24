@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,7 +34,7 @@
 #include "storage/ndb/plugin/ndb_dd.h"                // ndb_dd_fs_name_case
 #include "storage/ndb/plugin/ndb_dd_client.h"         // Ndb_dd_client
 #include "storage/ndb/plugin/ndb_dd_disk_data.h"  // ndb_dd_disk_data_get_object_id_and_version
-#include "storage/ndb/plugin/ndb_dd_table.h"  // ndb_dd_table_get_object_id_and_version
+#include "storage/ndb/plugin/ndb_dd_table.h"  // ndb_dd_table_get_spi_and_version
 #include "storage/ndb/plugin/ndb_local_connection.h"  // Ndb_local_connection
 #include "storage/ndb/plugin/ndb_log.h"               // ndb_log_*
 #include "storage/ndb/plugin/ndb_metadata.h"          // Ndb_metadata
@@ -442,7 +443,6 @@ void Ndb_metadata_sync::reset_excluded_objects_state() {
 }
 
 void Ndb_metadata_sync::validate_excluded_objects(THD *thd) {
-  ndb_log_info("Validating excluded objects");
   /*
     The validation is done by the change monitor thread at the beginning of
     each detection cycle. There's a possibility that the binlog thread is
@@ -913,8 +913,8 @@ bool Ndb_metadata_sync::sync_table(THD *thd, const std::string &schema_name,
                  table_name.c_str());
 
     // Invalidate the table in NdbApi
-    Ndb_table_guard ndbtab_guard(ndb, schema_name.c_str(), table_name.c_str());
-    ndbtab_guard.invalidate();
+    Ndb_table_guard::invalidate_table(ndb, schema_name.c_str(),
+                                      table_name.c_str());
     return true;
   }
 

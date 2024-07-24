@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2006, 2021, Oracle and/or its affiliates.
+Copyright (c) 2006, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -97,8 +98,8 @@ static inline void *ib_vector_pop(
     ib_vector_t *vec); /* in/out: vector */
 
 /** Remove an element to the vector
-@param[in]	vec	vector
-@param[in]	elem	value to remove
+@param[in]      vec     vector
+@param[in]      elem    value to remove
 @return pointer to the "removed" element */
 static inline void *ib_vector_remove(ib_vector_t *vec, const void *elem);
 
@@ -117,12 +118,12 @@ void ib_vector_resize(
 /********************************************************************
 Test whether a vector is empty or not.
 @return true if empty */
-static inline ibool ib_vector_is_empty(
+static inline bool ib_vector_is_empty(
     const ib_vector_t *vec); /*!< in: vector */
 
 /** Get the n'th element.
-@param[in]	vec	vector
-@param[in]	n	element index to get
+@param[in]      vec     vector
+@param[in]      n       element index to get
 @return n'th element */
 static inline void *ib_vector_get(ib_vector_t *vec, ulint n);
 
@@ -137,9 +138,9 @@ static inline const void *ib_vector_get_const(
 static inline void *ib_vector_get_last(ib_vector_t *vec); /*!< in: vector */
 
 /** Set the n'th element.
-@param[in]	vec	vector
-@param[in]	n	element index to set
-@param[in]	elem	data element */
+@param[in]      vec     vector
+@param[in]      n       element index to set
+@param[in]      elem    data element */
 static inline void ib_vector_set(ib_vector_t *vec, ulint n, void *elem);
 
 /********************************************************************
@@ -197,7 +198,7 @@ static inline ib_alloc_t *ib_heap_allocator_create(
 /********************************************************************
 Free a heap allocator. */
 static inline void ib_heap_allocator_free(
-    ib_alloc_t *ib_ut_alloc); /* in: alloc instace to free */
+    ib_alloc_t *ib_ut_alloc); /* in: alloc instance to free */
 
 /* Allocator used by ib_vector_t. */
 struct ib_alloc_t {

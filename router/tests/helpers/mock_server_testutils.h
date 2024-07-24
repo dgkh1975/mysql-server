@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -28,8 +29,6 @@
 #include <chrono>
 
 #ifdef RAPIDJSON_NO_SIZETYPEDEFINE
-// if we build within the server, it will set RAPIDJSON_NO_SIZETYPEDEFINE
-// globally and require to include my_rapidjson_size_t.h
 #include "my_rapidjson_size_t.h"
 #endif
 
@@ -49,56 +48,89 @@ using JsonValue =
 using JsonStringBuffer =
     rapidjson::GenericStringBuffer<rapidjson::UTF8<>, rapidjson::CrtAllocator>;
 
+struct GRNode {
+  GRNode(uint32_t p_classic_port, const std::string &p_server_uuid = "",
+         const std::string &p_member_status = "ONLINE")
+      : server_uuid(p_server_uuid.empty() ? std::to_string(p_classic_port)
+                                          : p_server_uuid),
+        classic_port(p_classic_port),
+        member_status(p_member_status) {}
+
+  std::string server_uuid;
+  uint32_t classic_port;
+  std::string member_status;
+};
+
+struct ClusterNode {
+  ClusterNode(uint32_t p_classic_port, const std::string &p_server_uuid = "",
+              uint32_t p_x_port = 0, const std::string &p_attributes = "{}")
+      : server_uuid(p_server_uuid.empty() ? std::to_string(p_classic_port)
+                                          : p_server_uuid),
+        classic_port(p_classic_port),
+        x_port(p_x_port),
+        attributes(p_attributes) {}
+
+  std::string server_uuid;
+  uint32_t classic_port;
+  uint32_t x_port;
+  std::string attributes;
+};
+
+/**
+ * Converts a vector of classic port numbers to the vector of GRNode objects.
+ */
+std::vector<GRNode> classic_ports_to_gr_nodes(
+    const std::vector<uint16_t> &classic_ports);
+
+/**
+ * Converts a vector of classic port numbers to the vector of Cluster Node
+ * objects.
+ */
+std::vector<ClusterNode> classic_ports_to_cluster_nodes(
+    const std::vector<uint16_t> &classic_ports);
+
 /**
  * Converts the GR mock data to the JSON object.
  *
  * @param gr_id replication group id to set
- * @param gr_node_ports vector with the classic protocol ports of the cluster
- * nodes
+ * @param gr_nodes vector with the GR nodes
+ * @param gr_pos this node's position in GR nodes table
+ * @param cluster_nodes vector with cluster nodes as defined in the metadata
  * @param primary_id which node is the primary
  * @param view_id metadata view id (for AR cluster)
  * @param error_on_md_query if true the mock should return an error when
  * handling the metadata query
  * @param gr_node_host address of the host with the nodes
- * @param gr_node_xports vector with the X protocol ports of the cluster nodes
- * reported by the metadata
- * @param node_attributes vector with the JSON with attributes of the cluster
- * nodes
  *
  * @return JSON object with the GR mock data.
  */
 JsonValue mock_GR_metadata_as_json(
-    const std::string &gr_id, const std::vector<uint16_t> &gr_node_ports,
-    unsigned primary_id = 0, unsigned view_id = 0,
+    const std::string &gr_id, const std::vector<GRNode> &gr_nodes,
+    unsigned gr_pos, const std::vector<ClusterNode> &cluster_nodes,
+    unsigned primary_id = 0, uint64_t view_id = 0,
     bool error_on_md_query = false,
-    const std::string &gr_node_host = "127.0.0.1",
-    const std::vector<uint32_t> &gr_node_xports = {},
-    const std::vector<std::string> &node_attributes = {});
+    const std::string &gr_node_host = "127.0.0.1");
 
 /**
  * Sets the metadata returned by the mock server.
  *
  * @param http_port mock server's http port where it services the http requests
  * @param gr_id replication group id to set
- * @param gr_node_ports vector with the classic protocol ports of the cluster
- * nodes
+ * @param gr_nodes vector with the GR nodes
+ * @param gr_pos this node's position in GR nodes table
+ * @param cluster_nodes vector with cluster nodes as defined in the metadata
  * @param primary_id which node is the primary
  * @param view_id metadata view id (for AR cluster)
  * @param error_on_md_query if true the mock should return an error when
  * @param gr_node_host address of the host with the nodes handling the metadata
  * query
- * @param gr_node_xports vector with the X protocol ports of the cluster nodes
- * reported by the metadata
- * @param node_attributes vector with the JSON with attributes of the cluster
- * nodes
  */
 void set_mock_metadata(uint16_t http_port, const std::string &gr_id,
-                       const std::vector<uint16_t> &gr_node_ports,
-                       unsigned primary_id = 0, unsigned view_id = 0,
+                       const std::vector<GRNode> &gr_nodes, unsigned gr_pos,
+                       const std::vector<ClusterNode> &cluster_nodes,
+                       unsigned primary_id = 0, uint64_t view_id = 0,
                        bool error_on_md_query = false,
-                       const std::string &gr_node_host = "127.0.0.1",
-                       const std::vector<uint32_t> &gr_node_xports = {},
-                       const std::vector<std::string> &node_attributes = {});
+                       const std::string &gr_node_host = "127.0.0.1");
 
 void set_mock_bootstrap_data(
     uint16_t http_port, const std::string &cluster_name,

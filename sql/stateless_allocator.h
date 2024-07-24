@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,7 +34,7 @@
 
 /**
   Functor struct which invokes my_free. Declared here as it is used as the
-  defalt value for Stateless_allocator's DEALLOC_FUN template parameter.
+  default value for Stateless_allocator's DEALLOC_FUN template parameter.
 */
 struct My_free_functor {
   void operator()(void *p, size_t) const;
@@ -115,8 +116,7 @@ class Stateless_allocator {
   template <class U>
   Stateless_allocator &operator=(const Stateless_allocator_type<U> &) {}
 
-  pointer allocate(size_type n,
-                   const_pointer hint MY_ATTRIBUTE((unused)) = nullptr) {
+  pointer allocate(size_type n, const_pointer hint [[maybe_unused]] = nullptr) {
     if (n == 0) return nullptr;
     if (n > max_size()) throw std::bad_alloc();
 

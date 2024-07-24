@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -163,6 +164,8 @@ class Json_schema_validator {
   class My_remote_schema_document_provider
       : public rapidjson::IRemoteSchemaDocumentProvider {
    public:
+    using rapidjson::IRemoteSchemaDocumentProvider::GetRemoteDocument;
+
     const rapidjson::SchemaDocument *GetRemoteDocument(
         const char *, rapidjson::SizeType) override {
       m_used = true;
@@ -197,7 +200,7 @@ class Json_schema_validator {
                      "false". Can be nullptr if a detailed report isn't needed.
 
   @retval true if anything went wrong (like parsing the JSON inputs). my_error
-               has been called with an appopriate error message.
+               has been called with an appropriate error message.
   @retval false if the validation succeeded. The result of the validation can be
                 found in the output variable "is_valid".
 */

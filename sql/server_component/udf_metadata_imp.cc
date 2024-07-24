@@ -1,15 +1,16 @@
-/* Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -116,7 +117,7 @@ DEFINE_BOOL_METHOD(mysql_udf_metadata_imp::argument_get,
     *out_value = pointer_cast<void *>(csname);
   } else if (!my_strcasecmp(system_charset_info, consts::collation.c_str(),
                             extension_type)) {
-    csname = const_cast<char *>(x->charset_info[index]->name);
+    csname = const_cast<char *>(x->charset_info[index]->m_coll_name);
     *out_value = pointer_cast<void *>(csname);
   } else {
     my_error(ER_DA_UDF_INVALID_EXTENSION_ARGUMENT_TYPE, MYF(0), extension_type);
@@ -137,7 +138,7 @@ DEFINE_BOOL_METHOD(mysql_udf_metadata_imp::result_get,
     *out_value = pointer_cast<void *>(csname);
   } else if (!my_strcasecmp(system_charset_info, consts::collation.c_str(),
                             extension_type)) {
-    csname = const_cast<char *>(x->charset_info->name);
+    csname = const_cast<char *>(x->charset_info->m_coll_name);
     *out_value = pointer_cast<void *>(csname);
   } else {
     my_error(ER_DA_UDF_INVALID_EXTENSION_ARGUMENT_TYPE, MYF(0), extension_type);

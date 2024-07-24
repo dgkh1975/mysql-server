@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,10 +28,10 @@
 #include "my_dbug.h"
 #include "my_systime.h"
 #include "mysql/components/services/log_builtins.h"
+#include "plugin/group_replication/include/compatibility_module.h"
 #include "plugin/group_replication/include/plugin.h"
 #include "plugin/group_replication/include/plugin_psi.h"
 #include "plugin/group_replication/include/plugin_server_include.h"
-#include "plugin/group_replication/include/plugin_variables.h"
 #include "plugin/group_replication/include/plugin_variables/recovery_endpoints.h"
 #include "plugin/group_replication/include/recovery_channel_state_observer.h"
 #include "plugin/group_replication/include/recovery_state_transfer.h"
@@ -42,6 +43,8 @@ Recovery_state_transfer::Recovery_state_transfer(
     Channel_observation_manager *channel_obsr_mngr)
     : selected_donor(nullptr),
       group_members(nullptr),
+      suitable_donors(
+          Malloc_allocator<Group_member_info *>(key_group_member_info)),
       donor_connection_retry_count(0),
       recovery_aborted(false),
       donor_transfer_finished(false),
@@ -80,8 +83,7 @@ Recovery_state_transfer::Recovery_state_transfer(
 
 Recovery_state_transfer::~Recovery_state_transfer() {
   if (group_members != nullptr) {
-    std::vector<Group_member_info *>::iterator member_it =
-        group_members->begin();
+    Group_member_info_list_iterator member_it = group_members->begin();
     while (member_it != group_members->end()) {
       delete (*member_it);
       ++member_it;
@@ -188,8 +190,7 @@ void Recovery_state_transfer::update_group_membership(bool update_donor) {
   }
 
   if (group_members != nullptr) {
-    std::vector<Group_member_info *>::iterator member_it =
-        group_members->begin();
+    Group_member_info_list_iterator member_it = group_members->begin();
     while (member_it != group_members->end()) {
       delete (*member_it);
       ++member_it;
@@ -242,10 +243,7 @@ int Recovery_state_transfer::update_recovery_process(bool did_members_left) {
     current_donor_uuid.assign(selected_donor->get_uuid());
     current_donor_hostname.assign(selected_donor->get_hostname());
     current_donor_port = selected_donor->get_port();
-    Group_member_info *current_donor =
-        group_member_mgr->get_group_member_info(current_donor_uuid);
-    donor_left = (current_donor == nullptr);
-    delete current_donor;
+    donor_left = !group_member_mgr->is_member_info_present(current_donor_uuid);
   }
 
   /*
@@ -325,10 +323,12 @@ bool Recovery_state_transfer::is_own_event_channel(my_thread_id id) {
 
 void Recovery_state_transfer::build_donor_list(string *selected_donor_uuid) {
   DBUG_TRACE;
+  const Member_version local_member_version =
+      local_member_info->get_member_version();
 
   suitable_donors.clear();
 
-  std::vector<Group_member_info *>::iterator member_it = group_members->begin();
+  Group_member_info_list_iterator member_it = group_members->begin();
 
   while (member_it != group_members->end()) {
     Group_member_info *member = *member_it;
@@ -338,12 +338,18 @@ void Recovery_state_transfer::build_donor_list(string *selected_donor_uuid) {
         member->get_recovery_status() == Group_member_info::MEMBER_ONLINE;
     bool not_self = m_uuid.compare(member_uuid);
     bool valid_donor = false;
+    const Member_version member_version = member->get_member_version();
 
     if (is_online && not_self) {
-      if (member->get_member_version() <=
-          local_member_info->get_member_version()) {
+      if (member_version <= local_member_version) {
         suitable_donors.push_back(member);
         valid_donor = true;
+      } else if (Compatibility_module::is_version_8_0_lts(member_version) &&
+                 Compatibility_module::is_version_8_0_lts(
+                     local_member_version)) {
+        suitable_donors.push_back(member);
+        valid_donor = true;
+
       } else if (get_allow_local_lower_version_join()) {
         suitable_donors.push_back(member);
         valid_donor = true;
@@ -365,9 +371,7 @@ void Recovery_state_transfer::build_donor_list(string *selected_donor_uuid) {
   }
 
   if (suitable_donors.size() > 1) {
-    std::random_device rng;
-    std::mt19937 urng(rng());
-    std::shuffle(suitable_donors.begin(), suitable_donors.end(), urng);
+    vector_random_shuffle(&suitable_donors);
   }
 
   // no need for errors if no donors exist, we thrown it in the connection

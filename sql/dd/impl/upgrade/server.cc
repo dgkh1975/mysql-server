@@ -1,15 +1,16 @@
-/* Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -21,11 +22,12 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 #include "sql/dd/impl/upgrade/server.h"
-#include "sql/dd/upgrade/server.h"
 
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/types.h>
+
+#include "sql/dd/upgrade/server.h"
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -83,7 +85,7 @@ void Bootstrap_error_handler::my_message_bootstrap(uint error, const char *str,
                                                    myf MyFlags) {
   set_abort_on_error(error);
   my_message_sql(error, str, MyFlags);
-  if (m_log_error)
+  if (should_log_error(error))
     LogEvent()
         .type(LOG_TYPE_ERROR)
         .subsys(LOG_SUBSYSTEM_TAG)
@@ -115,6 +117,21 @@ void Bootstrap_error_handler::set_log_error(bool log_error) {
   m_log_error = log_error;
 }
 
+bool Bootstrap_error_handler::should_log_error(uint error) {
+  return (m_log_error ||
+          (!m_allowlist_errors.empty() &&
+           m_allowlist_errors.find(error) != m_allowlist_errors.end()));
+}
+
+void Bootstrap_error_handler::set_allowlist_errors(std::set<uint> &errors) {
+  assert(m_allowlist_errors.empty());
+  m_allowlist_errors = errors;
+}
+
+void Bootstrap_error_handler::clear_allowlist_errors() {
+  m_allowlist_errors.clear();
+}
+
 Bootstrap_error_handler::~Bootstrap_error_handler() {
   // Skip reverting to old error handler in case someone else
   // has updated the hook.
@@ -124,6 +141,7 @@ Bootstrap_error_handler::~Bootstrap_error_handler() {
 
 bool Bootstrap_error_handler::m_log_error = true;
 bool Bootstrap_error_handler::abort_on_error = false;
+std::set<uint> Bootstrap_error_handler::m_allowlist_errors;
 
 /***************************************************************************
  * Routine_event_context_guard implementation
@@ -154,9 +172,9 @@ dd::String_type Syntax_error_handler::reason = "";
 const uint Syntax_error_handler::MAX_SERVER_CHECK_FAILS = 50;
 
 bool Syntax_error_handler::handle_condition(
-    THD *, uint sql_errno, const char *, Sql_condition::enum_severity_level *,
-    const char *msg) {
-  if (sql_errno == ER_PARSE_ERROR) {
+    THD *, uint sql_errno, const char *,
+    Sql_condition::enum_severity_level *level, const char *msg) {
+  if (sql_errno == ER_PARSE_ERROR && *level == Sql_condition::SL_ERROR) {
     parse_error_count++;
     if (m_global_counter) (*m_global_counter)++;
     is_parse_error = true;
@@ -234,25 +252,62 @@ class MySQL_check {
     Schema_MDL_locker mdl_handler(thd);
     dd::cache::Dictionary_client::Auto_releaser releaser(thd->dd_client());
     const dd::Schema *sch = nullptr;
-    std::vector<const dd::Table *> tables;
+    std::vector<String_type> tables;
     dd::Stringstream_type t_list;
 
     if (mdl_handler.ensure_locked(schema) ||
         thd->dd_client()->acquire(schema, &sch) ||
-        thd->dd_client()->fetch_schema_components(sch, &tables)) {
+        thd->dd_client()->fetch_schema_component_names<Abstract_table>(
+            sch, &tables)) {
       LogErr(ERROR_LEVEL, ER_DD_UPGRADE_FAILED_TO_FETCH_TABLES);
       return (true);
     }
 
+    char schema_name_buf[NAME_LEN + 1];
+    const char *converted_schema_name = sch->name().c_str();
+    if (lower_case_table_names == 2) {
+      my_stpcpy(schema_name_buf, converted_schema_name);
+      my_casedn_str(system_charset_info, schema_name_buf);
+      converted_schema_name = schema_name_buf;
+    }
+
     bool first = true;
-    std::for_each(tables.begin(), tables.end(), [&](const dd::Table *table) {
-      if (table->type() != dd::enum_table_type::BASE_TABLE ||
-          table->hidden() != dd::Abstract_table::HT_VISIBLE)
-        return;
-      if (!first) t_list << ", ";
-      first = false;
-      t_list << escape_str(sch->name()) << "." << escape_str(table->name());
-    });
+    for (const dd::String_type &table : tables) {
+      char table_name_buf[NAME_LEN + 1];
+      const char *converted_table_name = table.c_str();
+      if (lower_case_table_names == 2) {
+        my_stpcpy(table_name_buf, converted_table_name);
+        my_casedn_str(system_charset_info, table_name_buf);
+        converted_table_name = table_name_buf;
+      }
+
+      MDL_request table_request;
+      MDL_REQUEST_INIT(&table_request, MDL_key::TABLE, converted_schema_name,
+                       converted_table_name, MDL_SHARED, MDL_EXPLICIT);
+
+      if (thd->mdl_context.acquire_lock(&table_request,
+                                        thd->variables.lock_wait_timeout)) {
+        return true;
+      }
+      dd::cache::Dictionary_client::Auto_releaser table_releaser(
+          thd->dd_client());
+      const dd::Abstract_table *table_obj = nullptr;
+      if (thd->dd_client()->acquire(converted_schema_name, converted_table_name,
+                                    &table_obj))
+        return true;
+
+      if (table_obj->type() != dd::enum_table_type::BASE_TABLE ||
+          table_obj->hidden() != dd::Abstract_table::HT_VISIBLE) {
+        thd->mdl_context.release_lock(table_request.ticket);
+        continue;
+      }
+      if (!first)
+        t_list << ", ";
+      else
+        first = false;
+      t_list << escape_str(sch->name()) << "." << escape_str(table_obj->name());
+      thd->mdl_context.release_lock(table_request.ticket);
+    }
 
     tables_list = t_list.str();
     return false;
@@ -302,7 +357,7 @@ class MySQL_check {
   }
 
   /**
-    Returns true if something went wrong while retreving the table list or
+    Returns true if something went wrong while retrieving the table list or
     executing CHECK TABLE statements.
   */
   bool check_tables(THD *thd, const char *schema) {
@@ -441,12 +496,12 @@ bool fix_sys_schema(THD *thd) {
 
   if (sch != nullptr &&
       !dd::bootstrap::DD_bootstrap_ctx::instance().is_server_upgrade() &&
+      !bootstrap::DD_bootstrap_ctx::instance().is_server_patch_downgrade() &&
       (opt_upgrade_mode != UPGRADE_FORCE))
     return false;
 
   const char **query_ptr;
   LogErr(INFORMATION_LEVEL, ER_SERVER_UPGRADE_SYS_SCHEMA);
-  thd->user_var_events_alloc = thd->mem_root;
   for (query_ptr = &mysql_sys_schema[0]; *query_ptr != nullptr; query_ptr++)
     if (ignore_error_and_execute(thd, *query_ptr)) return true;
   thd->mem_root->Clear();
@@ -454,7 +509,9 @@ bool fix_sys_schema(THD *thd) {
 }
 
 bool fix_mysql_tables(THD *thd) {
-  const char **query_ptr;
+  /* Keep system tables as is for LTS downgrade. */
+  if (bootstrap::DD_bootstrap_ctx::instance().is_server_patch_downgrade())
+    return false;
 
   DBUG_EXECUTE_IF(
       "schema_read_only",
@@ -473,6 +530,7 @@ bool fix_mysql_tables(THD *thd) {
   if (upgrade_firewall(thd)) return true;
 
   LogErr(INFORMATION_LEVEL, ER_SERVER_UPGRADE_MYSQL_TABLES);
+  const char **query_ptr;
   for (query_ptr = &mysql_fix_privilege_tables[0]; *query_ptr != nullptr;
        query_ptr++)
     if (ignore_error_and_execute(thd, *query_ptr)) return true;
@@ -808,7 +866,8 @@ bool upgrade_system_schemas(THD *thd) {
   Server_option_guard<bool> acl_guard(&opt_noacl, true);
   Server_option_guard<bool> general_log_guard(&opt_general_log, false);
   Server_option_guard<bool> slow_log_guard(&opt_slow_log, false);
-  Server_option_guard<bool> bin_log_guard(&thd->variables.sql_log_bin, false);
+  Disable_binlog_guard disable_binlog(thd);
+  Disable_sql_log_bin_guard disable_sql_log_bin(thd);
 
   uint server_version = MYSQL_VERSION_ID;
   bool exists_version = false;
@@ -823,10 +882,17 @@ bool upgrade_system_schemas(THD *thd) {
 
   MySQL_check check;
 
-  LogErr(SYSTEM_LEVEL, ER_SERVER_UPGRADE_STATUS, server_version,
-         MYSQL_VERSION_ID, "started");
-  log_sink_buffer_check_timeout();
-  sysd::notify("STATUS=Server upgrade in progress\n");
+  if (dd::bootstrap::DD_bootstrap_ctx::instance().is_server_patch_downgrade()) {
+    /* purecov: begin inspected */
+    LogErr(SYSTEM_LEVEL, ER_SERVER_DOWNGRADE_STATUS, server_version,
+           MYSQL_VERSION_ID, "started");
+    sysd::notify("STATUS=Server downgrade in progress\n");
+    /* purecov: end */
+  } else {
+    LogErr(SYSTEM_LEVEL, ER_SERVER_UPGRADE_STATUS, server_version,
+           MYSQL_VERSION_ID, "started");
+    sysd::notify("STATUS=Server upgrade in progress\n");
+  }
 
   bootstrap_error_handler.set_log_error(false);
   bool err =
@@ -850,11 +916,19 @@ bool upgrade_system_schemas(THD *thd) {
   create_upgrade_file();
   bootstrap_error_handler.set_log_error(true);
 
-  if (!err)
-    LogErr(SYSTEM_LEVEL, ER_SERVER_UPGRADE_STATUS, server_version,
-           MYSQL_VERSION_ID, "completed");
-  log_sink_buffer_check_timeout();
-  sysd::notify("STATUS=Server upgrade complete\n");
+  if (dd::bootstrap::DD_bootstrap_ctx::instance().is_server_patch_downgrade()) {
+    /* purecov: begin inspected */
+    if (!err)
+      LogErr(SYSTEM_LEVEL, ER_SERVER_DOWNGRADE_STATUS, server_version,
+             MYSQL_VERSION_ID, "completed");
+    sysd::notify("STATUS=Server downgrade complete\n");
+    /* purecov: end */
+  } else {
+    if (!err)
+      LogErr(SYSTEM_LEVEL, ER_SERVER_UPGRADE_STATUS, server_version,
+             MYSQL_VERSION_ID, "completed");
+    sysd::notify("STATUS=Server upgrade complete\n");
+  }
 
   /*
    * During server startup, dd::reset_tables_and_tablespaces is called, which
@@ -869,12 +943,15 @@ bool upgrade_system_schemas(THD *thd) {
 }
 
 bool no_server_upgrade_required() {
-  return !(dd::bootstrap::DD_bootstrap_ctx::instance().is_server_upgrade() ||
-           opt_upgrade_mode == UPGRADE_FORCE);
+  return !(
+      dd::bootstrap::DD_bootstrap_ctx::instance().is_server_upgrade() ||
+      bootstrap::DD_bootstrap_ctx::instance().is_server_patch_downgrade() ||
+      opt_upgrade_mode == UPGRADE_FORCE);
 }
 
 bool I_S_upgrade_required() {
   return dd::bootstrap::DD_bootstrap_ctx::instance().is_server_upgrade() ||
+         bootstrap::DD_bootstrap_ctx::instance().is_server_patch_downgrade() ||
          dd::bootstrap::DD_bootstrap_ctx::instance().I_S_upgrade_done() ||
          opt_upgrade_mode == UPGRADE_FORCE;
 }

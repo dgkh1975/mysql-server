@@ -1,16 +1,17 @@
 /*
- * Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+ * Copyright (c) 2017, 2024, Oracle and/or its affiliates.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2.0,
  * as published by the Free Software Foundation.
  *
- * This program is also distributed with certain software (including
+ * This program is designed to work with certain software (including
  * but not limited to OpenSSL) that is licensed under separate terms,
  * as designated in a particular file or component or in included license
  * documentation.  The authors of MySQL hereby grant you an additional
  * permission to link the program and your derivative works with the
- * separately licensed software that they have included with MySQL.
+ * separately licensed software that they have either included with
+ * the program or referenced in the documentation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -2355,7 +2356,6 @@ Command::Result Command::cmd_compress(std::istream &input,
     uint8_t *dst;
     int dst_size;
     int raw_offset = 0;
-    uint8_t *source = reinterpret_cast<uint8_t *>(&raw[0]);
     int source_size = raw.length();
     algorithm->set_pledged_source_size(source_size);
 
@@ -2365,7 +2365,6 @@ Command::Result Command::cmd_compress(std::istream &input,
       int left_in_next = dst_size - to_copy;
       memcpy(dst, &raw[raw_offset], to_copy);
       source_size -= to_copy;
-      source += to_copy;
 
       if (left_in_next > 0) pos.BackUp(left_in_next);
     }

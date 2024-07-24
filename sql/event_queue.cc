@@ -1,15 +1,16 @@
-/* Copyright (c) 2004, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2004, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -306,7 +307,7 @@ void Event_queue::drop_matching_events(LEX_CSTRING pattern,
     We don't call mysql_cond_broadcast(&COND_queue_state);
     If we remove the top event:
     1. The queue is empty. The scheduler will wake up at some time and
-       realize that the queue is empty. If create_event() comes inbetween
+       realize that the queue is empty. If create_event() comes in between
        it will signal the scheduler
     2. The queue is not empty, but the next event after the previous top,
        won't be executed any time sooner than the element we removed. Hence,
@@ -490,7 +491,7 @@ void Event_queue::empty_queue() {
       now  Current timestamp
 */
 
-void Event_queue::dbug_dump_queue(time_t now MY_ATTRIBUTE((unused))) {
+void Event_queue::dbug_dump_queue(time_t now [[maybe_unused]]) {
 #ifndef NDEBUG
   DBUG_TRACE;
   DBUG_PRINT("info", ("Dumping queue . Elements=%u",

@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -76,7 +77,7 @@ static SYS_VAR *test_services_sysvars[] = {MYSQL_SYSVAR(with_log_message),
                                            nullptr};
 
 /* The test cases for the log_message service. */
-static int test_log_plugin_error(void *p MY_ATTRIBUTE((unused))) {
+static int test_log_plugin_error(void *p [[maybe_unused]]) {
   DBUG_TRACE;
   /* Writes to mysqld.1.err: Plugin test_services reports an info text */
   LogPluginErr(
@@ -96,7 +97,7 @@ static int test_log_plugin_error(void *p MY_ATTRIBUTE((unused))) {
   return 0;
 }
 
-/* the tests of snprintf ans log_message run when INSTALL PLUGIN is called. */
+/* The tests of snprintf and log_message run when INSTALL PLUGIN is called. */
 static int test_services_plugin_init(void *p) {
   DBUG_TRACE;
 

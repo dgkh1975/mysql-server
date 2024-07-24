@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2021, Oracle and/or its affiliates.
+   Copyright (c) 2021, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -42,7 +43,7 @@ registry_type_t *components_registry = nullptr;
 dynamic_loader_type_t *components_dynamic_loader = nullptr;
 
 void init_components_subsystem() {
-  minimal_chassis_init((&components_registry), NULL);
+  minimal_chassis_init((&components_registry), nullptr);
   components_registry->acquire(
       "dynamic_loader",
       reinterpret_cast<my_h_service *>(&components_dynamic_loader));
@@ -51,7 +52,7 @@ void init_components_subsystem() {
 void deinit_components_subsystem() {
   components_registry->release(
       reinterpret_cast<my_h_service>(components_dynamic_loader));
-  minimal_chassis_deinit(components_registry, NULL);
+  minimal_chassis_deinit(components_registry, nullptr);
 }
 
 Keyring_component_load::Keyring_component_load(const std::string component_name)
@@ -83,7 +84,7 @@ Keyring_services::Keyring_services(const std::string implementation_name)
   if (keyring_load_service_) return;
 
   /* We do not support non-default location for config file yet */
-  if (keyring_load_service_->load(Options::s_component_dir, nullptr) == true)
+  if (keyring_load_service_->load(Options::s_component_dir, nullptr) != 0)
     return;
 
   ok_ = true;
@@ -126,7 +127,7 @@ bool Keyring_encryption_test::test_aes() {
   std::string aes_key_1("AES_test_key_1");
   if (writer->store("aes_key_1", "keyring_aes_test",
                     reinterpret_cast<const unsigned char *>(aes_key_1.c_str()),
-                    aes_key_1.length(), "AES") == true) {
+                    aes_key_1.length(), "AES") != 0) {
     std::cerr << "Failed to store key [aes_key_1, keyring_aes_test] in keyring"
               << std::endl;
     return false;
@@ -134,7 +135,7 @@ bool Keyring_encryption_test::test_aes() {
 
   if (writer->store("secret_key_1", "keyring_aes_test",
                     reinterpret_cast<const unsigned char *>(aes_key_1.c_str()),
-                    aes_key_1.length(), "SECRET") == true) {
+                    aes_key_1.length(), "SECRET") != 0) {
     std::cerr
         << "Failed to store key [secret_key_1, keyring_aes_test] in keyring"
         << std::endl;
@@ -147,7 +148,7 @@ bool Keyring_encryption_test::test_aes() {
   size_t plaintext_length = strlen(reinterpret_cast<const char *>(plaintext));
   size_t ciphertext_length = 0;
   if (aes->get_size(plaintext_length, mode.c_str(), block_size,
-                    &ciphertext_length) == true) {
+                    &ciphertext_length) != 0) {
     std::cerr << "Failed to obtain ciphertext size" << std::endl;
     return false;
   }
@@ -180,7 +181,7 @@ bool Keyring_encryption_test::test_aes() {
   if (aes->encrypt("aes_key_1", "keyring_aes_test", mode.c_str(), block_size,
                    reinterpret_cast<const unsigned char *>(iv1.c_str()),
                    padding, plaintext, plaintext_length, output_1.get(),
-                   ciphertext_length, &ciphertext_length) == true) {
+                   ciphertext_length, &ciphertext_length) != 0) {
     std::cerr << "Failed to encrypt plaintext using AES-CBC-256" << std::endl;
     return false;
   }
@@ -189,7 +190,7 @@ bool Keyring_encryption_test::test_aes() {
 
   size_t decrypted_length = 0;
   if (aes->get_size(ciphertext_length, mode.c_str(), block_size,
-                    &decrypted_length) == true) {
+                    &decrypted_length) != 0) {
     std::cerr << "Failed to obtain painttext size" << std::endl;
     return false;
   }
@@ -222,23 +223,25 @@ bool Keyring_encryption_test::test_aes() {
   if (aes->decrypt("aes_key_1", "keyring_aes_test", mode.c_str(), block_size,
                    reinterpret_cast<const unsigned char *>(iv1.c_str()),
                    padding, output_1.get(), ciphertext_length, output_2.get(),
-                   decrypted_length, &decrypted_length) == true) {
+                   decrypted_length, &decrypted_length) != 0) {
     std::cerr << "Failed to decrypt plaintext using AES-CBC-256" << std::endl;
     return false;
   }
   std::cout << "Successfully decrypted plaintext using AES-CBC-256"
             << std::endl;
 
-  std::cout << "Decrypted plaintext: '" << output_2.get() << "'" << std::endl;
+  std::string decrypted_output{reinterpret_cast<char *>(output_2.get()),
+                               decrypted_length};
+  std::cout << "Decrypted plaintext: '" << decrypted_output << "'" << std::endl;
 
-  if (writer->remove("secret_key_1", "keyring_aes_test") == true) {
+  if (writer->remove("secret_key_1", "keyring_aes_test") != 0) {
     std::cerr
         << "Failed to remove key [secret_key_1, keyring_aes_test] from keyring"
         << std::endl;
     return false;
   }
 
-  if (writer->remove("aes_key_1", "keyring_aes_test") == true) {
+  if (writer->remove("aes_key_1", "keyring_aes_test") != 0) {
     std::cerr
         << "Failed to remove key [aes_key_1, keyring_aes_test] from keyring"
         << std::endl;

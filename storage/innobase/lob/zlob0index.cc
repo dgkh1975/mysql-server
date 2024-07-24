@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -31,15 +32,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 namespace lob {
 
-/** Purge one index entry.
-@param[in]	index		index to which LOB belongs.
-@param[in]	trxid		purging data belonging to trxid.
-@param[in]	first		first page of LOB.
-@param[in,out]	lst		list from which this entry will be
-                                removed.
-@param[in,out]	free_list	list to which this entry will be
-                                added.*/
-fil_addr_t z_index_entry_t::purge_version(dict_index_t *index, trx_id_t trxid,
+fil_addr_t z_index_entry_t::purge_version(dict_index_t *index,
                                           z_first_page_t &first,
                                           flst_base_node_t *lst,
                                           flst_base_node_t *free_list) {
@@ -59,17 +52,7 @@ fil_addr_t z_index_entry_t::purge_version(dict_index_t *index, trx_id_t trxid,
   return (next_loc);
 }
 
-/** The current index entry points to a latest LOB page.  It may or
-may not have older versions.  If older version is there, bring it
-back to the index list from the versions list.  Then remove the
-current entry from the index list.  Move the versions list from
-current entry to older entry.
-@param[in]	index	the index in which LOB exists.
-@param[in]	trxid	The transaction identifier.
-@param[in]	first	The first lob page containing index list and free
-list. */
 fil_addr_t z_index_entry_t::make_old_version_current(dict_index_t *index,
-                                                     trx_id_t trxid,
                                                      z_first_page_t &first) {
   flst_base_node_t *idx_flst = first.index_list();
   flst_base_node_t *free_list = first.free_list();
@@ -93,9 +76,9 @@ fil_addr_t z_index_entry_t::make_old_version_current(dict_index_t *index,
     insert_after(idx_flst, old_entry);
   }
 
-  fil_addr_t loc = purge_version(index, trxid, first, idx_flst, free_list);
+  fil_addr_t loc = purge_version(index, first, idx_flst, free_list);
 
-  ut_ad(flst_validate(idx_flst, m_mtr));
+  ut_d(flst_validate(idx_flst, m_mtr));
 
   return (loc);
 }
@@ -117,7 +100,7 @@ void z_index_entry_t::purge(dict_index_t *index, z_first_page_t &first) {
     }
 
     buf_block_t *block = buf_page_get(page_id_t(space_id, page_no), page_size,
-                                      RW_X_LATCH, m_mtr);
+                                      RW_X_LATCH, UT_LOCATION_HERE, m_mtr);
 
     page_type_t type = fil_page_get_type(block->frame);
     page_no_t next = block->get_next_page_no();
@@ -146,7 +129,7 @@ void z_index_entry_t::purge(dict_index_t *index, z_first_page_t &first) {
         }
       } break;
       default:
-        ut_ad(0);
+        ut_d(ut_error);
     }
 
     if (type == FIL_PAGE_TYPE_ZLOB_FRAG) {
@@ -183,7 +166,7 @@ std::ostream &z_index_entry_t::print_pages(std::ostream &out) const {
   out << "[PAGES: ";
   while (page_no != FIL_NULL) {
     buf_block_t *block = buf_page_get(page_id_t(space_id, page_no), page_size,
-                                      RW_S_LATCH, m_mtr);
+                                      RW_S_LATCH, UT_LOCATION_HERE, m_mtr);
 
     page_type_t type = block->get_page_type();
     out << "[page_no=" << page_no << ", type=" << block->get_page_type_str()
@@ -272,7 +255,7 @@ size_t z_index_entry_t::free_data_pages(mtr_t *mtr) {
   while (page_no != FIL_NULL) {
     buf_block_t *block =
         buf_page_get(page_id_t(space_id, page_no), m_index->get_page_size(),
-                     RW_X_LATCH, mtr);
+                     RW_X_LATCH, UT_LOCATION_HERE, mtr);
 
     /* Save the next page number before freeing. */
     page_no = block->get_next_page_no();

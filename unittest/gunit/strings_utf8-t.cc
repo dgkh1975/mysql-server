@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2013, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2013, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -40,7 +41,7 @@ class StringsUTF8Test : public ::testing::Test {
     // Save global settings.
     m_charset = system_charset_info;
 
-    system_charset_info = &my_charset_utf8_bin;
+    system_charset_info = &my_charset_utf8mb3_bin;
   }
 
   void TearDown() override {
@@ -197,7 +198,7 @@ class StringLiteral {
   size_t size;
 };
 
-StringLiteral operator"" _sl(const char *ptr, size_t size) {
+StringLiteral operator""_sl(const char *ptr, size_t size) {
   return StringLiteral(ptr, size);
 }
 
@@ -565,7 +566,6 @@ class StringsUTF8mb4_900Test : public ::testing::Test {
  protected:
   void SetUp() override {
     MY_CHARSET_LOADER loader;
-    my_charset_loader_init_mysys(&loader);
     m_charset = my_collation_get_by_name(&loader, "utf8mb4_0900_ai_ci", MYF(0));
   }
 
@@ -607,7 +607,6 @@ class StringsUTF8mb4_900_AS_CS_NoPad_Test : public ::testing::Test {
  protected:
   void SetUp() override {
     MY_CHARSET_LOADER loader;
-    my_charset_loader_init_mysys(&loader);
     m_charset = my_collation_get_by_name(&loader, "utf8mb4_0900_as_cs", MYF(0));
   }
 
@@ -669,7 +668,6 @@ static bool uca_wildcmp(const CHARSET_INFO *cs, const char *str,
 
 TEST(UCAWildCmpTest, UCA900WildCmp) {
   MY_CHARSET_LOADER loader;
-  my_charset_loader_init_mysys(&loader);
   CHARSET_INFO *cs =
       my_collation_get_by_name(&loader, "utf8mb4_0900_ai_ci", MYF(0));
 
@@ -699,7 +697,6 @@ TEST(UCAWildCmpTest, UCA900WildCmp) {
 
 TEST(UCAWildCmpTest, UCA900WildCmpCaseSensitive) {
   MY_CHARSET_LOADER loader;
-  my_charset_loader_init_mysys(&loader);
   CHARSET_INFO *cs =
       my_collation_get_by_name(&loader, "utf8mb4_0900_as_cs", MYF(0));
 
@@ -729,7 +726,6 @@ TEST(UCAWildCmpTest, UCA900WildCmpCaseSensitive) {
 
 TEST(UCAWildCmpTest, UCA900WildCmp_AS_CI) {
   MY_CHARSET_LOADER loader;
-  my_charset_loader_init_mysys(&loader);
   CHARSET_INFO *cs =
       my_collation_get_by_name(&loader, "utf8mb4_0900_as_ci", MYF(0));
   EXPECT_TRUE(uca_wildcmp(cs, "ǎḄÇ", "Ǎḅç"));

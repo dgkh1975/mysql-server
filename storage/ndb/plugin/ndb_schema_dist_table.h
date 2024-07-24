@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -48,7 +49,8 @@ class Ndb_schema_dist_table : public Ndb_util_table {
    */
   bool update_schema_uuid_in_NDB(const std::string &schema_uuid) const;
 
-  static std::string old_ndb_schema_uuid;
+  // pre-upgrade uuid in NDB table
+  std::string m_ndb_schema_uuid;
 
  public:
   static const std::string DB_NAME;
@@ -70,10 +72,13 @@ class Ndb_schema_dist_table : public Ndb_util_table {
 
   bool need_upgrade() const override;
 
+  bool need_reinstall(const dd::Table *) const override;
+
   std::string define_table_dd() const override;
 
-  bool pre_upgrade() const override;
+  bool pre_upgrade() override;
   bool post_install() const override;
+  bool post_install_in_DD() const override;
 
   /**
      @brief Return number of bytes possible to store in the "slock" column

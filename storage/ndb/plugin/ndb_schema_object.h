@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -75,7 +76,7 @@ class NDB_SCHEMA_OBJECT {
   mutable struct State {
     // Mutex protecting state
     std::mutex m_lock;
-    // Condition for communication betwen client and coordinator
+    // Condition for communication between client and coordinator
     std::condition_variable m_cond;
 
     // Use counter controlling lifecycle of the NDB_SCHEMA_OBJECT
@@ -86,9 +87,9 @@ class NDB_SCHEMA_OBJECT {
 
     // List of participant nodes in schema operation.
     // Used like this:
-    // 1) When coordinator recieves the schema op event it adds all the
+    // 1) When coordinator receives the schema op event it adds all the
     //    nodes currently subscribed as participants
-    // 2) When coordinator recieves reply or failure from a participant it will
+    // 2) When coordinator receives reply or failure from a participant it will
     //    be removed from the list
     // 3) When list of participants is empty the coordinator will
     //    send the final ack, clearing all slock bits(thus releasing also any
@@ -105,8 +106,11 @@ class NDB_SCHEMA_OBJECT {
     std::unordered_map<uint32, Participant> m_participants;
 
     // Set after coordinator has received replies from all participants and
-    // recieved the final ack which cleared all the slock bits
+    // received the final ack which cleared all the slock bits
     bool m_coordinator_completed{false};
+
+    bool dbug_lock() { return m_lock.try_lock(); }
+    bool dbug_unlock() { return m_lock.unlock(), true; }
   } state;
 
   uint increment_use_count() const;
@@ -205,10 +209,15 @@ class NDB_SCHEMA_OBJECT {
   static size_t count_active_schema_ops();
 
   /**
-     @brief Add list of nodes to participants
+     @brief Register participants taking part in schema operation.
+     The function will check the schema operation doesn't already contain
+     participants, in such case the participants can't be registered.
+
      @param nodes List of nodes to add
+
+     @return true Could not register participants
    */
-  void register_participants(const std::unordered_set<uint32> &nodes) const;
+  bool register_participants(const std::unordered_set<uint32> &nodes);
 
   /**
      @brief Save the result received from a node
@@ -260,11 +269,12 @@ class NDB_SCHEMA_OBJECT {
   /**
      @brief Check if schema operation has timed out and in such case mark all
      participants which haven't already completed as timedout.
+     @param is_client Indicates if it is the client checking timeout
      @param result The result to set on the participant
      @param message The message to set on the participant
-     @return true if timeout occured (and all participants have completed)
+     @return true if timeout occurred (and all participants have completed)
    */
-  bool check_timeout(int timeout_seconds, uint32 result,
+  bool check_timeout(bool is_client, int timeout_seconds, uint32 result,
                      const char *message) const;
 
   /**

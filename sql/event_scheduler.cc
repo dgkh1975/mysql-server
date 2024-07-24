@@ -1,15 +1,16 @@
-/* Copyright (c) 2006, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2006, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,6 +25,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "lex_string.h"
 #include "m_ctype.h"
@@ -34,8 +36,8 @@
 #include "my_psi_config.h"
 #include "my_sys.h"
 #include "my_thread.h"
+#include "mysql/components/services/bits/psi_statement_bits.h"
 #include "mysql/components/services/log_builtins.h"
-#include "mysql/components/services/psi_statement_bits.h"
 #include "mysql/psi/mysql_cond.h"
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/psi/mysql_statement.h"
@@ -259,6 +261,8 @@ static void *event_scheduler_thread(void *arg) {
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
   /* Update the thread instrumentation. */
+  PSI_thread *psi = PSI_THREAD_CALL(get_thread)();
+  thd_set_psi(thd, psi);
   PSI_THREAD_CALL(set_thread_account)
   (thd->security_context()->user().str, thd->security_context()->user().length,
    thd->security_context()->host_or_ip().str,
@@ -313,6 +317,8 @@ static void *event_worker_thread(void *arg) {
 
 #ifdef HAVE_PSI_THREAD_INTERFACE
   /* Update the thread instrumentation. */
+  PSI_thread *psi = PSI_THREAD_CALL(get_thread)();
+  thd_set_psi(thd, psi);
   PSI_THREAD_CALL(set_thread_account)
   (thd->security_context()->user().str, thd->security_context()->user().length,
    thd->security_context()->host_or_ip().str,
@@ -351,7 +357,7 @@ void Event_worker_thread::run(THD *thd, Event_queue_element_for_exec *event) {
   res = post_init_event_thread(thd);
 
   DBUG_TRACE;
-  DBUG_PRINT("info", ("Time is %ld, THD: %p", (long)my_time(0), thd));
+  DBUG_PRINT("info", ("Time is %ld, THD: %p", (long)time(nullptr), thd));
 
   if (res) {
     delete event;
@@ -359,7 +365,14 @@ void Event_worker_thread::run(THD *thd, Event_queue_element_for_exec *event) {
     return;
   }
 
+  mysql_thread_set_secondary_engine(false);
+
 #ifdef HAVE_PSI_STATEMENT_INTERFACE
+  PSI_thread *thread = thd_get_psi(thd);
+  if (thread != nullptr) {
+    PSI_THREAD_CALL(detect_telemetry)(thread);
+  }
+
   PSI_statement_locker_state state;
   assert(thd->m_statement_psi == nullptr);
   thd->m_statement_psi = MYSQL_START_STATEMENT(

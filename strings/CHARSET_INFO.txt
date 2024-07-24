@@ -1,15 +1,16 @@
-Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -28,7 +29,7 @@ Virtual functions that use this data are collected into separate
 structures, MY_CHARSET_HANDLER and MY_COLLATION_HANDLER.
 
 
-typedef struct charset_info_st
+struct CHARSET_INFO
 {
   uint      number;
   uint      primary_number;
@@ -36,7 +37,7 @@ typedef struct charset_info_st
   uint      state;
 
   const char *csname;
-  const char *name;
+  const char *m_coll_name;
   const char *comment;
 
   const uchar *ctype;
@@ -61,7 +62,7 @@ typedef struct charset_info_st
 
   Pad_attribute pad_attribute;
 
-} CHARSET_INFO;
+};
 
 
 CHARSET_INFO fields description:
@@ -86,10 +87,10 @@ character set. Not really used now.
 Names
 -----
 
-  csname  - name of the character set for this charset+collation pair.
-  name    - name of the collation for this charset+collation pair.
-  comment - a text comment, displayed in "Description" column of
-            SHOW CHARACTER SET output.
+  csname      - name of the character set for this charset+collation pair.
+  m_coll_name - name of the collation for this charset+collation pair.
+  comment     - a text comment, displayed in "Description" column of
+                SHOW CHARACTER SET output.
 
 Conversion tables
 -----------------
@@ -254,8 +255,20 @@ lengthsp()  - returns the length of the given string without trailing spaces.
 Unicode conversion routines
 ---------------------------
 mb_wc       - converts the left multi-byte sequence into its Unicode code.
-mc_mb       - converts the given Unicode code into multi-byte sequence.
+  @retval   MY_CS_TOOSMALL If the string was too short to scan a character
+  @retval   1              If a 1-byte character was scanned
+  @retval   2              If a 2-byte character was scanned
+  @retval   3              If a 3-byte character was scanned
+  @retval  -2              If a 2-byte unassigned character was scanned
+  @retval  -3              If a 3-byte unassigned character was scanned
+  @retval   MY_CS_ILSEQ    If a wrong byte sequence was found
 
+wc_mb       - converts the given Unicode code into multi-byte sequence.
+  @retval   MY_CS_TOOSMALL If the string was too short to put a character
+  @retval   1              If a 1-byte character was put
+  @retval   2              If a 2-byte character was put
+  @retval   MY_CS_ILUNI    If the Unicode character does not exist in the
+                           given character set.
 
 Case and sort conversion
 ------------------------

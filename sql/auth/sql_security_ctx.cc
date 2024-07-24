@@ -1,14 +1,15 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -87,12 +88,12 @@ void Security_context::init() {
   m_master_access = 0;
   m_db_access = NO_ACCESS;
   m_acl_map = nullptr;
-  m_map_checkout_count = 0;
   m_password_expired = false;
   m_is_locked = false;
   m_is_skip_grants_user = false;
   m_has_drop_policy = false;
   m_executed_drop_policy = false;
+  m_registration_sandbox_mode = false;
 }
 
 void Security_context::logout() {
@@ -159,6 +160,7 @@ void Security_context::destroy() {
   m_password_expired = false;
   m_is_skip_grants_user = false;
   clear_db_restrictions();
+  m_registration_sandbox_mode = false;
 }
 
 /**
@@ -177,15 +179,16 @@ void Security_context::skip_grants(const char *user /*= "skip-grants user"*/,
   set_host_or_ip_ptr("", 0);
   assign_priv_user(user, strlen(user));
   assign_priv_host(host, strlen(host));
-  m_master_access = ~NO_ACCESS;
+  m_master_access = ALL_ACCESS;
   m_is_skip_grants_user = true;
 
   /*
-    If the security context is tied upto to the THD object and it is
-    current security context in THD then set the flag to true.
+    If the security context is tied up to to the THD object and it is
+    current security context in THD, then set the flags to true.
   */
   if (m_thd && m_thd->security_context() == this) {
     m_thd->set_system_user(true);
+    m_thd->set_connection_admin(true);
   }
 }
 
@@ -263,12 +266,12 @@ void Security_context::copy_security_ctx(const Security_context &src_sctx) {
   For the main security context, the memory for user/host/ip is
   allocated on system heap, and the THD class frees this memory in
   its destructor. The only case when contents of the main security
-  context may change during its life time is when someone issued
+  context may change during its life time is when someone issued a
   CHANGE USER command.
   Memory management of a "temporary" security context is
   responsibility of the module that creates it.
 
-  @retval true  there is no user with the given credentials. The erro
+  @retval true  There is no user with the given credentials. The error
                 is reported in the thread.
   @retval false success
 */
@@ -314,7 +317,7 @@ bool Security_context::user_matches(Security_context *them) {
          !strcmp(m_user.ptr(), them_user);
 }
 
-bool Security_context::check_access(ulong want_access,
+bool Security_context::check_access(Access_bitmask want_access,
                                     const std::string &db_name /* = "" */,
                                     bool match_any) {
   DBUG_TRACE;
@@ -326,7 +329,8 @@ bool Security_context::check_access(ulong want_access,
                     : ((m_master_access & want_access) == want_access));
 }
 
-ulong Security_context::master_access(const std::string &db_name) const {
+Access_bitmask Security_context::master_access(
+    const std::string &db_name) const {
   return filter_access(m_master_access, db_name);
 }
 
@@ -394,7 +398,6 @@ void Security_context::checkout_access_maps(void) {
   }
 
   if (m_active_roles.size() == 0) return;
-  ++m_map_checkout_count;
   Auth_id_ref uid;
   uid.first.str = this->m_priv_user;
   uid.first.length = this->m_priv_user_length;
@@ -405,7 +408,7 @@ void Security_context::checkout_access_maps(void) {
   if (m_acl_map != nullptr) {
     DBUG_PRINT("info",
                ("Roles are active and global access for %.*s@%.*s is set to"
-                " %lu",
+                " %" PRIu32,
                 (int)m_priv_user_length, m_priv_user, (int)m_priv_host_length,
                 m_priv_host, m_acl_map->global_acl()));
     set_master_access(m_acl_map->global_acl(), m_acl_map->restrictions());
@@ -493,7 +496,8 @@ void Security_context::get_active_roles(THD *thd, List<LEX_USER> &list) {
   @returns Access granted to user for given database
 */
 
-ulong Security_context::db_acl(LEX_CSTRING db, bool use_pattern_scan) const {
+Access_bitmask Security_context::db_acl(LEX_CSTRING db,
+                                        bool use_pattern_scan) const {
   DBUG_TRACE;
   if (m_acl_map == nullptr || db.length == 0) return 0;
 
@@ -501,11 +505,11 @@ ulong Security_context::db_acl(LEX_CSTRING db, bool use_pattern_scan) const {
   Db_access_map::iterator found_acl_it = m_acl_map->db_acls()->find(key);
   if (found_acl_it == m_acl_map->db_acls()->end()) {
     Db_access_map::iterator it = m_acl_map->db_wild_acls()->begin();
-    ulong access = 0;
+    Access_bitmask access = 0;
     for (; it != m_acl_map->db_wild_acls()->end(); ++it) {
       /*
-        Do the usual string comparision if partial_revokes is ON,
-        otherwise do the wildcard grant comparision
+        Do the usual string comparison if partial_revokes is ON,
+        otherwise do the wildcard grant comparison
       */
       if (mysqld_partial_revokes()
               ? (my_strcasecmp(system_charset_info, db.str,
@@ -526,8 +530,8 @@ ulong Security_context::db_acl(LEX_CSTRING db, bool use_pattern_scan) const {
   }
 }
 
-ulong Security_context::procedure_acl(LEX_CSTRING db,
-                                      LEX_CSTRING procedure_name) {
+Access_bitmask Security_context::procedure_acl(LEX_CSTRING db,
+                                               LEX_CSTRING procedure_name) {
   if (m_acl_map == nullptr)
     return 0;
   else {
@@ -544,7 +548,8 @@ ulong Security_context::procedure_acl(LEX_CSTRING db,
   }
 }
 
-ulong Security_context::function_acl(LEX_CSTRING db, LEX_CSTRING func_name) {
+Access_bitmask Security_context::function_acl(LEX_CSTRING db,
+                                              LEX_CSTRING func_name) {
   if (m_acl_map == nullptr)
     return 0;
   else {
@@ -575,7 +580,7 @@ Grant_table_aggregate Security_context::table_and_column_acls(
   return it->second;
 }
 
-ulong Security_context::table_acl(LEX_CSTRING db, LEX_CSTRING table) {
+Access_bitmask Security_context::table_acl(LEX_CSTRING db, LEX_CSTRING table) {
   if (m_acl_map == nullptr) return 0;
   Grant_table_aggregate aggr = table_and_column_acls(db, table);
   return filter_access(aggr.table_access, db.str ? db.str : "");
@@ -1106,8 +1111,8 @@ void Security_context::init_restrictions(const Restrictions &restrictions) {
 }
 
 bool Security_context::is_access_restricted_on_db(
-    ulong want_access, const std::string &db_name) const {
-  ulong filtered_access = filter_access(want_access, db_name);
+    Access_bitmask want_access, const std::string &db_name) const {
+  const Access_bitmask filtered_access = filter_access(want_access, db_name);
   return (filtered_access != want_access);
 }
 
@@ -1120,12 +1125,12 @@ bool Security_context::is_access_restricted_on_db(
 
   @retval filtered access mask
 */
-ulong Security_context::filter_access(const ulong access,
-                                      const std::string &db_name) const {
-  ulong access_mask = access;
+Access_bitmask Security_context::filter_access(
+    const Access_bitmask access, const std::string &db_name) const {
+  Access_bitmask access_mask = access;
   auto &db_restrictions = m_restrictions.db();
-  if (db_restrictions.is_not_empty()) {
-    ulong restrictions_mask;
+  if (!db_restrictions.is_empty()) {
+    Access_bitmask restrictions_mask;
     if (db_restrictions.find(db_name, restrictions_mask))
       access_mask = (access_mask & restrictions_mask) ^ access;
   }
@@ -1180,10 +1185,11 @@ std::pair<bool, bool> Security_context::fetch_global_grant(
   @param [in,out] tables Table list object
 
   @returns access information
-  @retval true Sucess
+  @retval true Success
   @retval false Failure
  */
-bool Security_context::has_table_access(ulong priv, TABLE_LIST *tables) {
+bool Security_context::has_table_access(Access_bitmask priv,
+                                        Table_ref *tables) {
   DBUG_TRACE;
   assert(tables != nullptr);
   TABLE const *table = tables->table;
@@ -1194,7 +1200,7 @@ bool Security_context::has_table_access(ulong priv, TABLE_LIST *tables) {
   table_name.str = table->alias;
   table_name.length = strlen(table->alias);
 
-  ulong acls = master_access({db.str, db.length});
+  Access_bitmask acls = master_access({db.str, db.length});
   if (m_acl_map) {
     if (priv & acls) return true;
 
@@ -1227,7 +1233,8 @@ bool Security_context::has_table_access(ulong priv, TABLE_LIST *tables) {
   @retval true Access to the table is blocked
   @retval false Access to the table is not blocked
  */
-bool Security_context::is_table_blocked(ulong priv, TABLE const *table) {
+bool Security_context::is_table_blocked(Access_bitmask priv,
+                                        TABLE const *table) {
   DBUG_TRACE;
   assert(table != nullptr);
   LEX_CSTRING db, table_name;
@@ -1238,7 +1245,7 @@ bool Security_context::is_table_blocked(ulong priv, TABLE const *table) {
   table_name.length = strlen(table->alias);
 
   /* Table privs */
-  TABLE_LIST tables;
+  Table_ref tables;
   tables.table = const_cast<TABLE *>(table);
   tables.db = db.str;
   tables.db_length = db.length;
@@ -1257,10 +1264,11 @@ bool Security_context::is_table_blocked(ulong priv, TABLE const *table) {
   @param [in] columns List of column names to check
 
   @returns access information
-  @retval true Sucess
+  @retval true Success
   @retval false Failure
  */
-bool Security_context::has_column_access(ulong priv, TABLE const *table,
+bool Security_context::has_column_access(Access_bitmask priv,
+                                         TABLE const *table,
                                          std::vector<std::string> columns) {
   DBUG_TRACE;
   assert(table != nullptr);
@@ -1272,7 +1280,7 @@ bool Security_context::has_column_access(ulong priv, TABLE const *table,
   table_name.length = strlen(table->alias);
 
   /* Table privs */
-  TABLE_LIST tables;
+  Table_ref tables;
   tables.table = const_cast<TABLE *>(table);
   tables.db = db.str;
   tables.db_length = db.length;

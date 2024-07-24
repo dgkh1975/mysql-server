@@ -1,15 +1,16 @@
-/* Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,8 +34,11 @@
 #include "storage/perfschema/pfs_instr.h"
 #include "storage/perfschema/pfs_stat.h"
 #include "storage/perfschema/pfs_user.h"
+#include "storage/perfschema/unittest/stub_digest.h"
 #include "storage/perfschema/unittest/stub_pfs_global.h"
 #include "storage/perfschema/unittest/stub_pfs_plugin_table.h"
+#include "storage/perfschema/unittest/stub_pfs_tls_channel.h"
+#include "storage/perfschema/unittest/stub_server_telemetry.h"
 #include "unittest/mytap/tap.h"
 
 PFS_thread pfs_thread;
@@ -93,18 +97,17 @@ static void initialize_performance_schema_helper(PFS_global_param *param) {
 static void test_oom() {
   PFS_global_param param;
   PFS_account *pfs_account;
-  const char *username = "username";
-  const char *hostname = "hostname";
+  PFS_user_name username;
+  PFS_host_name hostname;
 
-  uint user_len = (uint)strlen(username);
-  uint host_len = (uint)strlen(hostname);
+  username.set("username", strlen("username"));
+  hostname.set("hostname", strlen("hostname"));
 
   /* Account. */
   memset(&param, 0, sizeof(param));
   initialize_performance_schema_helper(&param);
   stub_alloc_fails_after_count = 1;
-  pfs_account = find_or_create_account(&pfs_thread, username, user_len,
-                                       hostname, host_len);
+  pfs_account = find_or_create_account(&pfs_thread, &username, &hostname);
   ok(pfs_account == nullptr, "oom (account)");
   ok(global_account_container.m_lost == 1, "lost (account)");
   shutdown_performance_schema();
@@ -114,8 +117,7 @@ static void test_oom() {
   param.m_mutex_class_sizing = 10;
   initialize_performance_schema_helper(&param);
   stub_alloc_fails_after_count = 2;
-  pfs_account = find_or_create_account(&pfs_thread, username, user_len,
-                                       hostname, host_len);
+  pfs_account = find_or_create_account(&pfs_thread, &username, &hostname);
   ok(pfs_account == nullptr, "oom (account waits)");
   ok(global_account_container.m_lost == 1, "lost (account waits)");
   shutdown_performance_schema();
@@ -125,8 +127,7 @@ static void test_oom() {
   param.m_stage_class_sizing = 10;
   initialize_performance_schema_helper(&param);
   stub_alloc_fails_after_count = 3;
-  pfs_account = find_or_create_account(&pfs_thread, username, user_len,
-                                       hostname, host_len);
+  pfs_account = find_or_create_account(&pfs_thread, &username, &hostname);
   ok(pfs_account == nullptr, "oom (account stages)");
   ok(global_account_container.m_lost == 1, "lost (account stages)");
   shutdown_performance_schema();
@@ -136,8 +137,7 @@ static void test_oom() {
   param.m_statement_class_sizing = 10;
   initialize_performance_schema_helper(&param);
   stub_alloc_fails_after_count = 3;
-  pfs_account = find_or_create_account(&pfs_thread, username, user_len,
-                                       hostname, host_len);
+  pfs_account = find_or_create_account(&pfs_thread, &username, &hostname);
   ok(pfs_account == nullptr, "oom (account statements)");
   ok(global_account_container.m_lost == 1, "lost (account statements)");
   shutdown_performance_schema();
@@ -147,8 +147,7 @@ static void test_oom() {
   initialize_performance_schema_helper(&param);
   transaction_class_max = 1;
   stub_alloc_fails_after_count = 3;
-  pfs_account = find_or_create_account(&pfs_thread, username, user_len,
-                                       hostname, host_len);
+  pfs_account = find_or_create_account(&pfs_thread, &username, &hostname);
   ok(pfs_account == nullptr, "oom (account transactions)");
   ok(global_account_container.m_lost == 1, "lost (account transactions)");
   shutdown_performance_schema();
@@ -158,8 +157,7 @@ static void test_oom() {
   param.m_memory_class_sizing = 10;
   initialize_performance_schema_helper(&param);
   stub_alloc_fails_after_count = 3;
-  pfs_account = find_or_create_account(&pfs_thread, username, user_len,
-                                       hostname, host_len);
+  pfs_account = find_or_create_account(&pfs_thread, &username, &hostname);
   ok(pfs_account == nullptr, "oom (account memory)");
   ok(global_account_container.m_lost == 1, "lost (account memory)");
   shutdown_performance_schema();

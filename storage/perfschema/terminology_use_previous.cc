@@ -1,15 +1,16 @@
-/* Copyright (c) 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2021, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -202,7 +203,7 @@ compatible_name_t lookup(PFS_class_type class_type, const std::string str,
                          bool use_prefix) {
   for (version_vector_t::size_type int_version = 0;
        int_version < version_vector.size(); ++int_version) {
-    enum_compatibility_version enum_version{
+    const enum_compatibility_version enum_version{
         static_cast<enum_compatibility_version>(int_version + 1)};
     auto &class_map = version_vector[int_version];
     auto class_name_pair = class_map.find(class_type);
@@ -214,14 +215,14 @@ compatible_name_t lookup(PFS_class_type class_type, const std::string str,
         lookup_str = str;
       else {
         // Get length of prefix and prepend it to str
-        assert(name_map.size());
-        auto &elem = name_map.begin()->first;
+        assert(!name_map.empty());
+        const auto &elem = name_map.begin()->first;
         prefix_length = elem.rfind('/') + 1;
         lookup_str = elem.substr(0, prefix_length) + str;
       }
       auto name_pair = name_map.find(lookup_str);
       if (name_pair != name_map.end()) {
-        auto name = name_pair->second;
+        const auto *name = name_pair->second;
         return compatible_name_t{name + prefix_length, enum_version};
       }
     }
@@ -230,7 +231,7 @@ compatible_name_t lookup(PFS_class_type class_type, const std::string str,
 }
 
 bool is_older_required(enum_compatibility_version version) {
-  ulong i_n_c = thd_get_current_thd_terminology_use_previous();
+  const ulong i_n_c = thd_get_current_thd_terminology_use_previous();
   return i_n_c != 0 && i_n_c <= (ulong)version;
 }
 

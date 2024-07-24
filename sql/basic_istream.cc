@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -32,11 +33,9 @@ IO_CACHE_istream::~IO_CACHE_istream() { close(); }
 
 bool IO_CACHE_istream::open(
 #ifdef HAVE_PSI_INTERFACE
-    PSI_file_key log_file_key MY_ATTRIBUTE((unused)),
-    PSI_file_key log_cache_key,
+    PSI_file_key log_file_key [[maybe_unused]], PSI_file_key log_cache_key,
 #endif
-    const char *file_name, myf flags MY_ATTRIBUTE((unused)),
-    size_t cache_size) {
+    const char *file_name, myf flags [[maybe_unused]], size_t cache_size) {
   File file = -1;
 
   file = mysql_file_open(log_file_key, file_name, O_RDONLY, MYF(MY_WME));
@@ -89,7 +88,7 @@ bool Stdin_istream::open(std::string *errmsg) {
 /* read from stdin */
 /*
         Windows opens stdin in text mode by default. Certain characters
-        such as CTRL-Z are interpeted as events and the read() method
+        such as CTRL-Z are interpreted as events and the read() method
         will stop. CTRL-Z is the EOF marker in Windows. to get past this
         you have to open stdin in binary mode. Setmode() is used to set
         stdin in binary mode. Errors on setting this mode result in

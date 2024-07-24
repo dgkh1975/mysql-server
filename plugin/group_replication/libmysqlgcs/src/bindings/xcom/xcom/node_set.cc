@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -57,7 +58,7 @@ node_set bit_set_to_node_set(bit_set *set, u_int n) {
 /* purecov: end */
 
 node_set *alloc_node_set(node_set *set, u_int n) {
-  set->node_set_val = (int *)calloc((size_t)n, sizeof(bool_t));
+  set->node_set_val = (int *)xcom_calloc((size_t)n, sizeof(bool_t));
   set->node_set_len = n;
   return set;
 }
@@ -80,7 +81,7 @@ node_set *realloc_node_set(node_set *set, u_int n) {
 void copy_node_set(node_set const *from, node_set *to) {
   if (from->node_set_len > 0) {
     u_int i;
-    if (to->node_set_val == 0 || from->node_set_len != to->node_set_len) {
+    if (to->node_set_val == nullptr || from->node_set_len != to->node_set_len) {
       init_node_set(to, from->node_set_len);
     }
     for (i = 0; i < from->node_set_len; i++) {
@@ -103,7 +104,7 @@ node_set *init_node_set(node_set *set, u_int n) {
 
 void free_node_set(node_set *set) {
   if (set) {
-    if (set->node_set_val != 0) X_FREE(set->node_set_val);
+    if (set->node_set_val != nullptr) X_FREE(set->node_set_val);
     set->node_set_len = 0;
   }
 }
@@ -113,7 +114,7 @@ void free_node_set(node_set *set) {
 node_set clone_node_set(node_set set) {
   node_set new_set;
   new_set.node_set_len = 0;
-  new_set.node_set_val = 0;
+  new_set.node_set_val = nullptr;
   copy_node_set(&set, &new_set);
   return new_set;
 }
@@ -155,12 +156,13 @@ node_set *reset_node_set(node_set *set) {
   return set;
 }
 
+#ifdef XCOM_STANDALONE
 /**
    Debug a node set with G_MESSAGE.
  */
-void _g_dbg_node_set(node_set set, const char *name MY_ATTRIBUTE((unused))) {
+void _g_dbg_node_set(node_set set, const char *name [[maybe_unused]]) {
   u_int n = 2 * set.node_set_len + 1;
-  char *s = (char *)calloc((size_t)n, (size_t)1);
+  char *s = (char *)xcom_calloc((size_t)n, (size_t)1);
   u_int i;
   for (i = 0; i < set.node_set_len; i++) {
     s[i * 2] = set.node_set_val[i] ? '1' : '0';
@@ -201,6 +203,7 @@ bool_t is_full_node_set(node_set set) {
   }
   return TRUE;
 }
+#endif
 
 /* Return true if equal node sets */
 
@@ -214,6 +217,14 @@ bool_t equal_node_set(node_set x, node_set y) {
 }
 /* purecov: end */
 
+// Test for equality
+bool equal_node_set(node_set const *x, node_set const *y) {
+  if (x->node_set_len != y->node_set_len) return false;
+  for (u_int i = 0; i < x->node_set_len; i++) {
+    if (x->node_set_val[i] != y->node_set_val[i]) return false;
+  }
+  return true;
+}
 /* Return true if node i is in set */
 
 bool_t is_set(node_set set, node_no i) {
@@ -232,6 +243,7 @@ void add_node(node_set set, node_no node) {
   }
 }
 
+#ifdef XCOM_STANDALONE
 /* Remove node from set */
 
 void remove_node(node_set set, node_no node) {
@@ -273,4 +285,6 @@ void not_node_set(node_set *x, node_set const *y) {
     x->node_set_val[i] = (y->node_set_val[i] == TRUE ? FALSE : TRUE);
   }
 }
+
 /* purecov: end */
+#endif

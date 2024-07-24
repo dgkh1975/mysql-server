@@ -1,16 +1,17 @@
 /* Copyright (c) 2002, tommy@valley.ne.jp
-   Copyright (c) 2005, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2005, 2024, Oracle and/or its affiliates.
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
    License, version 2.0, as published by the Free Software Foundation.
 
-   This library is also distributed with certain software (including
+   This library is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the library and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the library or referenced in the documentation.
 
    Without limiting anything contained in the foregoing, this file,
    which is part of C Driver for MySQL (Connector/C), is also subject to the
@@ -279,7 +280,7 @@ static const uchar sort_order_eucjpms[] = {
 #define iseucjpms_ss3(c) (((c)&0xff) == 0x8f)
 
 extern "C" {
-static uint ismbchar_eucjpms(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
+static uint ismbchar_eucjpms(const CHARSET_INFO *cs [[maybe_unused]],
                              const char *p, const char *e) {
   return ((static_cast<uchar>(*p) < 0x80)
               ? 0
@@ -294,8 +295,7 @@ static uint ismbchar_eucjpms(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
                                 : 0);
 }
 
-static uint mbcharlen_eucjpms(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
-                              uint c) {
+static uint mbcharlen_eucjpms(const CHARSET_INFO *cs [[maybe_unused]], uint c) {
   return (iseucjpms(c) ? 2 : iseucjpms_ss2(c) ? 2 : iseucjpms_ss3(c) ? 3 : 1);
 }
 }  // extern "C"
@@ -36313,7 +36313,7 @@ static const uint16 unicode_to_jisx0212_eucjpms[65536] = {
   @retval   MY_CS_ILSEQ    If a wrong byte sequence was found
 */
 extern "C" {
-static int my_mb_wc_eucjpms(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
+static int my_mb_wc_eucjpms(const CHARSET_INFO *cs [[maybe_unused]],
                             my_wc_t *pwc, const uchar *s, const uchar *e) {
   int hi;
 
@@ -36367,8 +36367,8 @@ static int my_mb_wc_eucjpms(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
   @retval   2              If a 2-byte character was put
   @retval   MY_CS_ILUNI    If the Unicode character does not exist in EUCJPMS
 */
-static int my_wc_mb_eucjpms(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
-                            my_wc_t wc, uchar *s, uchar *e) {
+static int my_wc_mb_eucjpms(const CHARSET_INFO *cs [[maybe_unused]], my_wc_t wc,
+                            uchar *s, uchar *e) {
   int jp;
 
   if ((int)wc < 0x80) /* ASCII [00-7F] */
@@ -36414,9 +36414,10 @@ static int my_wc_mb_eucjpms(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
   [xA1-xFE][xA1-xFE]		# JIS X 0208:1997 (two bytes/char)
 */
 
-static size_t my_well_formed_len_eucjpms(
-    const CHARSET_INFO *cs MY_ATTRIBUTE((unused)), const char *beg,
-    const char *end, size_t pos, int *error) {
+static size_t my_well_formed_len_eucjpms(const CHARSET_INFO *cs
+                                         [[maybe_unused]],
+                                         const char *beg, const char *end,
+                                         size_t pos, int *error) {
   const uchar *b = pointer_cast<const uchar *>(beg);
   *error = 0;
 
@@ -36456,7 +36457,7 @@ static size_t my_well_formed_len_eucjpms(
   return (size_t)(b - pointer_cast<const uchar *>(beg));
 }
 
-static size_t my_numcells_eucjpms(const CHARSET_INFO *cs MY_ATTRIBUTE((unused)),
+static size_t my_numcells_eucjpms(const CHARSET_INFO *cs [[maybe_unused]],
                                   const char *str, const char *str_end) {
   size_t clen;
   const uchar *b = (const uchar *)str;
@@ -36499,7 +36500,7 @@ static MY_CHARSET_HANDLER my_charset_handler = {nullptr, /* init */
                                                 ismbchar_eucjpms,
                                                 mbcharlen_eucjpms,
                                                 my_numchars_mb,
-                                                my_charpos_mb,
+                                                my_charpos_mb3,
                                                 my_well_formed_len_eucjpms,
                                                 my_lengthsp_8bit,
                                                 my_numcells_eucjpms,
@@ -36529,7 +36530,7 @@ CHARSET_INFO my_charset_eucjpms_japanese_ci = {
     0,                              /* number       */
     MY_CS_COMPILED | MY_CS_PRIMARY, /* state        */
     "eucjpms",                      /* cs name    */
-    "eucjpms_japanese_ci",          /* name         */
+    "eucjpms_japanese_ci",          /* m_coll_name */
     "UJIS for Windows Japanese",    /* comment      */
     nullptr,                        /* tailoring    */
     nullptr,                        /* coll_param   */
@@ -36564,7 +36565,7 @@ CHARSET_INFO my_charset_eucjpms_bin = {
     0,                              /* number       */
     MY_CS_COMPILED | MY_CS_BINSORT, /* state        */
     "eucjpms",                      /* cs name    */
-    "eucjpms_bin",                  /* name         */
+    "eucjpms_bin",                  /* m_coll_name */
     "UJIS for Windows Japanese",    /* comment      */
     nullptr,                        /* tailoring    */
     nullptr,                        /* coll_param   */

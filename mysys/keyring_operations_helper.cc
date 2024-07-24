@@ -1,15 +1,16 @@
-/* Copyright (c) 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2021, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -55,12 +56,12 @@ int read_secret(SERVICE_TYPE(keyring_reader_with_status) * keyring_reader,
 
   /* Fetch length */
   if (keyring_reader->fetch_length(reader_object, secret_length,
-                                   &secret_type_length) == true)
+                                   &secret_type_length) != 0)
     return 0;
 
   if (*secret_length == 0 || secret_type_length == 0) return 0;
 
-  /* Allocate requried memory for key and secret_type */
+  /* Allocate required memory for key and secret_type */
   *secret = reinterpret_cast<unsigned char *>(
       my_malloc(psi_memory_key, *secret_length, MYF(MY_WME)));
   if (*secret == nullptr) return 0;
@@ -77,7 +78,7 @@ int read_secret(SERVICE_TYPE(keyring_reader_with_status) * keyring_reader,
 
   if (keyring_reader->fetch(reader_object, *secret, *secret_length,
                             secret_length, *secret_type, secret_type_length,
-                            &secret_type_length) == true) {
+                            &secret_type_length) != 0) {
     my_free(*secret);
     my_free(*secret_type);
     *secret = nullptr;

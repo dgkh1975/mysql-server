@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -122,8 +123,9 @@ TEST(Allocator, BasicAlloc) {
   using Item = int;
   const int ITEM_COUNT = 100;
 
+  temptable::TableResourceMonitor table_resource_monitor(16 * 1024 * 1024);
   temptable::Block shared_block;
-  temptable::Allocator<Item> allocator(&shared_block);
+  temptable::Allocator<Item> allocator(&shared_block, table_resource_monitor);
 
   std::vector<int *> item_pointers;
   item_pointers.assign(ITEM_COUNT, nullptr);
@@ -160,14 +162,17 @@ TEST(Allocator, BasicAlloc) {
       item_pointers[i] = nullptr;
     }
   }
+
+  shared_block.destroy();
 }
 
 TEST(Allocator, ZeroSize) {
   Allocator_helper::set_allocator_max_ram_default();
   init_allocator_once();
 
+  temptable::TableResourceMonitor table_resource_monitor(16 * 1024 * 1024);
   temptable::Block shared_block;
-  temptable::Allocator<int> allocator(&shared_block);
+  temptable::Allocator<int> allocator(&shared_block, table_resource_monitor);
 
   int *item = nullptr;
 
@@ -179,8 +184,10 @@ TEST(Allocator, ConstructDestroy) {
   Allocator_helper::set_allocator_max_ram_default();
   init_allocator_once();
 
+  temptable::TableResourceMonitor table_resource_monitor(16 * 1024 * 1024);
   temptable::Block shared_block;
-  temptable::Allocator<TestItem> allocator(&shared_block);
+  temptable::Allocator<TestItem> allocator(&shared_block,
+                                           table_resource_monitor);
 
   TestItem *item = nullptr;
 
@@ -205,6 +212,8 @@ TEST(Allocator, ConstructDestroy) {
   EXPECT_EQ(TestItem::get_default_constructor_call_count(), 1);
   EXPECT_EQ(TestItem::get_parametrized_constructor_call_count(), 1);
   EXPECT_EQ(TestItem::get_destructor_call_count(), 2);
+
+  shared_block.destroy();
 }
 
 TEST(Allocator, Casts) {
@@ -215,8 +224,10 @@ TEST(Allocator, Casts) {
   using ItemType2 = int;
   using ItemType3 = TestItem;
 
+  temptable::TableResourceMonitor table_resource_monitor(16 * 1024 * 1024);
   temptable::Block shared_block;
-  temptable::Allocator<ItemType1> allocator1(&shared_block);
+  temptable::Allocator<ItemType1> allocator1(&shared_block,
+                                             table_resource_monitor);
   temptable::Allocator<ItemType2> allocator2(allocator1);
   temptable::Allocator<ItemType3> allocator3(allocator2);
 
@@ -241,6 +252,8 @@ TEST(Allocator, Casts) {
   EXPECT_NO_THROW(allocator2.deallocate(items2[1], 1));
   EXPECT_NO_THROW(allocator1.deallocate(items1[0], 1));
   EXPECT_NO_THROW(allocator1.deallocate(items1[1], 1));
+
+  shared_block.destroy();
 }
 
 }  // namespace temptable_test

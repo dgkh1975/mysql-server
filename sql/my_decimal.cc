@@ -1,15 +1,16 @@
-/* Copyright (c) 2005, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2005, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -149,6 +150,7 @@ int my_decimal2string(uint mask, const my_decimal *d, uint fixed_prec,
   @param[in]   val         the decimal to print
   @param[out]  str         where to store the resulting string
   @param[in]   cs          character set
+  @param[in]   decimals    round to desired number of decimals
 
   @return error code
     @retval E_DEC_OK
@@ -161,9 +163,14 @@ int my_decimal2string(uint mask, const my_decimal *d, uint fixed_prec,
   my_decimal.h from sql_string.h and sql_string.cc, which is not desirable.
 */
 bool str_set_decimal(uint mask, const my_decimal *val, String *str,
-                     const CHARSET_INFO *cs) {
-  if (!(cs->state & MY_CS_NONASCII)) {
+                     const CHARSET_INFO *cs, uint decimals) {
+  my_decimal dec_buf;
+  if (my_charset_is_ascii_based(cs)) {
     /* For ASCII-compatible character sets we can use my_decimal2string */
+    if (static_cast<int>(decimals) < val->frac) {
+      my_decimal_round(E_DEC_FATAL_ERROR, val, decimals, false, &dec_buf);
+      val = &dec_buf;
+    }
     my_decimal2string(mask, val, str);
     str->set_charset(cs);
     return false;
@@ -175,6 +182,10 @@ bool str_set_decimal(uint mask, const my_decimal *val, String *str,
       with help of str->copy().
     */
     StringBuffer<DECIMAL_MAX_STR_LENGTH + 1> tmp(&my_charset_latin1);
+    if (static_cast<int>(decimals) < val->frac) {
+      my_decimal_round(E_DEC_FATAL_ERROR, val, decimals, false, &dec_buf);
+      val = &dec_buf;
+    }
     my_decimal2string(mask, val, &tmp);
     uint errors;
     return str->copy(tmp.ptr(), tmp.length(), &my_charset_latin1, cs, &errors);
@@ -272,7 +283,7 @@ int str2my_decimal(uint mask, const char *from, size_t length,
 
   @param       lld  The lldiv_t variable to convert from.
   @param       neg  Sign flag (negative, 0 positive).
-  @param [out] dec  Decimal numbert to convert to.
+  @param [out] dec  Decimal number to convert to.
 */
 static my_decimal *lldiv_t2my_decimal(const lldiv_t *lld, bool neg,
                                       my_decimal *dec) {
@@ -314,10 +325,10 @@ my_decimal *time2my_decimal(const MYSQL_TIME *ltime, my_decimal *dec) {
 /**
   Convert timeval value to my_decimal.
 */
-my_decimal *timeval2my_decimal(const struct timeval *tm, my_decimal *dec) {
+my_decimal *timeval2my_decimal(const my_timeval *tm, my_decimal *dec) {
   lldiv_t lld;
-  lld.quot = tm->tv_sec;
-  lld.rem = (longlong)tm->tv_usec * 1000;
+  lld.quot = tm->m_tv_sec;
+  lld.rem = tm->m_tv_usec * 1000;
   return lldiv_t2my_decimal(&lld, false, dec);
 }
 

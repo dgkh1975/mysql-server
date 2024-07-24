@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2013, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2013, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -69,14 +70,14 @@ class Shared_mem_listener {
       : m_shared_mem_name(*shared_memory_base_name),
         m_connect_file_map(0),
         m_connect_map(0),
-        m_connect_named_mutex(NULL),
+        m_connect_named_mutex(nullptr),
         m_event_connect_request(0),
         m_event_connect_answer(0),
         m_sa_event(0),
         m_sa_mapping(0),
         m_sa_mutex(0),
-        m_temp_buffer(0),
         m_connect_number(1),
+        m_temp_buffer(0),
         m_handle_client_file_map(0),
         m_handle_client_map(0),
         m_event_client_wrote(0),

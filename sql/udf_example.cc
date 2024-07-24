@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -21,7 +22,7 @@
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
 /*
-** example file of UDF (user definable functions) that are dynamicly loaded
+** example file of UDF (user definable functions) that are dynamically loaded
 ** into the standard mysqld core.
 **
 ** The functions name, type and shared library is saved in the new system
@@ -69,7 +70,7 @@
 ** On the end is a couple of functions that converts hostnames to ip and
 ** vice versa.
 **
-** A dynamicly loadable file should be compiled shared.
+** A dynamically loadable file should be compiled shared.
 ** (something like: gcc -shared -o my_func.so myfunc.cc).
 ** You can easily get all switches right by doing:
 ** cd sql ; make udf_example.o
@@ -181,7 +182,7 @@ static std::mutex *LOCK_hostname{nullptr};
 **		try to keep the error message less than 80 bytes long!
 **
 ** This function should return 1 if something goes wrong. In this case
-** message should contain something usefull!
+** message should contain something useful!
 **************************************************************************/
 
 #define MAXMETAPH 8
@@ -220,7 +221,7 @@ extern "C" void metaphon_deinit(UDF_INIT *) {}
 ** error	If something goes fatally wrong one should store 1 here.
 **
 ** This function should return a pointer to the result string.
-** Normally this is 'result' but may also be an alloced string.
+** Normally this is 'result' but may also be an allocated string.
 ***************************************************************************/
 
 /* Character coding array */
@@ -516,7 +517,7 @@ extern "C" long long myfunc_int(UDF_INIT *, UDF_ARGS *args, unsigned char *,
       case INT_RESULT: /* Add numbers */
         val += *((long long *)args->args[i]);
         break;
-      case REAL_RESULT: /* Add numers as long long */
+      case REAL_RESULT: /* Add numbers as long long */
         val += (long long)*((double *)args->args[i]);
         break;
       default:
@@ -573,7 +574,7 @@ extern "C" long long sequence(UDF_INIT *initid, UDF_ARGS *args, unsigned char *,
 
 /****************************************************************************
 ** Some functions that handles IP and hostname conversions
-** The orignal function was from Zeev Suraski.
+** The original function was from Zeev Suraski.
 **
 ** CREATE FUNCTION lookup RETURNS STRING SONAME "udf_example.so";
 ** CREATE FUNCTION reverse_lookup RETURNS STRING SONAME "udf_example.so";
@@ -865,7 +866,7 @@ extern "C" bool is_const_init(UDF_INIT *initid, UDF_ARGS *args, char *message) {
     strcpy(message, "IS_CONST accepts only one argument");
     return true;
   }
-  initid->ptr = (char *)((args->args[0] != nullptr) ? 1UL : 0);
+  initid->ptr = (char *)((args->args[0] != nullptr) ? 1ULL : 0);
   return false;
 }
 

@@ -1,15 +1,16 @@
-/* Copyright (c) 2012, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2012, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -58,12 +59,12 @@ class THD;
 void pfs_register_thread_vc(const char *category, PSI_thread_info *info,
                             int count);
 
-int pfs_spawn_thread_vc(PSI_thread_key key, my_thread_handle *thread,
-                        const my_thread_attr_t *attr,
+int pfs_spawn_thread_vc(PSI_thread_key key, unsigned int sequence_number,
+                        my_thread_handle *thread, const my_thread_attr_t *attr,
                         void *(*start_routine)(void *), void *arg);
 
-PSI_thread *pfs_new_thread_vc(PSI_thread_key key, const void *identity,
-                              ulonglong processlist_id);
+PSI_thread *pfs_new_thread_vc(PSI_thread_key key, unsigned int sequence_number,
+                              const void *identity, ulonglong processlist_id);
 
 void pfs_set_thread_id_vc(PSI_thread *thread, ulonglong processlist_id);
 
@@ -81,6 +82,8 @@ void pfs_set_thread_os_id_vc(PSI_thread *thread);
 
 PSI_thread *pfs_get_thread_vc(void);
 
+void pfs_set_mem_cnt_THD_vc(THD *thd, THD **backup_thd);
+
 void pfs_set_thread_user_vc(const char *user, int user_len);
 
 void pfs_set_thread_account_vc(const char *user, int user_len, const char *host,
@@ -97,6 +100,8 @@ void pfs_set_thread_state_vc(const char *state);
 void pfs_set_connection_type_vc(opaque_vio_type conn_type);
 
 void pfs_set_thread_info_vc(const char *info, uint info_len);
+
+void pfs_set_thread_secondary_engine_vc(bool secondary);
 
 int pfs_set_thread_resource_group_vc(const char *group_name, int group_name_len,
                                      void *user_data);
@@ -142,6 +147,10 @@ void pfs_notify_session_connect_vc(PSI_thread *thread);
 void pfs_notify_session_disconnect_vc(PSI_thread *thread);
 
 void pfs_notify_session_change_user_vc(PSI_thread *thread);
+
+void pfs_detect_telemetry_vc(PSI_thread *thread);
+
+void pfs_abort_telemetry_vc(PSI_thread *thread);
 
 #endif /* WITH_LOCK_ORDER */
 #endif /* MYSQL_DYNAMIC_PLUGIN */

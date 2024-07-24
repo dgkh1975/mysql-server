@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2012, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2012, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -134,8 +135,8 @@ struct my_command_data {
 /* mysql_config_editor utility options. */
 static struct my_option my_program_long_options[] = {
 #ifdef NDEBUG
-    {"debug", '#', "This is a non-debug version. Catch this and exit.", 0, 0, 0,
-     GET_DISABLED, OPT_ARG, 0, 0, 0, 0, 0, 0},
+    {"debug", '#', "This is a non-debug version. Catch this and exit.", nullptr,
+     nullptr, nullptr, GET_DISABLED, OPT_ARG, 0, 0, 0, nullptr, 0, nullptr},
 #else
     {"debug", '#', "Output debug log. Often this is 'd:t:o,filename'.", nullptr,
      nullptr, nullptr, GET_STR, OPT_ARG, 0, 0, 0, nullptr, 0, nullptr},
@@ -237,9 +238,10 @@ static struct my_option my_help_command_options[] = {
      0, nullptr, 0, nullptr}};
 
 extern "C" {
-static bool my_program_get_one_option(
-    int optid, const struct my_option *opt MY_ATTRIBUTE((unused)),
-    char *argument MY_ATTRIBUTE((unused))) {
+static bool my_program_get_one_option(int optid,
+                                      const struct my_option *opt
+                                      [[maybe_unused]],
+                                      char *argument [[maybe_unused]]) {
   switch (optid) {
     case '#':
       DBUG_PUSH(argument ? argument : "d:t:o,/tmp/mysql_config_editor.trace");

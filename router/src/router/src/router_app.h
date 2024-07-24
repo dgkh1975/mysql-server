@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,6 +26,8 @@
 #ifndef ROUTER_MYSQL_ROUTER_INCLUDED
 #define ROUTER_MYSQL_ROUTER_INCLUDED
 
+#include "mysqlrouter/router_export.h"
+
 /** @file
  * @brief Defining the main class MySQLRouter
  *
@@ -34,11 +37,12 @@
 
 #include "mysql/harness/arg_handler.h"
 #include "mysql/harness/loader.h"
+#include "mysql/harness/signal_handler.h"
 #include "mysqlrouter/keyring_info.h"
-#include "mysqlrouter/utils.h"
-#include "router_config.h"
+#include "mysqlrouter/sys_user_operations.h"
 
 #include <cstdint>
+#include <iostream>
 #include <stdexcept>
 #include <vector>
 
@@ -58,7 +62,7 @@ class ConfigFiles;
  *  explicit location was given, the application exits.
  *
  *  The class depends on MySQL Harness to, among other things, load the
- *  configuration and initalize all request plugins.
+ *  configuration and initialize all request plugins.
  *
  *  Example usage:
  *
@@ -99,11 +103,11 @@ class MySQLRouter {
    *
    * Example usage:
    *
-   *     MySQLRouter router(Path(argv[0]).dirname(),
+   *     MySQLRouter router(argv[0],
    *                        vector<string>({argv + 1, argv + argc}));
    *     router.start();
    *
-   * @param origin Directory where executable is located
+   * @param program_name path of the started executable
    * @param arguments a vector of strings
    * @param out_stream output stream representing "stdout"
    * @param err_stream output stream representing "stderr"
@@ -111,7 +115,7 @@ class MySQLRouter {
 #ifndef _WIN32
   /// @param sys_user_operations system operations which provide chown, ...
 #endif
-  MySQLRouter(const mysql_harness::Path &origin,
+  MySQLRouter(const std::string &program_name,
               const std::vector<std::string> &arguments,
               std::ostream &out_stream = std::cout,
               std::ostream &err_stream = std::cerr
@@ -158,7 +162,7 @@ class MySQLRouter {
    *
    * Initializes main logger, according to options in the configuration.
    *
-   * @param config Configuaration to be used to initialize logger
+   * @param config Configuration to be used to initialize logger
    * @param raw_mode If true, all messages are logged raw; if false, messages
    *        are subject formatting
    * @param use_os_log If true, Windows EventLog will be used instead of STDERR;
@@ -285,31 +289,6 @@ class MySQLRouter {
     return extra_config_files_;
   }
 
-  /** @brief Returns predefined (computed) default paths
-   *
-   * Returns a map of predefined default paths, which are computed based on
-   * `origin` argument. This argument serves as base directory for any
-   * predefined relative paths. The returned map consists of absolue paths.
-   *
-   * @param origin Base directory which will be prepended to any relative
-   *        predefined directories
-   *
-   * @throws std::invalid_argument (std::logic_error) if `origin` is empty
-   */
-  static std::map<std::string, std::string> get_default_paths(
-      const mysql_harness::Path &origin);
-
-  /** @brief Returns absolute path to mysqlrouter.exe currently running
-   *
-   * @param argv0 1th element of `argv` array passed to `main()` (i.e.
-   * `argv[0]`)
-   *
-   * @throws std::runtime_error, ...?
-   *
-   * @note argv0 is currently ignored on Windows platforms
-   */
-  static std::string find_full_path(const std::string &argv0);
-
 #if !defined(_MSC_VER) && !defined(UNIT_TESTS)
   // MSVC produces different symbols for private vs public methods, which mean
   // the #define private public trick for unit-testing private methods doesn't
@@ -339,9 +318,11 @@ class MySQLRouter {
    * use it.
    * @endinternal
    *
+   * @param program_name path to the executable.
    * @param arguments command line arguments as vector of strings
    */
-  virtual void init(const std::vector<std::string> &arguments);
+  virtual void init(const std::string &program_name,
+                    const std::vector<std::string> &arguments);
 
   /** @brief Prepares a command line option
    *
@@ -469,7 +450,8 @@ class MySQLRouter {
    */
   void set_default_config_files(const char *locations) noexcept;
 
-  void bootstrap(const std::string &metadata_server_uri);
+  void bootstrap(const std::string &program_name,
+                 const std::string &metadata_server_uri);
 
   /*
    * @brief returns id of the router.
@@ -570,6 +552,8 @@ class MySQLRouter {
   std::ostream &out_stream_;
   std::ostream &err_stream_;
 
+  bool core_file_{false};
+
 #ifndef _WIN32
   /** @brief Value of the --user parameter given on the command line if router
    * is launched in bootstrap mode **/
@@ -587,12 +571,11 @@ class MySQLRouter {
   mysqlrouter::SysUserOperationsBase *sys_user_operations_;
 #endif
 
+  mysql_harness::SignalHandler signal_handler_;
+
 #ifdef FRIEND_TEST
   FRIEND_TEST(Bug24909259, PasswordPrompt_plain);
   FRIEND_TEST(Bug24909259, PasswordPrompt_keyed);
-  FRIEND_TEST(ConfigGeneratorTest, ssl_stage1_cmdline_arg_parse);
-  FRIEND_TEST(ConfigGeneratorTest, ssl_stage2_bootstrap_connection);
-  FRIEND_TEST(ConfigGeneratorTest, ssl_stage3_create_config);
 #endif
 };
 

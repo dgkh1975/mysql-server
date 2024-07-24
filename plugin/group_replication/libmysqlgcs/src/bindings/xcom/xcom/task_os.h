@@ -1,15 +1,16 @@
-/* Copyright (c) 2012, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2012, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -65,7 +66,7 @@ static inline int hard_select_err(int err) {
 typedef ULONG nfds_t;
 typedef struct pollfd pollfd;
 static inline int poll(pollfd *fds, nfds_t nfds, int timeout) {
-  return WSAPoll(fds, nfds, timeout);
+  return nfds == 0 ? 0 : WSAPoll(fds, nfds, timeout);
 }
 
 static inline int is_socket_error(int x) { return x == SOCKET_ERROR || x < 0; }
@@ -99,6 +100,8 @@ static inline int is_socket_error(int x) { return x == SOCKET_ERROR || x < 0; }
 #define SET_OS_ERR(x) errno = (x)
 #define CLOSESOCKET(x) close(x)
 #define SOCK_SHUT_RDWR (SHUT_RD | SHUT_WR)
+#define SOCK_SHUT_RW SHUT_WR
+#define SOCK_SHUT_RD SHUT_RD
 
 static inline int hard_connect_err(int err) {
   return err != 0 && from_errno(err) != EINTR && from_errno(err) != EINPROGRESS;
@@ -115,23 +118,6 @@ static inline int is_socket_error(int x) { return x < 0; }
 #endif
 
 extern void remove_and_wakeup(int fd);
-
-static inline result close_socket(int *sock) {
-  result res = {0, 0};
-  if (*sock != -1) {
-    IFDBG(D_FILEOP, FN; STRLIT("closing socket "); NDBG(*sock, d));
-    do {
-      SET_OS_ERR(0);
-      res.val = CLOSESOCKET(*sock);
-      res.funerr = to_errno(GET_OS_ERR);
-    } while (res.val == -1 && from_errno(res.funerr) == SOCK_EINTR);
-    IFDBG(D_FILEOP, FN; STRLIT("closed socket "); NDBG(*sock, d);
-          NDBG(from_errno(res.funerr), d));
-    remove_and_wakeup(*sock);
-    *sock = -1;
-  }
-  return res;
-}
 
 #if defined(_WIN32)
 
@@ -173,12 +159,24 @@ static inline int xcom_getpeername(int s, struct sockaddr *name,
 
 #endif
 
-static inline result shut_close_socket(int *sock) {
+static inline result xcom_close_socket(int *sock) {
+  result res = {0, 0};
+  if (*sock != -1) {
+    IFDBG(D_FILEOP, FN; STRLIT("closing socket "); NDBG(*sock, d));
+    do {
+      SET_OS_ERR(0);
+      res.val = CLOSESOCKET(*sock);
+      res.funerr = to_errno(GET_OS_ERR);
+    } while (res.val == -1 && from_errno(res.funerr) == SOCK_EINTR);
+  }
+  return res;
+}
+
+static inline result xcom_shut_close_socket(int *sock) {
   result res = {0, 0};
   if (*sock >= 0) {
     shutdown_socket(sock);
-    res = close_socket(sock);
-    *sock = -1;
+    res = xcom_close_socket(sock);
   }
   return res;
 }

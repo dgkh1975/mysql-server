@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -47,9 +48,6 @@ TYPED_TEST(ByteSwapTest, bswap) {
       static_cast<TypeParam>(UINT64_C(0x8f) << ((sizeof(TypeParam) - 1) * 8)));
 }
 
-#if 0
-// Note: disabled as the stdx/bit.h has the functions disabled too.
-
 template <class T>
 class StdxBitTest : public ::testing::Test {};
 
@@ -73,7 +71,7 @@ TYPED_TEST(StdxBitTest, popcount) {
                                       (max_value / 8) * 6 - 1,
                                       max_value};
   for (TypeParam v : samples) {
-    EXPECT_EQ(stdx::impl::popcount_linear(v), stdx::popcount(v))
+    EXPECT_EQ(stdx::impl::popcount_constant(v), stdx::popcount(v))
         << static_cast<uint64_t>(v);
   }
 }
@@ -146,18 +144,14 @@ TYPED_TEST(StdxBitTest, countr_one) {
     v >>= 1;
   }
 }
-#endif
 
 // check that byteswap is really constexpr
 static_assert(UINT64_C(0x2200000000000000) ==
-                  stdx::byteswap(static_cast<uint64_t>(0x22)),
-              "");
+              stdx::byteswap(static_cast<uint64_t>(0x22)));
 static_assert(UINT32_C(0x22000000) ==
-                  stdx::byteswap(static_cast<uint32_t>(0x22)),
-              "");
-static_assert(UINT16_C(0x2200) == stdx::byteswap(static_cast<uint16_t>(0x22)),
-              "");
-static_assert(UINT8_C(0x22) == stdx::byteswap(static_cast<uint8_t>(0x22)), "");
+              stdx::byteswap(static_cast<uint32_t>(0x22)));
+static_assert(UINT16_C(0x2200) == stdx::byteswap(static_cast<uint16_t>(0x22)));
+static_assert(UINT8_C(0x22) == stdx::byteswap(static_cast<uint8_t>(0x22)));
 
 int main(int argc, char *argv[]) {
   ::testing::InitGoogleTest(&argc, argv);

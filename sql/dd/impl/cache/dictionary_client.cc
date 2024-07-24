@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,6 +26,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <memory>
+#include <string_view>
 
 #include "lex_string.h"
 #include "m_ctype.h"
@@ -590,6 +592,8 @@ class MDL_checker {
   }
 };
 
+constexpr const auto innodb_engine_name =
+    std::string_view(STRING_WITH_LEN("InnoDB"));
 using SPI_missing_status = std::bitset<2>;
 enum class SPI_missing_type { TABLES, PARTITIONS };
 using SPI_order = std::vector<dd::Object_id>;
@@ -1554,14 +1558,21 @@ bool Dictionary_client::acquire_for_modification(
 
 // Retrieve a table object by its se private id.
 bool Dictionary_client::acquire_uncached_table_by_se_private_id(
-    const String_type &engine, Object_id se_private_id, Table **table) {
+    const String_type &engine, Object_id se_private_id, Table **table,
+    bool skip_spi_cache) {
+  skip_spi_cache = (skip_spi_cache || (engine != innodb_engine_name));
   assert(table);
   *table = nullptr;
-  bool no_table =
-      is_cached(m_no_table_spids, se_private_id, SPI_missing_type::TABLES);
+  bool no_table = false;
 
-  if (no_table) {
-    return false;
+  if (!skip_spi_cache) {
+    assert(engine == innodb_engine_name);
+    no_table =
+        is_cached(m_no_table_spids, se_private_id, SPI_missing_type::TABLES);
+
+    if (no_table) {
+      return false;
+    }
   }
 
   // Create se private key.
@@ -1579,7 +1590,10 @@ bool Dictionary_client::acquire_uncached_table_by_se_private_id(
 
   // If object was not found.
   if (stored_object == nullptr) {
-    m_no_table_spids->insert(se_private_id, SPI_missing_type::TABLES);
+    if (!skip_spi_cache) {
+      assert(engine == innodb_engine_name);
+      m_no_table_spids->insert(se_private_id, SPI_missing_type::TABLES);
+    }
     return false;
   }
   assert(no_table == false);

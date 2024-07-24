@@ -1,15 +1,16 @@
-/* Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    Without limiting anything contained in the foregoing, this file,
    which is part of C Driver for MySQL (Connector/C), is also subject to the
@@ -57,7 +58,7 @@ PasswdValue my_getpw_(GETPW_CLOS &&getpwfunc) {
       case ERANGE:
         bufsz *= 2;
         buf.resize(bufsz);
-        // fallthrough
+        [[fallthrough]];
       case EINTR:
         continue;
       default:
@@ -79,7 +80,7 @@ PasswdValue my_getpw_(GETPW_CLOS &&getpwfunc) {
 
    @retval PasswdValue representing user's passwd entry.
    PasswdValue::IsVoid() returns true if no such user exists or an error
-   occured. In the latter case errno is set.
+   occurred. In the latter case errno is set.
  */
 PasswdValue my_getpwnam(const char *name) {
   return my_getpw_(
@@ -97,7 +98,7 @@ PasswdValue my_getpwnam(const char *name) {
 
    @retval PasswdValue representing user's passwd entry.
    PasswdValue::IsVoid() returns true if no such user exists or an error
-   occured. In the latter case errno is set.
+   occurred. In the latter case errno is set.
  */
 PasswdValue my_getpwuid(uid_t uid) {
   return my_getpw_(

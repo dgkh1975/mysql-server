@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 1997, 2021, Oracle and/or its affiliates.
+Copyright (c) 1997, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -49,8 +50,8 @@ static inline void eval_sym(sym_node_t *sym_node); /*!< in: symbol table node */
 static inline void eval_exp(que_node_t *exp_node); /*!< in: expression */
 
 /** Sets an integer value as the value of an expression node.
-@param[in]	node	expression node
-@param[in]	val	value to set */
+@param[in]      node    expression node
+@param[in]      val     value to set */
 static inline void eval_node_set_int_val(que_node_t *node, lint val);
 
 /** Gets an integer value from an expression node.
@@ -60,24 +61,24 @@ static inline lint eval_node_get_int_val(
 
 /** Copies a binary string value as the value of a query graph node. Allocates
 a new buffer if necessary.
-@param[in]	node	query graph node
-@param[in]	str	binary string
-@param[in]	len	string length or UNIV_SQL_NULL */
+@param[in]      node    query graph node
+@param[in]      str     binary string
+@param[in]      len     string length or UNIV_SQL_NULL */
 static inline void eval_node_copy_and_alloc_val(que_node_t *node,
                                                 const byte *str, ulint len);
 
 /** Copies a query node value to another node.
-@param[in]	node1	node to copy to
-@param[in]	node2	node to copy from */
+@param[in]      node1   node to copy to
+@param[in]      node2   node to copy from */
 static inline void eval_node_copy_val(que_node_t *node1, que_node_t *node2);
 
-/** Gets a iboolean value from a query node.
- @return iboolean value */
-static inline ibool eval_node_get_ibool_val(
+/** Gets a boolean value from a query node.
+ @return boolean value */
+static inline bool eval_node_get_bool_val(
     que_node_t *node); /*!< in: query graph node */
 /** Evaluates a comparison node.
  @return the result of the comparison */
-ibool eval_cmp(func_node_t *cmp_node); /*!< in: comparison node */
+bool eval_cmp(func_node_t *cmp_node); /*!< in: comparison node */
 
 #include "eval0eval.ic"
 

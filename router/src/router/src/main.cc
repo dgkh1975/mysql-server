@@ -1,16 +1,17 @@
 ﻿/*
-  Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -71,21 +72,21 @@
 #define MYSQL_ROUTER_LOG_DOMAIN \
   ::mysql_harness::logging::kMainLogger  // must precede #include "logging.h"
 
-#include <mysql.h>
 #include <iostream>
 #include <stdexcept>
-#include "common.h"
+
+#include <mysql.h>
+
 #include "dim.h"
 #include "mysql/harness/loader_config.h"
 #include "mysql/harness/logging/logging.h"
 #include "mysql/harness/logging/registry.h"
 #include "mysql/harness/tty.h"
 #include "mysql/harness/vt100_filter.h"
-#include "mysql_session.h"
 #include "mysqlrouter/mysql_client_thread_token.h"
+#include "mysqlrouter/mysql_session.h"
 #include "random_generator.h"
 #include "router_app.h"
-#include "utils.h"
 #include "windows/main-windows.h"
 
 IMPORT_LOG_FUNCTIONS()
@@ -111,15 +112,6 @@ static void init_DIM() {
       [](mysql_harness::RandomGeneratorInterface *) {}
       // don't delete our static!
   );
-
-  // MySQLSession
-  dim.set_MySQLSession(
-      []() {
-        return new mysqlrouter::MySQLSession(
-            std::make_unique<
-                mysqlrouter::MySQLSession::LoggingStrategyDebugLogger>());
-      },
-      std::default_delete<mysqlrouter::MySQLSession>());
 }
 
 static void preconfig_log_init(bool use_os_logger_initially) noexcept {
@@ -155,13 +147,6 @@ int real_main(int argc, char **argv, bool use_os_logger_initially) {
   preconfig_log_init(use_os_logger_initially);
 
   init_DIM();
-
-  // TODO This is very ugly, it should not be a global. It's defined in
-  // config_generator.cc and
-  //      used in find_executable_path() to provide path to Router binary when
-  //      generating start.sh.
-  extern std::string g_program_name;
-  g_program_name = argv[0];
 
   mysqlrouter::MySQLClientThreadToken api_token;
   if (mysql_library_init(argc, argv, nullptr)) {

@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -67,9 +68,9 @@ Shard_naked_latch_guard::Shard_naked_latch_guard(ut::Location location,
 }
 
 Shard_naked_latch_guard::Shard_naked_latch_guard(ut::Location location,
-                                                 const dict_table_t &table)
+                                                 const table_id_t &table_id)
     : Shard_naked_latch_guard{
-          location, lock_sys->latches.table_shards.get_mutex(table)} {}
+          location, lock_sys->latches.table_shards.get_mutex(table_id)} {}
 
 Shard_naked_latch_guard::Shard_naked_latch_guard(ut::Location location,
                                                  const page_id_t &page_id)
@@ -88,6 +89,9 @@ Global_shared_latch_guard::Global_shared_latch_guard(ut::Location location) {
 
 Global_shared_latch_guard::~Global_shared_latch_guard() {
   lock_sys->latches.global_latch.s_unlock();
+}
+bool Global_shared_latch_guard::is_x_blocked_by_us() {
+  return lock_sys->latches.global_latch.is_x_blocked_by_our_s();
 }
 
 /* Shard_naked_latches_guard */

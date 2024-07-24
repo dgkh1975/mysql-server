@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +40,6 @@
 #include "mysqlrouter/routing.h"
 #include "plugin_config.h"
 
-using mysqlrouter::to_string;
 using ::testing::HasSubstr;
 
 class Bug21771595 : public ::testing::Test {
@@ -58,7 +58,7 @@ TEST_F(Bug21771595, ConstructorDefaults) {
 }
 
 TEST_F(Bug21771595, Constructor) {
-  auto expect_max_connections = routing::kDefaultMaxConnections - 10;
+  auto expect_max_connections = 20;
   auto expect_connect_timeout =
       routing::kDefaultDestinationConnectionTimeout + std::chrono::seconds(10);
 
@@ -114,17 +114,18 @@ TEST_F(Bug21771595, InvalidMaxConnections) {
   ASSERT_THROW(r.set_max_connections(-1), std::invalid_argument);
   ASSERT_THROW(r.set_max_connections(UINT16_MAX + 1), std::invalid_argument);
   try {
-    r.set_max_connections(0);
+    r.set_max_connections(-1);
   } catch (const std::invalid_argument &exc) {
     ASSERT_THAT(
         exc.what(),
-        HasSubstr("tried to set max_connections using invalid value, was '0'"));
+        HasSubstr(
+            "tried to set max_connections using invalid value, was '-1'"));
   }
   ASSERT_THROW(
       MySQLRouting(io_ctx_, routing::RoutingStrategy::kRoundRobin, 7001,
                    Protocol::Type::kClassicProtocol,
                    routing::AccessMode::kReadWrite, "127.0.0.1",
-                   mysql_harness::Path(), "test", 0, std::chrono::seconds(1)),
+                   mysql_harness::Path(), "test", -1, std::chrono::seconds(1)),
       std::invalid_argument);
 }
 

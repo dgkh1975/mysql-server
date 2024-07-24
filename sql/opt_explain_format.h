@@ -1,15 +1,16 @@
-/* Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -46,6 +47,7 @@ class Opt_trace_object;
 class Query_result;
 class Query_expression;
 class Window;
+class Json_object;
 
 enum class enum_explain_type;
 
@@ -283,8 +285,7 @@ class qep_row {
     NOTE: NULL value or mem_root_str.is_empty()==true means that Item_null
     object will be pushed into "items" list instead.
   */
-  column<uint>
-      col_id;  ///< "id" column: seq. number of SELECT withing the query
+  column<uint> col_id;  ///< "id" column: seq. number of SELECT within the query
   column<enum_explain_type> col_select_type;  ///< "select_type" column
   mem_root_str col_table_name;  ///< "table" to which the row of output refers
   List<const char> col_partitions;  ///< "partitions" column
@@ -411,8 +412,8 @@ class qep_row {
 
     @param subquery     WHERE clause subquery's unit
   */
-  virtual void register_where_subquery(
-      Query_expression *subquery MY_ATTRIBUTE((unused))) {}
+  virtual void register_where_subquery(Query_expression *subquery
+                                       [[maybe_unused]]) {}
 
   void format_extra(Opt_trace_object *obj);
 };
@@ -521,7 +522,20 @@ class Explain_format {
   */
   virtual bool is_hierarchical() const = 0;
 
-  virtual bool is_tree() const { return false; }
+  /**
+    Whether the format closely resembles the final plan to be executed by
+    execution iterators (See RowIterator). These formats share a common logic
+    that uses AccessPath structure to generate the information, so they all
+    display exactly the same information, even though the style of each format
+    might be different.
+
+    @note: The new json format for hypergraph and the tree format are examples
+    of iterator-based formats.
+
+    @retval true        Format is Iterator-based.
+    @retval false       Format is not Iterator-based.
+  */
+  virtual bool is_iterator_based() const { return false; }
 
   /**
     Send EXPLAIN header item(s) to output stream
@@ -567,6 +581,15 @@ class Explain_format {
     Get a pointer to the current TABLE/JOIN_TAB property set
   */
   virtual qep_row *entry() = 0;
+
+  /**
+    Convert Json object to string. Should only be called for iterator-based
+    formats.
+  */
+  virtual std::string ExplainJsonToString(Json_object *json [[maybe_unused]]) {
+    assert(false);
+    return nullptr;
+  }
 };
 
 #endif  // OPT_EXPLAIN_FORMAT_INCLUDED

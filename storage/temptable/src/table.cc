@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -37,6 +38,7 @@ TempTable Table implementation. */
 #include "sql/key.h"
 #include "sql/table.h"
 #include "storage/temptable/include/temptable/allocator.h"
+#include "storage/temptable/include/temptable/block.h"
 #include "storage/temptable/include/temptable/cursor.h"
 #include "storage/temptable/include/temptable/index.h"
 #include "storage/temptable/include/temptable/indexed_cells.h"
@@ -47,13 +49,23 @@ TempTable Table implementation. */
 namespace temptable {
 
 Table::Table(TABLE *mysql_table, Block *shared_block,
-             bool all_columns_are_fixed_size)
-    : m_allocator(shared_block),
+             bool all_columns_are_fixed_size, size_t tmp_table_size_limit)
+    : m_resource_monitor(tmp_table_size_limit),
+      m_allocator(shared_block, m_resource_monitor),
       m_rows(&m_allocator),
       m_all_columns_are_fixed_size(all_columns_are_fixed_size),
       m_indexes_are_enabled(true),
       m_mysql_row_length(mysql_table->s->rec_buff_length),
-      m_index_entries(m_allocator),
+      /* We use `explicit vector(size_type count, const Allocator& alloc)`
+       * constructor as the one we would like to use, the
+       * `explicit vector(const Allocator& alloc) noexcept` is noexcept, while
+       * the MS VC++ with non-zero ITERATOR_DEBUG_LEVEL macro value will perform
+       * an allocation using the supplied allocator and cause std::terminate to
+       * be called in case the exception is thrown, as it is not allowed with
+       * `noexcept`. There is a related bug reported to VC++:
+       * https://developercommunity.visualstudio.com/t/debug-version-of-stl-is-not-excepion-safe-and-caus/77779
+       */
+      m_index_entries(0, m_allocator),
       m_insert_undo(m_allocator),
       m_columns(m_allocator),
       m_mysql_table_share(mysql_table->s) {
@@ -76,7 +88,7 @@ Table::Table(TABLE *mysql_table, Block *shared_block,
         /* field_ptr is inside record[1]. */
       } else {
         /* ptr does not point inside neither record[0] nor record[1]. */
-        abort();
+        my_abort();
       }
     }
   }
@@ -88,6 +100,7 @@ Table::Table(TABLE *mysql_table, Block *shared_block,
 
   if (m_all_columns_are_fixed_size) {
     m_rows.element_size(m_mysql_row_length);
+    assert(m_rows.number_of_elements_per_page() > 0);
   } else {
     m_rows.element_size(sizeof(Row));
   }

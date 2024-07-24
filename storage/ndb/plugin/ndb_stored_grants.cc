@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,6 +39,7 @@
 #include "storage/ndb/plugin/ndb_log.h"
 #include "storage/ndb/plugin/ndb_mysql_services.h"
 #include "storage/ndb/plugin/ndb_retry.h"
+#include "storage/ndb/plugin/ndb_rpl_filter.h"
 #include "storage/ndb/plugin/ndb_sql_metadata_table.h"
 #include "storage/ndb/plugin/ndb_thd.h"
 #include "storage/ndb/plugin/ndb_thd_ndb.h"
@@ -57,7 +59,7 @@ static std::mutex local_granted_users_mutex;
 /* Utility functions */
 
 bool op_grants_or_revokes_ndb_storage(ChangeNotice *notice) {
-  for (const std::string &priv : notice->get_dynamic_privilege_list())
+  for (const ChangeNotice::Priv priv : notice->get_dynamic_privilege_list())
     if (!native_strncasecmp(priv.c_str(), "NDB_STORED_USER", priv.length()))
       return true;
   return false;
@@ -110,6 +112,7 @@ class ThreadContext : public Ndb_local_connection {
 
   bool get_local_user(const std::string &) const;
   int get_grants_for_user(std::string);
+  bool show_create_user(std::string, std::string &, bool use_hex = true);
   void get_create_user(std::string, int);
   void create_user(std::string &, std::string &);
 
@@ -285,17 +288,44 @@ void ThreadContext::deserialize_users(std::string &str) {
 
 /* returns false on success */
 bool ThreadContext::exec_sql(const std::string &statement) {
+  // Disable rpl_filter as otherwise the non-updating query fail in the applier
+  Ndb_rpl_filter_disable disable_filter(m_thd);
+
   assert(m_closed);
   /* execute_query_iso() returns false on success */
-  m_closed = execute_query_iso(statement, nullptr);
+  if (execute_query_iso(statement, nullptr)) {
+    // Query failed
+    return true;
+  }
+
+  if (get_results() == nullptr) {
+    // Query reported sucess but no result set, this indicates failure
+    ndb_log_error("No result set for query '%s'", statement.c_str());
+    assert(false);
+  }
+
+  m_closed = false;
   return m_closed;
 }
 
-void ThreadContext::get_create_user(std::string user, int ngrants) {
+/* Run SHOW CREATE USER, and place the result SQL in result.
+   Return true on success.
+*/
+bool ThreadContext::show_create_user(std::string user, std::string &result,
+                                     bool use_hex) {
   std::string statement("SHOW CREATE USER " + user);
-  if (exec_sql(statement)) {
+  int exec_return_val;
+
+  {
+    bool saved_val = m_thd->variables.print_identified_with_as_hex;
+    m_thd->variables.print_identified_with_as_hex = use_hex;
+    exec_return_val = exec_sql(statement);
+    m_thd->variables.print_identified_with_as_hex = saved_val;
+  }
+
+  if (exec_return_val) {
     ndb_log_error("Failed SHOW CREATE USER for %s", user.c_str());
-    return;
+    return false;
   }
 
   List<Ed_row> results = *get_results();
@@ -303,16 +333,25 @@ void ThreadContext::get_create_user(std::string user, int ngrants) {
   if (results.elements != 1) {
     ndb_log_error("%s returned %d rows", statement.c_str(), results.elements);
     close();
-    return;
+    return false;
   }
 
   Ed_row *result_row = results[0];
   const MYSQL_LEX_STRING *result_sql = result_row->get_column(0);
-  unsigned int note = ngrants;
-  char *row = Row(TYPE_USER, user, 0, &note,
-                  std::string(result_sql->str, result_sql->length));
-  m_current_rows.push_back(row);
+  result.assign(result_sql->str, result_sql->length);
   close();
+  return true;
+}
+
+/* Run SHOW CREATE USER, create a row, and push it to m_current_rows
+ */
+void ThreadContext::get_create_user(std::string user, int ngrants) {
+  std::string show_create;
+  if (show_create_user(user, show_create)) {
+    unsigned int note = ngrants;
+    char *row = Row(TYPE_USER, user, 0, &note, show_create);
+    m_current_rows.push_back(row);
+  }
   return;
 }
 
@@ -457,7 +496,7 @@ inline bool blacklisted(std::string user) {
    This query selects only those users that have been directly granted
    NDB_STORED_USER, not those granted it transitively via a role. This
    entails that the direct grant is required -- a limitation which must
-   be documented. If there were a table in information_schema analagous to
+   be documented. If there were a table in information_schema analogous to
    mysql.role_edges, we could solve this problem by issuing a JOIN query
    of user_privileges and role_edges. For now, though, living with the
    documented limitation is preferable to relying on the mysql table.
@@ -614,15 +653,29 @@ int ThreadContext::drop_users(ChangeNotice *notice,
 }
 
 /* Stored in the snapshot is a CREATE USER statement. This statement has come
-   from SHOW CREATE USER, so its exact format is known. For idempotence, it
-   must be rewritten as several statements. The final result is:
-      CREATE USER IF NOT EXISTS user@host;
+   from SHOW CREATE USER, so its exact format is known.
+
+   If the user already exists locally and the local SHOW CREATE USER exactly
+   matches the snapshot, then return without doing anything, so that the
+   last_mod timestamp on the user's password does not get unnecessarily reset.
+
+   Otherwise, try to apply the statement as-is. This can fail for several
+   reasons (some of which are tested in the apply_stored_grants test case),
+   but if might succeed.
+
+   If running the CREATE USER statement failed, it must be rewritten as
+   several statements. The final result is:
+      CREATE USER IF NOT EXISTS user@host  IDENTIFIED BY RANDOM PASSWORD;
       REVOKE ALL ON *.* FROM user@host;
       ALTER USER user@host ...;   [CLEAR RESOURCE LIMITS]
       ALTER USER user@host ...;   [SET VALUES FROM SHOW CREATE USER]
+      ALTER USER user@host DEFAULT ROLE ... ;
+
+  The DEFAULT ROLE statement is pushed to the end of a list and run later,
+  after some other statement in the snapshot possibly creates the named role.
 */
 void ThreadContext::create_user(std::string &name, std::string &statement) {
-  const std::string create_user("CREATE USER IF NOT EXISTS ");
+  const std::string create_user_if_ne("CREATE USER IF NOT EXISTS ");
   const std::string random_pass(" IDENTIFIED BY RANDOM PASSWORD");
   const std::string alter_user("ALTER USER ");
   const std::string revoke_all("REVOKE ALL ON *.* FROM ");
@@ -630,12 +683,32 @@ void ThreadContext::create_user(std::string &name, std::string &statement) {
       " WITH MAX_QUERIES_PER_HOUR 0 MAX_UPDATES_PER_HOUR 0 "
       " MAX_CONNECTIONS_PER_HOUR 0 MAX_USER_CONNECTIONS 0");
 
-  /* Run statement CREATE USER IF NOT EXISTS */
-  if (!get_local_user(name)) {
-    ndb_log_info("From stored snapshot, adding NDB stored user: %s",
-                 name.c_str());
-    run_acl_statement(create_user + name + random_pass);
+  const bool exists_in_cache = get_local_user(name);
+
+  if (exists_in_cache) {
+    /* Compare the snapshot user to the local one. Before comparing, we must
+       detect whether the password hash stored in the snapshot used hex encoding
+       or a plain string.  In statement.find(), 36 characters skips past
+       "CREATE USER `a`@`%` IDENTIFIED WITH".
+    */
+    std::string show_create;
+    bool is_hex = (statement.find(" AS 0x", 36) != std::string::npos);
+    if (show_create_user(name, show_create, is_hex) && show_create == statement)
+      return;  // Current SHOW CREATE USER already matches snapshot
+  } else {
+    local_granted_users.insert(name);
   }
+
+  ndb_log_info("From stored snapshot, adding NDB stored user: %s",
+               name.c_str());
+
+  /* Try to run the CREATE USER statement stored in the snapshot.
+     If this succeeds, we are done; but there are several reasons it might fail.
+  */
+  if (try_create_user(statement) == false) return;
+
+  /* Create the user with a random password (unless the user already exists) */
+  run_acl_statement(create_user_if_ne + name + random_pass);
 
   /* Revoke any privileges the user may have had prior to this snapshot. */
   run_acl_statement(revoke_all + name);
@@ -654,7 +727,7 @@ void ThreadContext::create_user(std::string &name, std::string &statement) {
   }
 
   /* Locate the part between DEFAULT ROLE and REQUIRE */
-  size_t require_pos = statement.find("REQUIRE ", default_role_pos + 14);
+  size_t require_pos = statement.find(" REQUIRE ", default_role_pos + 14);
   assert(require_pos != std::string::npos);
   size_t role_clause_len = require_pos - default_role_pos;
 
@@ -673,9 +746,9 @@ void ThreadContext::create_user(std::string &name, std::string &statement) {
  */
 void ThreadContext::apply_current_snapshot() {
   for (const char *row : m_current_rows) {
-    unsigned int note;
-    size_t str_length;
-    const char *str_start;
+    unsigned int note = 0;
+    size_t str_length = 0;
+    const char *str_start = nullptr;
     bool is_null;
 
     int type = Buffer::getType(row);
@@ -753,7 +826,7 @@ int ThreadContext::get_user_lists_for_statement(ChangeNotice *notice) {
   assert(m_statement_users.size() == 0);
   assert(m_intersection.size() == 0);
 
-  for (const ChangeNotice::User &notice_user : notice->get_user_list()) {
+  for (const ChangeNotice::User notice_user : notice->get_user_list()) {
     std::string user;
     format_user(user, notice_user);
     m_statement_users.push_back(user);
@@ -927,6 +1000,13 @@ bool Ndb_stored_grants::setup(THD *thd, Thd_ndb *thd_ndb) {
 
   metadata_table.setup(thd_ndb->ndb->getDictionary(),
                        sql_metadata_table.get_table());
+  const NdbError &err = metadata_table.initializeSnapshotLock(thd_ndb->ndb);
+  if (err.status != NdbError::Success) {
+    ndb_log_error("ndb_stored_grants initalizeSnapshotLock failure: %d %s",
+                  err.code, err.message);
+    return false;
+  }
+
   return true;
 }
 
@@ -969,6 +1049,11 @@ Ndb_stored_grants::Strategy Ndb_stored_grants::handle_local_acl_change(
     THD *thd, const Acl_change_notification *notice, std::string *user_list,
     bool *schema_dist_use_db, bool *must_refresh) {
   ThreadContext context(thd);
+
+  if (notice == nullptr) {
+    ndb_log_error("stored grants: no Acl_change_notification");
+    return Strategy::ERROR;
+  }
 
   if (!metadata_table.isInitialized()) {
     ndb_log_error("stored grants: not intialized.");
@@ -1017,4 +1102,18 @@ bool Ndb_stored_grants::update_users_from_snapshot(THD *thd,
   context.apply_current_snapshot();
   context.handle_dropped_users();
   return true;  // success
+}
+
+NdbTransaction *Ndb_stored_grants::acquire_snapshot_lock(THD *thd) {
+  NdbTransaction *transaction;
+  Ndb *ndb = get_thd_ndb(thd)->ndb;
+  const NdbError &err = metadata_table.acquireSnapshotLock(ndb, transaction);
+  if (err.status != NdbError::Success)
+    ndb_log_error("acquire_snapshot_lock: Error %d '%s'", err.code,
+                  err.message);
+  return transaction;
+}
+
+void Ndb_stored_grants::release_snapshot_lock(NdbTransaction *transaction) {
+  metadata_table.releaseSnapshotLock(transaction);
 }

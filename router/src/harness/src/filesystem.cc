@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,8 +31,7 @@
 #include <functional>
 #include <iterator>
 #include <ostream>
-
-using std::string;
+#include <string_view>
 
 namespace mysql_harness {
 
@@ -41,8 +41,8 @@ namespace mysql_harness {
 Path::Path() noexcept : type_(FileType::EMPTY_PATH) {}
 
 // throws std::invalid_argument
-Path::Path(const std::string &path)
-    : path_(path), type_(FileType::TYPE_UNKNOWN) {
+Path::Path(std::string path)
+    : path_(std::move(path)), type_(FileType::TYPE_UNKNOWN) {
 #ifdef _WIN32
   // in Windows, we normalize directory separator from \ to /, to not
   // confuse the rest of the code, which assume \ to be an escape char
@@ -52,17 +52,14 @@ Path::Path(const std::string &path)
     p = path_.find('\\');
   }
 #endif
-  string::size_type pos = path_.find_last_not_of(directory_separator);
-  if (pos != string::npos)
+  std::string::size_type pos = path_.find_last_not_of(directory_separator);
+  if (pos != std::string::npos)
     path_.erase(pos + 1);
   else if (path_.size() > 0)
     path_.erase(1);
   else
     throw std::invalid_argument("Empty path");
 }
-
-// throws std::invalid_argument
-Path::Path(const char *path) : Path(string(path)) {}
 
 // throws std::invalid_argument
 void Path::validate_non_empty_path() const {
@@ -79,22 +76,22 @@ bool Path::operator<(const Path &rhs) const { return path_ < rhs.path_; }
 
 Path Path::basename() const {
   validate_non_empty_path();  // throws std::invalid_argument
-  string::size_type pos = path_.find_last_of(directory_separator);
-  if (pos == string::npos)
+  std::string::size_type pos = path_.find_last_of(directory_separator);
+  if (pos == std::string::npos)
     return *this;
   else if (pos > 1)
-    return string(path_, pos + 1);
+    return std::string(path_, pos + 1);
   else
     return Path(root_directory);
 }
 
 Path Path::dirname() const {
   validate_non_empty_path();  // throws std::invalid_argument
-  string::size_type pos = path_.find_last_of(directory_separator);
-  if (pos == string::npos)
+  std::string::size_type pos = path_.find_last_of(directory_separator);
+  if (pos == std::string::npos)
     return Path(".");
   else if (pos > 0)
-    return string(path_, 0, pos);
+    return std::string(path_, 0, pos);
   else
     return Path(root_directory);
 }
@@ -111,10 +108,12 @@ bool Path::is_regular() const {
 
 bool Path::exists() const {
   validate_non_empty_path();  // throws std::invalid_argument
-  // First type() needs to be force refreshed as the type of the file could have
+  // type() needs to be force refreshed as the type of the file could have
   // been changed in the meantime (e.g. file was created)
-  return type(true) != FileType::FILE_NOT_FOUND &&
-         type() != FileType::STATUS_ERROR;
+
+  auto ft = type(true);
+
+  return ft != FileType::FILE_NOT_FOUND && ft != FileType::STATUS_ERROR;
 }
 
 void Path::append(const Path &other) {
@@ -178,7 +177,7 @@ Directory::DirectoryIterator Directory::begin() {
   return DirectoryIterator(*this);
 }
 
-Directory::DirectoryIterator Directory::glob(const string &pattern) {
+Directory::DirectoryIterator Directory::glob(const std::string &pattern) {
   return DirectoryIterator(*this, pattern);
 }
 
@@ -267,35 +266,45 @@ stdx::expected<void, std::error_code> delete_dir_recursive(
 }
 
 std::string get_plugin_dir(const std::string &runtime_dir) {
-  std::string cur_dir = Path(runtime_dir.c_str()).basename().str();
+  std::string cur_dir = Path(runtime_dir).basename().str();
   if (cur_dir == "runtime_output_directory") {
     // single configuration build
-    auto result = Path(runtime_dir.c_str()).dirname();
-    return result.join("plugin_output_directory").str();
+    return Path(runtime_dir).dirname().join("plugin_output_directory").str();
   } else {
     // multiple configuration build
     // in that case cur_dir has to be configuration name (Debug, Release etc.)
     // we need to go 2 levels up
-    auto result = Path(runtime_dir.c_str()).dirname().dirname();
-    return result.join("plugin_output_directory").join(cur_dir).str();
+    return Path(runtime_dir)
+        .dirname()
+        .dirname()
+        .join("plugin_output_directory")
+        .join(cur_dir)
+        .str();
   }
 }
 
-HARNESS_EXPORT
 std::string get_tests_data_dir(const std::string &runtime_dir) {
-  std::string cur_dir = Path(runtime_dir.c_str()).basename().str();
+  std::string cur_dir = Path(runtime_dir).basename().str();
   if (cur_dir == "runtime_output_directory") {
     // single configuration build
-    auto result = Path(runtime_dir.c_str()).dirname();
-    return result.join("router").join("tests").join("data").str();
+    return Path(runtime_dir)
+        .dirname()
+        .join("router")
+        .join("tests")
+        .join("data")
+        .str();
   } else {
     // multiple configuration build
     // in that case cur_dir has to be configuration name (Debug, Release etc.)
     // we need to go 2 levels up
-    auto result = Path(runtime_dir.c_str()).dirname().dirname();
-    return result.join("router").join("tests").join("data").join(cur_dir).str();
-
-    return result.str();
+    return Path(runtime_dir)
+        .dirname()
+        .dirname()
+        .join("router")
+        .join("tests")
+        .join("data")
+        .join(cur_dir)
+        .str();
   }
 }
 
@@ -325,6 +334,26 @@ int mkdir(const std::string &dir, perm_mode mode, bool recursive) {
   }
 
   return mkdir_recursive(mysql_harness::Path(dir), mode);
+}
+
+void check_file_access_rights(const std::string &file_name) {
+  auto rights_res = access_rights_get(file_name);
+  if (!rights_res) {
+    auto ec = rights_res.error();
+
+    if (ec == std::errc::no_such_file_or_directory) return;
+
+    throw std::system_error(
+        ec, "getting access rights for '" + file_name + "' failed");
+  }
+
+  auto verify_res =
+      access_rights_verify(rights_res.value(), DenyOtherReadWritableVerifier());
+  if (!verify_res) {
+    const auto ec = verify_res.error();
+
+    throw std::system_error(ec, "'" + file_name + "' has insecure permissions");
+  }
 }
 
 }  // namespace mysql_harness

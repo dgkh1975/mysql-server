@@ -1,15 +1,16 @@
-/* Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -193,7 +194,7 @@ static bool unregister_status_variables() {
   @retval 0 on success, errorno on failure
 */
 static int mysqlbackup_backup_id_check(MYSQL_THD thd,
-                                       SYS_VAR *self MY_ATTRIBUTE((unused)),
+                                       SYS_VAR *self [[maybe_unused]],
                                        void *save,
                                        struct st_mysql_value *value) {
   if (!have_backup_admin_privilege(thd))
@@ -334,11 +335,14 @@ mysql_service_status_t mysqlbackup_init() {
   /* If failed before the last initialization succeeded, deinitialize. */
   switch (failpoint) {
     case 3:
-      unregister_status_variables(); /*FALLTHROUGH*/
+      unregister_status_variables();
+      [[fallthrough]];
     case 2:
-      unregister_system_variables(); /*FALLTHROUGH*/
+      unregister_system_variables();
+      [[fallthrough]];
     case 1:
-      deinitialize_log_service(); /*FALLTHROUGH*/
+      deinitialize_log_service();
+      [[fallthrough]];
     case 0:
       return (1);
   }
@@ -359,6 +363,10 @@ mysql_service_status_t mysqlbackup_deinit() {
   if (unregister_status_variables()) failed = 1;
   if (unregister_system_variables()) failed = 1;
   if (deinitialize_log_service()) failed = 1;
+  // Reset variables to the state they had at the first dlopen().
+  mysqlbackup_component_version = nullptr;
+  mysqlbackup_backup_id = nullptr;
+  mysqlbackup_component_sys_var_registered = false;
   return (failed);
 }
 
@@ -380,6 +388,7 @@ REQUIRES_SERVICE_PLACEHOLDER(component_sys_variable_unregister);
 REQUIRES_SERVICE_PLACEHOLDER(status_variable_registration);
 REQUIRES_SERVICE_PLACEHOLDER(udf_registration);
 REQUIRES_SERVICE_PLACEHOLDER(mysql_thd_security_context);
+REQUIRES_SERVICE_PLACEHOLDER(mysql_runtime_error);
 REQUIRES_SERVICE_PLACEHOLDER(mysql_security_context_options);
 REQUIRES_SERVICE_PLACEHOLDER(mysql_page_track);
 REQUIRES_SERVICE_PLACEHOLDER(global_grants_check);
@@ -399,6 +408,7 @@ REQUIRES_SERVICE(registry), REQUIRES_SERVICE(log_builtins),
     REQUIRES_SERVICE(status_variable_registration),
     REQUIRES_SERVICE(udf_registration),
     REQUIRES_SERVICE(mysql_thd_security_context),
+    REQUIRES_SERVICE(mysql_runtime_error),
     REQUIRES_SERVICE(mysql_security_context_options),
     REQUIRES_SERVICE(mysql_page_track), REQUIRES_SERVICE(global_grants_check),
     REQUIRES_SERVICE(mysql_current_thread_reader),

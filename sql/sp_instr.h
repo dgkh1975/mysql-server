@@ -1,15 +1,16 @@
-/* Copyright (c) 2012, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2012, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -37,8 +38,9 @@
 #include "my_inttypes.h"
 #include "my_psi_config.h"
 #include "my_sys.h"
-#include "mysql/components/services/psi_statement_bits.h"
+#include "mysql/components/services/bits/psi_statement_bits.h"
 #include "sql/sql_class.h"  // Query_arena
+#include "sql/sql_const.h"
 #include "sql/sql_error.h"
 #include "sql/sql_lex.h"
 #include "sql/sql_list.h"
@@ -52,7 +54,7 @@ class sp_handler;
 class sp_head;
 class sp_pcontext;
 class sp_variable;
-struct TABLE_LIST;
+class Table_ref;
 
 ///////////////////////////////////////////////////////////////////////////
 // This file contains SP-instruction classes.
@@ -158,8 +160,7 @@ class sp_instr : public sp_printable {
     index to the next instruction. Jump instruction will add their
     destination to the leads list.
   */
-  virtual uint opt_mark(sp_head *,
-                        List<sp_instr> *leads MY_ATTRIBUTE((unused))) {
+  virtual uint opt_mark(sp_head *, List<sp_instr> *leads [[maybe_unused]]) {
     m_marked = true;
     return get_ip() + 1;
   }
@@ -170,8 +171,7 @@ class sp_instr : public sp_printable {
     used to prevent the mark sweep from looping for ever. Return the
     end destination.
   */
-  virtual uint opt_shortcut_jump(sp_head *,
-                                 sp_instr *start MY_ATTRIBUTE((unused))) {
+  virtual uint opt_shortcut_jump(sp_head *, sp_instr *start [[maybe_unused]]) {
     return get_ip();
   }
 
@@ -181,8 +181,7 @@ class sp_instr : public sp_printable {
     must also take care of their destination pointers. Forward jumps get
     pushed to the backpatch list 'ibp'.
   */
-  virtual void opt_move(uint dst,
-                        List<sp_branch_instr> *ibp MY_ATTRIBUTE((unused))) {
+  virtual void opt_move(uint dst, List<sp_branch_instr> *ibp [[maybe_unused]]) {
     m_ip = dst;
   }
 
@@ -290,6 +289,8 @@ class sp_lex_instr : public sp_instr {
   */
   bool reset_lex_and_exec_core(THD *thd, uint *nextp, bool open_tables);
 
+  bool execute_expression(THD *thd, uint *nextp);
+
   /**
     (Re-)parse the query corresponding to this instruction and return a new
     LEX-object.
@@ -372,6 +373,10 @@ class sp_lex_instr : public sp_instr {
   */
   virtual void get_query(String *sql_query) const;
 
+  /**
+    Some expressions may be re-parsed as SELECT statements, but need to be
+    adjusted to another SQL command. This function facilitates that change.
+  */
   virtual void adjust_sql_command(LEX *) {}
 
   /**
@@ -396,7 +401,7 @@ class sp_lex_instr : public sp_instr {
 
     @return Error flag.
   */
-  virtual bool on_after_expr_parsing(THD *thd MY_ATTRIBUTE((unused))) {
+  virtual bool on_after_expr_parsing(THD *thd [[maybe_unused]]) {
     return false;
   }
 
@@ -417,7 +422,7 @@ class sp_lex_instr : public sp_instr {
     mem-root is freed when a reparse is triggered or the stored
     routine is dropped.
   */
-  MEM_ROOT m_lex_mem_root;
+  MEM_ROOT m_lex_mem_root{PSI_NOT_INSTRUMENTED, MEM_ROOT_BLOCK_SIZE};
 
   /**
     Indicates whether this sp_lex_instr instance is responsible for
@@ -442,13 +447,13 @@ class sp_lex_instr : public sp_instr {
     List of additional tables this statement needs to lock when it
     enters/leaves prelocked mode on its own.
   */
-  TABLE_LIST *m_prelocking_tables;
+  Table_ref *m_prelocking_tables;
 
   /**
     The value m_lex->query_tables_own_last should be set to this when the
     statement enters/leaves prelocked mode on its own.
   */
-  TABLE_LIST **m_lex_query_tables_own_last;
+  Table_ref **m_lex_query_tables_own_last;
 
   /**
     List of all the Item_trigger_field's of instruction.
@@ -558,6 +563,7 @@ class sp_instr_set : public sp_lex_instr {
   LEX_CSTRING get_expr_query() const override { return m_value_query; }
 
   void adjust_sql_command(LEX *lex) override {
+    assert(lex->sql_command == SQLCOM_SELECT);
     lex->sql_command = SQLCOM_SET_OPTION;
   }
 
@@ -687,6 +693,11 @@ class sp_instr_freturn : public sp_lex_instr {
   }
 
   LEX_CSTRING get_expr_query() const override { return m_expr_query; }
+
+  void adjust_sql_command(LEX *lex) override {
+    assert(lex->sql_command == SQLCOM_SELECT);
+    lex->sql_command = SQLCOM_END;
+  }
 
  private:
   /// RETURN-expression item.
@@ -845,6 +856,11 @@ class sp_lex_branch_instr : public sp_lex_instr, public sp_branch_instr {
     m_dest = dest;
   }
 
+  void adjust_sql_command(LEX *lex) override {
+    assert(lex->sql_command == SQLCOM_SELECT);
+    lex->sql_command = SQLCOM_END;
+  }
+
  protected:
   /// Where we will go.
   uint m_dest;
@@ -942,7 +958,7 @@ class sp_instr_set_case_expr : public sp_lex_branch_instr {
   /////////////////////////////////////////////////////////////////////////
 
   /*
-    NOTE: set_destination() and backpatch() are overriden here just because the
+    NOTE: set_destination() and backpatch() are overridden here just because the
     m_dest attribute is not used by this class, so there is no need to do
     anything about it.
 

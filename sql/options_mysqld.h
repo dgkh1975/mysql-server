@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -61,7 +62,7 @@ enum options_mysqld {
   OPT_REPLICATE_WILD_DO_TABLE,
   OPT_REPLICATE_WILD_IGNORE_TABLE,
   OPT_SERVER_ID,
-  OPT_SKIP_HOST_CACHE,
+  OPT_SKIP_HOST_CACHE_DEPRECATED,
   OPT_SKIP_LOCK,
   OPT_SKIP_NEW,
   OPT_SKIP_RESOLVE,
@@ -125,7 +126,17 @@ enum options_mysqld {
   OPT_USE_SSL,
   OPT_USE_ADMIN_SSL,
   OPT_TRANSACTION_WRITE_SET_EXTRACTION,
-  OPT_SHOW_SLAVE_AUTH_INFO_DEPRECATED
+  OPT_SHOW_SLAVE_AUTH_INFO_DEPRECATED,
+  OPT_DISCONNECT_SLAVE_EVENT_COUNT,
+  OPT_ABORT_SLAVE_EVENT_COUNT,
+  OPT_REPLICA_PARALLEL_TYPE,
+  OPT_SSL_SESSION_CACHE_TIMEOUT,
+  OPT_REPLICA_PARALLEL_WORKERS,
+  OPT_OLD_STYLE_USER_LIMITS,
+  OPT_SYNC_RELAY_LOG_INFO,
+  OPT_BINLOG_TRANSACTION_DEPENDENCY_TRACKING,
+  OPT_CHARACTER_SET_CLIENT_HANDSHAKE,
+  OPT_OLD_OPTION
 };
 
 #endif  // OPTIONS_MYSQLD_INCLUDED

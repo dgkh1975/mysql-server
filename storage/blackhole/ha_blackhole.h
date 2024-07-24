@@ -1,15 +1,16 @@
-/* Copyright (c) 2005, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2005, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,10 +23,19 @@
 
 #include <sys/types.h>
 
+#include "my_base.h"
 #include "my_inttypes.h"
 #include "sql/handler.h" /* handler */
-#include "sql/table.h"   /* TABLE_SHARE */
-#include "thr_lock.h"    /* THR_LOCK */
+#include "sql/key.h"
+#include "sql/table.h" /* TABLE_SHARE */
+#include "thr_lock.h"  /* THR_LOCK */
+
+class String;
+class THD;
+struct FT_INFO;
+namespace dd {
+class Table;
+}
 
 /*
   Shared structure for correct LOCK operation
@@ -69,15 +79,15 @@ class ha_blackhole : public handler {
                       HA_KEYREAD_ONLY);
   }
   /* The following defines can be increased if necessary */
-#define BLACKHOLE_MAX_KEY 64     /* Max allowed keys */
-#define BLACKHOLE_MAX_KEY_SEG 16 /* Max segments for key */
-#define BLACKHOLE_MAX_KEY_LENGTH 1000
+#define BLACKHOLE_MAX_KEY 64          /* Max allowed keys */
+#define BLACKHOLE_MAX_KEY_SEG 16      /* Max segments for key */
+#define BLACKHOLE_MAX_KEY_LENGTH 3072 /* Keep compatible with innoDB */
   uint max_supported_keys() const override { return BLACKHOLE_MAX_KEY; }
   uint max_supported_key_length() const override {
     return BLACKHOLE_MAX_KEY_LENGTH;
   }
-  uint max_supported_key_part_length(
-      HA_CREATE_INFO *create_info MY_ATTRIBUTE((unused))) const override {
+  uint max_supported_key_part_length(HA_CREATE_INFO *create_info
+                                     [[maybe_unused]]) const override {
     return BLACKHOLE_MAX_KEY_LENGTH;
   }
   int open(const char *name, int mode, uint test_if_locked,
@@ -104,6 +114,11 @@ class ha_blackhole : public handler {
              dd::Table *table_def) override;
   THR_LOCK_DATA **store_lock(THD *thd, THR_LOCK_DATA **to,
                              enum thr_lock_type lock_type) override;
+  FT_INFO *ft_init_ext(uint flags, uint inx, String *key) override;
+  int ft_init() override;
+
+ protected:
+  int ft_read(uchar *buf) override;
 
  private:
   int write_row(uchar *buf) override;

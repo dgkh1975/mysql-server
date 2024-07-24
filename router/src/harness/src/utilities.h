@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,11 +31,7 @@
 #include <string>
 #include <vector>
 
-#include "my_compiler.h"
-
 #include "harness_export.h"
-#include "mysql/harness/utility/string.h"
-#include "router_config.h"
 
 namespace mysql_harness {
 
@@ -184,18 +181,12 @@ void strip(std::string *str, const char *chars = " \t\n\r\f\v");
 HARNESS_EXPORT
 std::string strip_copy(std::string str, const char *chars = " \t\n\r\f\v");
 
-HARNESS_EXPORT
-MY_ATTRIBUTE((format(printf, 1, 2)))
-std::string string_format(const char *format, ...);
-
 bool matches_glob(const std::string &word, const std::string &pattern);
 
 /*
- * Checks wheter given string matches the pattern using extended posix regex.
+ * Checks whether given string matches the pattern using extended posix regex.
  */
 bool regex_pattern_matches(const std::string &s, const std::string &pattern);
-
-bool notify(const std::string &msg);
 
 }  // namespace utility
 

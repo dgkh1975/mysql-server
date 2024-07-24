@@ -1,18 +1,19 @@
 #ifndef SQL_STRING_INCLUDED
 #define SQL_STRING_INCLUDED
 
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -35,6 +36,7 @@
 #include <sys/types.h>
 #include <new>
 #include <string>
+#include <string_view>
 
 #include "lex_string.h"
 #include "m_ctype.h"   // my_convert
@@ -42,6 +44,7 @@
 #include "memory_debugging.h"
 #include "my_alloc.h"
 #include "my_compiler.h"
+#include "my_sys.h"
 
 #include "my_inttypes.h"
 #include "mysql/components/services/bits/psi_bits.h"
@@ -67,7 +70,7 @@ extern PSI_memory_key key_memory_String_value;
   pass it and its descendants (such as Name_string) into functions
   using call-by-value evaluation.
 
-  Don't add new members or virual methods into this class!
+  Don't add new members or virtual methods to this class!
 */
 class Simple_cstring {
  private:
@@ -218,8 +221,8 @@ class String {
     str.m_is_alloced = false;
   }
   static void *operator new(size_t size, MEM_ROOT *mem_root,
-                            const std::nothrow_t &arg MY_ATTRIBUTE((unused)) =
-                                std::nothrow) noexcept {
+                            const std::nothrow_t &arg
+                            [[maybe_unused]] = std::nothrow) noexcept {
     return mem_root->Alloc(size);
   }
   static void operator delete(void *ptr_arg, size_t size) {
@@ -469,7 +472,7 @@ class String {
     s.m_is_alloced = false;
   }
 
-  bool copy();                 // Alloc string if not alloced
+  bool copy();                 // Alloc string if not allocated
   bool copy(const String &s);  // Allocate new string
   // Allocate new string
   bool copy(const char *s, size_t arg_length, const CHARSET_INFO *cs);
@@ -495,7 +498,7 @@ class String {
   bool copy(const char *s, size_t arg_length, const CHARSET_INFO *csfrom,
             const CHARSET_INFO *csto, uint *errors);
   bool append(const String &s);
-  bool append(const char *s);
+  bool append(std::string_view s) { return append(s.data(), s.size()); }
   bool append(LEX_STRING *ls) { return append(ls->str, ls->length); }
   bool append(Simple_cstring str) { return append(str.ptr(), str.length()); }
   bool append(const char *s, size_t arg_length);
@@ -526,7 +529,7 @@ class String {
   */
   int strrstr(const String &search, size_t offset = 0) const;
   /**
-   * Returns substring of given characters lenght, starting at given character
+   * Returns substring of given characters length, starting at given character
    * offset. Note that parameter indexes are character indexes and not byte
    * indexes.
    */
@@ -606,6 +609,35 @@ class String {
   */
   char *dup(MEM_ROOT *root) const;
 };
+
+/**
+  Checks that the source string can be just copied to the destination string
+  without conversion.
+
+  @param arg_length     Length of string to copy.
+  @param from_cs        Character set to copy from
+  @param to_cs          Character set to copy to
+  @param *offset	Returns number of unaligned characters.
+
+  @returns true if conversion is required, false otherwise.
+
+  @note
+  to_cs may be nullptr for "no conversion" if the system variable
+  character_set_results is NULL.
+*/
+
+inline bool String::needs_conversion(size_t arg_length,
+                                     const CHARSET_INFO *from_cs,
+                                     const CHARSET_INFO *to_cs,
+                                     size_t *offset) {
+  *offset = 0;
+  if (to_cs == nullptr || (to_cs == &my_charset_bin) || from_cs == to_cs ||
+      my_charset_same(from_cs, to_cs) ||
+      ((from_cs == &my_charset_bin) &&
+       (0 == (*offset = (arg_length % to_cs->mbminlen)))))
+    return false;
+  return true;
+}
 
 static inline void swap(String &a, String &b) noexcept { a.swap(b); }
 

@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -54,7 +55,7 @@ class Collation : virtual public Entity_object {
   // Persisted pad attribute, mapped from Pad_attribute enum defined
   // in include/m_ctype.h. The setter is not part of the public API,
   // and there is no getter, since this attribute is only exposed
-  // throught the I_S.
+  // through the I_S.
   enum enum_pad_attribute { PA_UNDEFINED, PA_PAD_SPACE, PA_NO_PAD };
 
   // We need a set of functions to update a preallocated key.
@@ -93,7 +94,7 @@ class Collation : virtual public Entity_object {
   virtual uint sort_length() const = 0;
 
   /**
-    Allocate a new object and invoke the copy contructor.
+    Allocate a new object and invoke the copy constructor.
 
     @return pointer to dynamically allocated copy
   */

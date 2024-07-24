@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -28,6 +29,8 @@
 #include "plugin/group_replication/libmysqlgcs/include/mysql/gcs/gcs_communication_event_listener.h"
 #include "plugin/group_replication/libmysqlgcs/include/mysql/gcs/gcs_message.h"
 #include "plugin/group_replication/libmysqlgcs/include/mysql/gcs/gcs_types.h"
+
+#include "plugin/group_replication/libmysqlgcs/src/bindings/xcom/xcom/network/include/network_provider.h"
 
 /**
   @class Gcs_communication_interface
@@ -168,6 +171,20 @@ class Gcs_communication_interface {
    */
   virtual Gcs_protocol_version get_maximum_supported_protocol_version()
       const = 0;
+
+  /**
+   * @brief Sets the communication protocol to use
+   *
+   * @param protocol the protocol to use
+   */
+  virtual void set_communication_protocol(enum_transport_protocol protocol) = 0;
+
+  /**
+   * @brief Get the incoming connections protocol which is currently active
+   *
+   * @return GcsRunningProtocol
+   */
+  virtual enum_transport_protocol get_incoming_connections_protocol() = 0;
 
   virtual ~Gcs_communication_interface() = default;
 };

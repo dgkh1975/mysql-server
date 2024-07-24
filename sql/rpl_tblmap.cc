@@ -1,15 +1,16 @@
-/* Copyright (c) 2005, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2005, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -53,11 +54,10 @@ static const PSI_memory_key table_psi_key = PSI_NOT_INSTRUMENTED;
 static const PSI_memory_key table_psi_key = key_memory_table_mapping_root;
 #endif
 
-table_mapping::table_mapping() : m_free(nullptr), m_table_ids(table_psi_key) {
-  /* We don't preallocate any block, this is consistent with m_free=0 above */
-  init_alloc_root(table_psi_key, &m_mem_root,
-                  TABLE_ID_HASH_SIZE * sizeof(entry), 0);
-}
+table_mapping::table_mapping()
+    : m_mem_root(table_psi_key, TABLE_ID_HASH_SIZE * sizeof(entry)),
+      m_free(nullptr),
+      m_table_ids(table_psi_key) {}
 
 table_mapping::~table_mapping() {
 #ifndef MYSQL_SERVER

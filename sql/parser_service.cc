@@ -1,15 +1,16 @@
-/*  Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/*  Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License, version 2.0,
     as published by the Free Software Foundation.
 
-    This program is also distributed with certain software (including
+    This program is designed to work with certain software (including
     but not limited to OpenSSL) that is licensed under separate terms,
     as designated in a particular file or component or in included license
     documentation.  The authors of MySQL hereby grant you an additional
     permission to link the program and your derivative works with the
-    separately licensed software that they have included with MySQL.
+    separately licensed software that they have either included with
+    the program or referenced in the documentation.
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -250,6 +251,7 @@ int mysql_parser_parse(MYSQL_THD thd, const MYSQL_LEX_STRING query,
   Parser_state parser_state;
   if (parser_state.init(thd, query.str, query.length)) return 1;
 
+  parser_state.m_input.m_has_digest = true;
   parser_state.m_input.m_compute_digest = true;
   thd->m_digest = &thd->m_digest_state;
   thd->m_digest->reset(thd->m_token_array, max_digest_length);
@@ -284,16 +286,20 @@ int mysql_parser_get_statement_type(MYSQL_THD thd) {
   switch (lex->sql_command) {
     case SQLCOM_SELECT:
       return STATEMENT_TYPE_SELECT;
-    case SQLCOM_UPDATE:  // Fall through
+    case SQLCOM_UPDATE:
+      [[fallthrough]];
     case SQLCOM_UPDATE_MULTI:
       return STATEMENT_TYPE_UPDATE;
-    case SQLCOM_INSERT:  // Fall through
+    case SQLCOM_INSERT:
+      [[fallthrough]];
     case SQLCOM_INSERT_SELECT:
       return STATEMENT_TYPE_INSERT;
-    case SQLCOM_REPLACE:  // Fall through
+    case SQLCOM_REPLACE:
+      [[fallthrough]];
     case SQLCOM_REPLACE_SELECT:
       return STATEMENT_TYPE_REPLACE;
-    case SQLCOM_DELETE:  // Fall through
+    case SQLCOM_DELETE:
+      [[fallthrough]];
     case SQLCOM_DELETE_MULTI:
       return STATEMENT_TYPE_DELETE;
     default:

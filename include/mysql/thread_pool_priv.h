@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2010, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2010, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -74,6 +75,8 @@ struct Connection_handler_functions {
 THD *create_thd(Channel_info *channel_info);
 /* destroy channel_info object */
 void destroy_channel_info(Channel_info *channel_info);
+/* Is the connection events loop aborted during shutdown. */
+bool connection_events_loop_aborted();
 /* Decrement connection counter */
 void dec_connection_count();
 /*
@@ -108,6 +111,7 @@ THD *thd_get_current_thd();
 void thd_lock_data(THD *thd);
 void thd_unlock_data(THD *thd);
 bool thd_is_transaction_active(THD *thd);
+bool thd_in_active_multi_stmt_transaction(const THD *);
 int thd_connection_has_data(THD *thd);
 void thd_set_net_read_write(THD *thd, uint val);
 uint thd_get_net_read_write(THD *thd);

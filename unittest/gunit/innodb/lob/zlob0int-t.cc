@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -42,7 +43,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 using namespace zlob;
 
 void index_entry_test_00() {
-  std::unique_ptr<byte> ptr(new byte[300]);
+  std::unique_ptr<byte[]> ptr(new byte[300]);
   z_index_entry_t ie(ptr.get());
   ie.init();
   std::cout << ie << std::endl;
@@ -50,7 +51,7 @@ void index_entry_test_00() {
 }
 
 void frag_entry_test_00() {
-  std::unique_ptr<byte> ptr(new byte[300]);
+  std::unique_ptr<byte[]> ptr(new byte[300]);
   z_frag_entry_t fe(ptr.get());
   fe.init();
   std::cout << fe << std::endl;
@@ -80,7 +81,7 @@ void basic_insert_test(ulint size) {
   dberr_t err = zlob::z_insert(trxid, ref, lob, size);
   ASSERT_TRUE(err == DB_SUCCESS);
 
-  std::unique_ptr<byte> buf(new byte[size]);
+  std::unique_ptr<byte[]> buf(new byte[size]);
   ulint n = zlob::z_read(trxid, ref, 0, size, buf.get());
   ASSERT_EQ(n, size);
   ASSERT_TRUE(memcmp(lob, buf.get(), size) == 0);
@@ -129,7 +130,7 @@ void basic_insert_read_test() {
 
   zlob::z_print_info(ref, std::cout);
 
-  std::unique_ptr<byte> buf(new byte[size]);
+  std::unique_ptr<byte[]> buf(new byte[size]);
 
   ulint n = zlob::z_read(trxid, ref, 0, size, buf.get());
   ut_a(n == size);
@@ -165,7 +166,7 @@ void z_replace_generic(ulint size, ulint offset, ulint replace_len) {
   /* Fetch the LOB that has been inserted. */
   ulint fetch_offset = 0;
   ulint fetch_bytes = SIZE;
-  std::unique_ptr<byte> buf(new byte[fetch_bytes]);
+  std::unique_ptr<byte[]> buf(new byte[fetch_bytes]);
   zlob::z_read(trx1, ref, fetch_offset, fetch_bytes, buf.get());
   ut_ad(memcmp(buf.get(), lob, SIZE) == 0);
 
@@ -185,7 +186,7 @@ void z_replace_generic(ulint size, ulint offset, ulint replace_len) {
 
   /* Fetch the older LOB that has been originally inserted. */
   trx_id_t trx3 = 250;
-  std::unique_ptr<byte> buf2(new byte[SIZE]);
+  std::unique_ptr<byte[]> buf2(new byte[SIZE]);
   zlob::z_read(trx3, ref, fetch_offset, fetch_bytes, buf2.get());
 
   if (memcmp(buf2.get(), lob, SIZE) != 0) {
@@ -246,7 +247,7 @@ void z_insert_middle_generic(ulint size, ulint offset, ulint insert_len) {
   /* Fetch the LOB that has been inserted. */
   ulint fetch_offset = 0;
   ulint fetch_bytes = SIZE;
-  std::unique_ptr<byte> buf(new byte[fetch_bytes]);
+  std::unique_ptr<byte[]> buf(new byte[fetch_bytes]);
   zlob::z_read(trx1, ref, fetch_offset, fetch_bytes, buf.get());
 
   ASSERT_TRUE(memcmp(buf.get(), lob, SIZE) == 0);
@@ -260,7 +261,7 @@ void z_insert_middle_generic(ulint size, ulint offset, ulint insert_len) {
 
   /* Fetch the older LOB that has been originally inserted. */
   trx_id_t trx3 = 250;
-  std::unique_ptr<byte> buf2(new byte[SIZE]);
+  std::unique_ptr<byte[]> buf2(new byte[SIZE]);
   zlob::z_read(trx3, ref, fetch_offset, fetch_bytes, buf2.get());
 
   ASSERT_TRUE(memcmp(buf2.get(), lob, SIZE) == 0);
@@ -268,7 +269,7 @@ void z_insert_middle_generic(ulint size, ulint offset, ulint insert_len) {
   /* Fetch the newer LOB that has been enlarged. */
   trx_id_t trx4 = 350;
   ulint new_size = SIZE + insert_len;
-  std::unique_ptr<byte> buf3(new byte[new_size]);
+  std::unique_ptr<byte[]> buf3(new byte[new_size]);
   memset(buf3.get(), '\0', new_size);
   ulint len = zlob::z_read(trx4, ref, 0, new_size, buf3.get());
   ASSERT_TRUE(len == new_size);
@@ -311,7 +312,7 @@ void z_remove_middle_generic(ulint size, ulint offset, ulint remove_len) {
   /* Fetch the LOB that has been inserted. */
   ulint fetch_offset = 0;
   ulint fetch_bytes = SIZE;
-  std::unique_ptr<byte> buf(new byte[fetch_bytes]);
+  std::unique_ptr<byte[]> buf(new byte[fetch_bytes]);
   zlob::z_read(trx1, ref, fetch_offset, fetch_bytes, buf.get());
 
   ASSERT_TRUE(memcmp(buf.get(), lob, SIZE) == 0);
@@ -322,7 +323,7 @@ void z_remove_middle_generic(ulint size, ulint offset, ulint remove_len) {
 
   /* Fetch the older LOB that has been originally inserted. */
   trx_id_t trx3 = 250;
-  std::unique_ptr<byte> buf2(new byte[SIZE]);
+  std::unique_ptr<byte[]> buf2(new byte[SIZE]);
   zlob::z_read(trx3, ref, fetch_offset, fetch_bytes, buf2.get());
 
   if (memcmp(buf2.get(), lob, SIZE) != 0) {
@@ -339,7 +340,7 @@ void z_remove_middle_generic(ulint size, ulint offset, ulint remove_len) {
   ulint can_delete = (SIZE - offset);
   ulint actually_deleted = remove_len > can_delete ? can_delete : remove_len;
   ulint new_size = SIZE - actually_deleted;
-  std::unique_ptr<byte> buf3(new byte[new_size]);
+  std::unique_ptr<byte[]> buf3(new byte[new_size]);
   memset(buf3.get(), '\0', new_size);
   ulint len = zlob::z_read(trx4, ref, 0, new_size, buf3.get());
   ASSERT_EQ(len, new_size);

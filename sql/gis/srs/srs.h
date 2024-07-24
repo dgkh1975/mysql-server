@@ -1,18 +1,19 @@
 #ifndef SQL_GIS_SRS_SRS_H_INCLUDED
 #define SQL_GIS_SRS_SRS_H_INCLUDED
 
-// Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+// Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License, version 2.0,
 // as published by the Free Software Foundation.
 //
-// This program is also distributed with certain software (including
+// This program is designed to work with certain software (including
 // but not limited to OpenSSL) that is licensed under separate terms,
 // as designated in a particular file or component or in included license
 // documentation.  The authors of MySQL hereby grant you an additional
 // permission to link the program and your derivative works with the
-// separately licensed software that they have included with MySQL.
+// separately licensed software that they have either included with
+// the program or referenced in the documentation.
 //
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,6 +27,7 @@
 #include <assert.h>
 #include <cmath>
 #include <cstdint>
+#include <sstream>
 #include <string>
 
 #include "sql/gis/srid.h"
@@ -100,7 +102,7 @@ class Spatial_reference_system {
   virtual ~Spatial_reference_system() = default;
 
   /**
-    Get the type of spatial refrence system: projected, geometric,
+    Get the type of spatial reference system: projected, geometric,
     etc.
 
     @return SRS type
@@ -264,6 +266,8 @@ class Geographic_srs : public Spatial_reference_system {
     return m_axes[axis];
   }
 
+  std::string partial_proj4_parameters() const;
+
   double semi_major_axis() const { return m_semi_major_axis; }
 
   double inverse_flattening() const { return m_inverse_flattening; }
@@ -353,12 +357,18 @@ class Projected_srs : public Spatial_reference_system {
   bool is_wgs84_based() const override {
     return m_geographic_srs.is_wgs84_based();
   }
+
+  std::string partial_proj4_parameters() const {
+    // return the result in the units of the srs
+    return m_geographic_srs.partial_proj4_parameters() +
+           " +to_meter=" + std::to_string(linear_unit());
+  }
 };
 
 /// A projected SRS of an unknown projection type.
 ///
 /// This SRS can be used as any other projected SRS, but since the
-/// projection type is unkown, geometries in this SRS can't be
+/// projection type is unknown, geometries in this SRS can't be
 /// transformed to other SRSs.
 class Unknown_projected_srs : public Projected_srs {
  public:
@@ -409,6 +419,8 @@ class Popular_visualisation_pseudo_mercator_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Lambert Azimuthal Equal Area (Spherical) projection (EPSG 1027).
@@ -442,6 +454,8 @@ class Lambert_azimuthal_equal_area_spherical_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// An Equidistant Cylindrical projection (EPSG 1028).
@@ -476,6 +490,8 @@ class Equidistant_cylindrical_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// An Equidistant Cylindrical (Spherical) projection (EPSG 1029).
@@ -510,6 +526,8 @@ class Equidistant_cylindrical_spherical_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Krovak (North Orientated) projection (EPSG 1041).
@@ -560,6 +578,8 @@ class Krovak_north_orientated_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Krovak Modified projection (EPSG 1042).
@@ -777,6 +797,8 @@ class Lambert_conic_conformal_2sp_michigan_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Colombia Urban projection(EPSG 1052).
@@ -813,6 +835,8 @@ class Colombia_urban_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Lambert Conic Conformal (1SP) projection, alias Lambert Conic
@@ -851,6 +875,8 @@ class Lambert_conic_conformal_1sp_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Lambert Conic Conformal (2SP) projection, alias Lambert Conic
@@ -894,6 +920,8 @@ class Lambert_conic_conformal_2sp_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Lambert Conic Conformal (2SP Belgium) projection (EPSG 9803).
@@ -936,6 +964,8 @@ class Lambert_conic_conformal_2sp_belgium_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Mercator (variant A) projection, alias Mercator (EPSG 9804).
@@ -973,6 +1003,8 @@ class Mercator_variant_a_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Mercator (variant B) projection, alias Mercator (EPSG 9805).
@@ -1007,6 +1039,8 @@ class Mercator_variant_b_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Cassini-Soldner projection, alias Cassini (EPSG 9806).
@@ -1040,6 +1074,8 @@ class Cassini_soldner_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Transverse Mercator projection, alias Gauss-Boaga, Gauss-Krüger
@@ -1078,6 +1114,8 @@ class Transverse_mercator_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Transverse Mercator (South Orientated) projection, alias
@@ -1116,6 +1154,8 @@ class Transverse_mercator_south_orientated_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// An Oblique stereographic projection, alias Double stereographic
@@ -1154,6 +1194,8 @@ class Oblique_stereographic_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Polar Stereographic (variant A) projection (EPSG 9810).
@@ -1191,6 +1233,8 @@ class Polar_stereographic_variant_a_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A New Zealand Map Grid projection (EPSG 9811).
@@ -1224,6 +1268,8 @@ class New_zealand_map_grid_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Hotine Oblique Mercator (variant A) projection, alias Rectified
@@ -1272,6 +1318,8 @@ class Hotine_oblique_mercator_variant_a_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Laborde Oblique Mercator projection (EPSG 9813).
@@ -1314,6 +1362,8 @@ class Laborde_oblique_mercator_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Hotine Oblique Mercator (variant B) projection, alias Rectified
@@ -1362,6 +1412,8 @@ class Hotine_oblique_mercator_variant_b_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Tunisia Mining Grid projection (EPSG 9816).
@@ -1433,6 +1485,8 @@ class Lambert_conic_near_conformal_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// An American Polyconic projection, alias Polyconic (EPSG 9818).
@@ -1466,6 +1520,8 @@ class American_polyconic_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Krovak projection (EPSG 9819).
@@ -1514,6 +1570,8 @@ class Krovak_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Lambert Azimuthal Equal Area projection, alias Lambert Equal
@@ -1548,6 +1606,8 @@ class Lambert_azimuthal_equal_area_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// An Albers Equal Area projection, alias Albers (EPSG 9822).
@@ -1590,6 +1650,8 @@ class Albers_equal_area_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Transverse Mercator Zoned Grid System projection (EPSG 9824).
@@ -1630,6 +1692,8 @@ class Transverse_mercator_zoned_grid_system_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Lambert Conic Conformal (West Orientated) projection (EPSG 9826).
@@ -1700,6 +1764,8 @@ class Bonne_south_orientated_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Polar Stereographic (variant B) projection (EPSG 9829).
@@ -1735,6 +1801,8 @@ class Polar_stereographic_variant_b_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Polar Stereographic (variant C) projection (EPSG 9830).
@@ -1770,6 +1838,8 @@ class Polar_stereographic_variant_c_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Guam Projection projection (EPSG 9831).
@@ -1803,6 +1873,8 @@ class Guam_projection_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Modified Azimuthal Equidistant projection (EPSG 9832).
@@ -1836,6 +1908,8 @@ class Modified_azimuthal_equidistant_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Hyperbolic Cassini-Soldner projection (EPSG 9833).
@@ -1869,6 +1943,8 @@ class Hyperbolic_cassini_soldner_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Lambert Cylindrical Equal Area (Spherical) projection (EPSG
@@ -1904,6 +1980,8 @@ class Lambert_cylindrical_equal_area_spherical_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /// A Lambert Cylindrical Equal Area projection (EPSG 9835).
@@ -1938,6 +2016,8 @@ class Lambert_cylindrical_equal_area_srs : public Projected_srs {
   }
 
   bool can_be_modified_to(const Spatial_reference_system &) const override;
+
+  std::string proj4_parameters() const override;
 };
 
 /**

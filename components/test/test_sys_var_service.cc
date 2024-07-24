@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -36,9 +37,11 @@ char log_text[MAX_BUFFER_LENGTH];
 FILE *outfile;
 const char *filename = "test_component_sys_var_service.log";
 
-#define WRITE_LOG(format, lit_log_text)                   \
-  log_text_len = sprintf(log_text, format, lit_log_text); \
-  fwrite((uchar *)log_text, sizeof(char), log_text_len, outfile)
+#define WRITE_LOG(format, lit_log_text)                                 \
+  log_text_len = sprintf(log_text, format, lit_log_text);               \
+  if (fwrite((uchar *)log_text, sizeof(char), log_text_len, outfile) != \
+      static_cast<size_t>(log_text_len))                                \
+    return true;
 
 REQUIRES_SERVICE_PLACEHOLDER(component_sys_variable_register);
 REQUIRES_SERVICE_PLACEHOLDER(component_sys_variable_unregister);
@@ -62,6 +65,7 @@ static TYPE_LIB password_policy_typelib_t = {array_elements(policy_names) - 1,
                                              policy_names, nullptr};
 static ulong enum_variable_value;
 static char *str_variable_value;
+static char *str_default_variable_value;
 static int int_variable_value;
 static int uint_variable_value;
 static long long_variable_value;
@@ -176,14 +180,29 @@ static mysql_service_status_t test_component_sys_var_service_init() {
     WRITE_LOG("%s\n", "unsigned longlong register_variable failed.");
   }
 
-  BOOL_CHECK_ARG(bool) bool_arg;
-  bool_arg.def_val = true;
+  {
+    BOOL_CHECK_ARG(bool) bool_arg;
+    bool_arg.def_val = true;
 
-  if (mysql_service_component_sys_variable_register->register_variable(
-          "test_component", "bool_sys_var", PLUGIN_VAR_BOOL,
-          "Registering bool sys_variable", nullptr, nullptr, (void *)&bool_arg,
-          (void *)&bool_variable_value)) {
-    WRITE_LOG("%s\n", "register_variable failed.");
+    if (mysql_service_component_sys_variable_register->register_variable(
+            "test_component", "bool_sys_var", PLUGIN_VAR_BOOL,
+            "Registering bool sys_variable", nullptr, nullptr,
+            (void *)&bool_arg, (void *)&bool_variable_value)) {
+      WRITE_LOG("%s\n", "register_variable failed.");
+    }
+  }
+
+  {
+    BOOL_CHECK_ARG(bool) bool_early_arg;
+    bool_early_arg.def_val = true;
+
+    if (mysql_service_component_sys_variable_register->register_variable(
+            "test_component", "bool_ro_sys_var",
+            PLUGIN_VAR_BOOL | PLUGIN_VAR_PERSIST_AS_READ_ONLY,
+            "Registering bool sys_variable persisted as read only", nullptr,
+            nullptr, (void *)&bool_early_arg, (void *)&bool_variable_value)) {
+      WRITE_LOG("%s\n", "register_variable failed.");
+    }
   }
 
   ENUM_CHECK_ARG(enum) enum_arg;
@@ -202,6 +221,17 @@ static mysql_service_status_t test_component_sys_var_service_init() {
           "test_component", "str_sys_var", PLUGIN_VAR_STR | PLUGIN_VAR_MEMALLOC,
           "Registering string sys_variable", nullptr, nullptr, (void *)&str_arg,
           (void *)&str_variable_value)) {
+    WRITE_LOG("%s\n", "register_variable failed.");
+  }
+
+  // string variable with default value
+  STR_CHECK_ARG(str1) str_arg1;
+  str_arg1.def_val = const_cast<char *>("default");
+  if (mysql_service_component_sys_variable_register->register_variable(
+          "test_component", "str_sys_var_default",
+          PLUGIN_VAR_STR | PLUGIN_VAR_MEMALLOC,
+          "Registering string sys_variable #2", nullptr, nullptr,
+          (void *)&str_arg1, (void *)&str_default_variable_value)) {
     WRITE_LOG("%s\n", "register_variable failed.");
   }
 
@@ -328,12 +358,22 @@ static mysql_service_status_t test_component_sys_var_service_deinit() {
   }
 
   if (mysql_service_component_sys_variable_unregister->unregister_variable(
+          "test_component", "bool_ro_sys_var")) {
+    WRITE_LOG("%s\n", "unregister_variable bool_ro_sys_var failed.");
+  }
+
+  if (mysql_service_component_sys_variable_unregister->unregister_variable(
           "test_component", "enum_sys_var")) {
     WRITE_LOG("%s\n", "unregister_variable failed.");
   }
 
   if (mysql_service_component_sys_variable_unregister->unregister_variable(
           "test_component", "str_sys_var")) {
+    WRITE_LOG("%s\n", "unregister_variable failed.");
+  }
+
+  if (mysql_service_component_sys_variable_unregister->unregister_variable(
+          "test_component", "str_sys_var_default")) {
     WRITE_LOG("%s\n", "unregister_variable failed.");
   }
 

@@ -1,15 +1,16 @@
-# Copyright (c) 2006, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2006, 2024, Oracle and/or its affiliates.
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -20,11 +21,19 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 
-SET(EXAMPLE_PLUGIN_DYNAMIC "ha_example")
-SET(EXAMPLE_SOURCES ha_example.cc)
+DISABLE_MISSING_PROFILE_WARNING()
 ADD_DEFINITIONS(-DMYSQL_SERVER)
+
 IF(WITH_EXAMPLE_STORAGE_ENGINE AND NOT WITHOUT_EXAMPLE_STORAGE_ENGINE)
-  MYSQL_ADD_PLUGIN(example ${EXAMPLE_SOURCES} STORAGE_ENGINE DEFAULT)
+  MYSQL_ADD_PLUGIN(example ha_example.cc
+    STORAGE_ENGINE
+    DEFAULT
+    LINK_LIBRARIES ext::zlib
+    )
 ELSEIF(NOT WITHOUT_EXAMPLE_STORAGE_ENGINE)
-  MYSQL_ADD_PLUGIN(example ${EXAMPLE_SOURCES} STORAGE_ENGINE MODULE_ONLY)
+  MYSQL_ADD_PLUGIN(example ha_example.cc
+    STORAGE_ENGINE
+    MODULE_ONLY
+    LINK_LIBRARIES ext::zlib
+    )
 ENDIF()

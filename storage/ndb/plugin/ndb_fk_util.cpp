@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -64,7 +65,7 @@ const char *fk_split_name(char dst[], const char *src, bool index) {
      *  set db to ''
      *  and return pointer to name
      *
-     * This is for compability with create_fk/drop_fk tools...
+     * This is for compatibility with create_fk/drop_fk tools...
      */
     dst[0] = 0;
     strcpy(dst + 1, save);
@@ -123,7 +124,7 @@ bool fetch_referenced_tables_from_ndb_dictionary(
 
   Ndb_table_guard tab_guard(ndb, schema_name, table_name);
   const NdbDictionary::Table *table = tab_guard.get_table();
-  if (table == NULL) {
+  if (table == nullptr) {
     DBUG_PRINT("error",
                ("Unable to load table '%s.%s' from NDB. Error : %s",
                 schema_name, table_name, tab_guard.getNdbError().message));
@@ -189,7 +190,7 @@ bool retrieve_foreign_key_list_from_ndb(NdbDictionary::Dictionary *dict,
                                         Ndb_fk_list *fk_list) {
   DBUG_TRACE;
 
-  // Loop the dependant list and retrieve all FKs
+  // Loop the dependent list and retrieve all FKs
   NdbDictionary::Dictionary::List list;
   if (dict->listDependentObjects(list, *table) != 0) {
     DBUG_PRINT("error", ("Failed to list dependent objects for table '%s'",

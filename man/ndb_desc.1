@@ -2,12 +2,12 @@
 .\"     Title: ndb_desc
 .\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
 .\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
-.\"      Date: 06/04/2021
+.\"      Date: 05/31/2024
 .\"    Manual: MySQL Database System
 .\"    Source: MySQL 8.0
 .\"  Language: English
 .\"
-.TH "NDB_DESC" "1" "06/04/2021" "MySQL 8\&.0" "MySQL Database System"
+.TH "NDB_DESC" "1" "05/31/2024" "MySQL 8\&.0" "MySQL Database System"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -87,7 +87,7 @@ Output from
 .RS 4
 .\}
 .nf
-shell> \fB\&./ndb_desc \-c localhost fish \-d test \-p\fR
+$> \fB\&./ndb_desc \-c localhost fish \-d test \-p\fR
 \-\- fish \-\-
 Version: 2
 Fragment type: HashMapPartition
@@ -125,7 +125,6 @@ uk$unique(name) \- UniqueHashIndex
 Partition       Row count       Commit count    Frag fixed memory       Frag varsized memory    Extent_space    Free extent_space
 0               2               2               32768                   32768                   0               0
 1               4               4               32768                   32768                   0               0
-NDBT_ProgramExit: 0 \- OK
 .fi
 .if n \{\
 .RE
@@ -145,7 +144,7 @@ You can obtain additional information about a specific index using the
 .RS 4
 .\}
 .nf
-shell> \fB\&./ndb_desc uk \-d test \-t fish\fR
+$> \fB\&./ndb_desc uk \-d test \-t fish\fR
 \-\- uk \-\-
 Version: 2
 Base table: fish
@@ -182,7 +181,6 @@ name Varchar(20;latin1_swedish_ci) NOT NULL AT=SHORT_VAR ST=MEMORY
 NDB$TNODE Unsigned [64] PRIMARY KEY DISTRIBUTION KEY AT=FIXED ST=MEMORY
 \-\- Indexes \-\-
 PRIMARY KEY(NDB$TNODE) \- UniqueHashIndex
-NDBT_ProgramExit: 0 \- OK
 .fi
 .if n \{\
 .RE
@@ -264,7 +262,7 @@ Create Table: CREATE TABLE `fish` (
   `weight_gm` int(11) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk` (`name`)
-) ENGINE=ndbcluster DEFAULT CHARSET=latin1
+) ENGINE=ndbcluster DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 COMMENT=\*(AqNDB_TABLE=READ_BACKUP=1,FULLY_REPLICATED=1\*(Aq
 1 row in set (0\&.01 sec)
 .fi
@@ -284,7 +282,7 @@ column shows the binary properties just enabled\&. You can see this in the outpu
 .RS 4
 .\}
 .nf
-shell> \fB\&./ndb_desc \-c localhost fish \-d test \-p\fR
+$> \fB\&./ndb_desc \-c localhost fish \-d test \-p\fR
 \-\- fish \-\-
 Version: 4
 Fragment type: HashMapPartition
@@ -320,14 +318,13 @@ uk(name) \- OrderedIndex
 uk$unique(name) \- UniqueHashIndex
 \-\- Per partition info \-\-
 Partition       Row count       Commit count    Frag fixed memory       Frag varsized memory    Extent_space    Free extent_space
-NDBT_ProgramExit: 0 \- OK
 .fi
 .if n \{\
 .RE
 .\}
 .PP
 For more information about these table properties, see
-Section\ \&13.1.20.11, \(lqSetting NDB_TABLE Options\(rq\&.
+Section\ \&15.1.20.12, \(lqSetting NDB Comment Options\(rq\&.
 .PP
 The
 Extent_space
@@ -368,9 +365,9 @@ ALTER TABLESPACE ts_1
 .\}
 .PP
 (For more information on the statements just shown and the objects created by them, see
-Section\ \&23.5.10.1, \(lqNDB Cluster Disk Data Objects\(rq, as well as
-Section\ \&13.1.16, \(lqCREATE LOGFILE GROUP Statement\(rq, and
-Section\ \&13.1.21, \(lqCREATE TABLESPACE Statement\(rq\&.)
+Section\ \&25.6.11.1, \(lqNDB Cluster Disk Data Objects\(rq, as well as
+Section\ \&15.1.16, \(lqCREATE LOGFILE GROUP Statement\(rq, and
+Section\ \&15.1.21, \(lqCREATE TABLESPACE Statement\(rq\&.)
 .PP
 Now we can create and populate a version of the
 fish
@@ -407,7 +404,7 @@ displays the following output:
 .RS 4
 .\}
 .nf
-shell> \fB\&./ndb_desc \-c localhost fish \-d test \-p\fR
+$> \fB\&./ndb_desc \-c localhost fish \-d test \-p\fR
 \-\- fish \-\-
 Version: 1
 Fragment type: HashMapPartition
@@ -447,7 +444,6 @@ uk$unique(name) \- UniqueHashIndex
 Partition       Row count       Commit count    Frag fixed memory       Frag varsized memory    Extent_space    Free extent_space
 0               2               2               32768                   32768                   1048576         1044440
 1               4               4               32768                   32768                   1048576         1044400
-NDBT_ProgramExit: 0 \- OK
 .fi
 .if n \{\
 .RE
@@ -457,8 +453,8 @@ This means that 1048576 bytes are allocated from the tablespace for this table o
 Free extent_space
 is available for storing on\-disk column data from the
 fish
-table only; for this reason, it is not visible when selecting from the
-INFORMATION_SCHEMA\&.FILES
+table only; for this reason, it is not visible when selecting from the Information Schema
+FILES
 table\&.
 .PP
 Tablespace id
@@ -487,7 +483,7 @@ are shown in the following table\&. Additional descriptions follow the table\&.
 .nr an-no-space-flag 1
 .nr an-break-flag 1
 .br
-.B Table\ \&23.31.\ \&Command\-line options used with the program ndb_desc
+.B Table\ \&25.31.\ \&Command\-line options used with the program ndb_desc
 .TS
 allbox tab(:);
 lB lB lB.
@@ -556,7 +552,7 @@ T}:T{
 Directory containing character sets
 T}:T{
 .PP
-(Supported in all NDB releases based on MySQL 8.0)
+REMOVED: 8.0.31
 T}
 T{
 .PP
@@ -578,9 +574,9 @@ T}:T{
 T}
 T{
 .PP
-\fB--connect-string=connection-string\fR,
+\fB--connect-string=connection_string\fR,
 .PP
-\fB \fR\fB-c\fR\fB \fR
+\fB \fR\fB-c connection_string\fR\fB \fR
 T}:T{
 Same as --ndb-connectstring
 T}:T{
@@ -593,7 +589,7 @@ T{
 .PP
 \fB \fR\fB-x\fR\fB \fR
 T}:T{
-Show extra information for table such as database, schema, name,
+Show extra information for table such as database, schema, name, and
               internal ID
 T}:T{
 .PP
@@ -606,13 +602,13 @@ T}:T{
 Write core file on error; used in debugging
 T}:T{
 .PP
-(Supported in all NDB releases based on MySQL 8.0)
+REMOVED: 8.0.31
 T}
 T{
 .PP
-\fB--database=dbname\fR,
+\fB--database=name\fR,
 .PP
-\fB \fR\fB-d\fR\fB \fR
+\fB \fR\fB-d name\fR\fB \fR
 T}:T{
 Name of database containing table
 T}:T{
@@ -652,8 +648,8 @@ T{
 .PP
 \fB \fR\fB-n\fR\fB \fR
 T}:T{
-Include partition-to-data-node mappings in output. Requires that the -p
-              option also be used
+Include partition-to-data-node mappings in output; requires
+              --extra-partition-info
 T}:T{
 .PP
 (Supported in all NDB releases based on MySQL 8.0)
@@ -691,9 +687,9 @@ T}:T{
 T}
 T{
 .PP
-\fB--ndb-connectstring=connection-string\fR,
+\fB--ndb-connectstring=connection_string\fR,
 .PP
-\fB \fR\fB-c\fR\fB \fR
+\fB \fR\fB-c connection_string\fR\fB \fR
 T}:T{
 Set connect string for connecting to ndb_mgmd. Syntax:
               "[nodeid=id;][host=]hostname[:port]". Overrides entries in
@@ -704,9 +700,9 @@ T}:T{
 T}
 T{
 .PP
-\fB--ndb-mgmd-host=connection-string\fR,
+\fB--ndb-mgmd-host=connection_string\fR,
 .PP
-\fB \fR\fB-c\fR\fB \fR
+\fB \fR\fB-c connection_string\fR\fB \fR
 T}:T{
 Same as --ndb-connectstring
 T}:T{
@@ -731,7 +727,7 @@ Enable optimizations for selection of nodes for transactions. Enabled by
               disable
 T}:T{
 .PP
-(Supported in all NDB releases based on MySQL 8.0)
+REMOVED: 8.0.31
 T}
 T{
 .PP
@@ -755,7 +751,7 @@ T{
 .PP
 \fB--retries=#\fR,
 .PP
-\fB \fR\fB-r\fR\fB \fR
+\fB \fR\fB-r #\fR\fB \fR
 T}:T{
 Number of times to retry the connection (once per second)
 T}:T{
@@ -764,9 +760,9 @@ T}:T{
 T}
 T{
 .PP
-\fB--table=tbl_name\fR,
+\fB--table=name\fR,
 .PP
-\fB \fR\fB-t\fR\fB \fR
+\fB \fR\fB-t name\fR\fB \fR
 T}:T{
 Specify the table in which to find an index. When this option is used,
               -p and -n have no effect and are ignored
@@ -857,11 +853,17 @@ Use of this option also requires the use of the
 \fB\-\-character\-sets\-dir\fR
 .TS
 allbox tab(:);
+lB l
 lB l.
 T{
 Command-Line Format
 T}:T{
 --character-sets-dir=path
+T}
+T{
+Removed
+T}:T{
+8.0.31
 T}
 .TE
 .sp 1
@@ -977,7 +979,7 @@ lB l.
 T{
 Command-Line Format
 T}:T{
---connect-string=connection-string
+--connect-string=connection_string
 T}
 T{
 Type
@@ -1019,11 +1021,17 @@ Show additional contextual information for the table such as schema, database na
 \fB\-\-core\-file\fR
 .TS
 allbox tab(:);
+lB l
 lB l.
 T{
 Command-Line Format
 T}:T{
 --core-file
+T}
+T{
+Removed
+T}:T{
+8.0.31
 T}
 .TE
 .sp 1
@@ -1248,7 +1256,7 @@ lB l.
 T{
 Command-Line Format
 T}:T{
---ndb-connectstring=connection-string
+--ndb-connectstring=connection_string
 T}
 T{
 Type
@@ -1282,7 +1290,7 @@ lB l.
 T{
 Command-Line Format
 T}:T{
---ndb-mgmd-host=connection-string
+--ndb-mgmd-host=connection_string
 T}
 T{
 Type
@@ -1346,11 +1354,17 @@ Set node ID for this node, overriding any ID set by
 \fB\-\-ndb\-optimized\-node\-selection\fR
 .TS
 allbox tab(:);
+lB l
 lB l.
 T{
 Command-Line Format
 T}:T{
 --ndb-optimized-node-selection
+T}
+T{
+Removed
+T}:T{
+8.0.31
 T}
 .TE
 .sp 1
@@ -1491,7 +1505,7 @@ Table indexes listed in the output are ordered by ID\&.
 .SH "COPYRIGHT"
 .br
 .PP
-Copyright \(co 1997, 2021, Oracle and/or its affiliates.
+Copyright \(co 1997, 2024, Oracle and/or its affiliates.
 .PP
 This documentation is free software; you can redistribute it and/or modify it only under the terms of the GNU General Public License as published by the Free Software Foundation; version 2 of the License.
 .PP

@@ -1,15 +1,16 @@
-/* Copyright (c) 2010, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2010, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -285,7 +286,7 @@ int Rpl_info_file::do_remove_info() {
 int Rpl_info_file::do_clean_info() {
   /*
     There is nothing to do here. Maybe we can truncate the
-    file in the future. Howerver, for now, there is no need.
+    file in the future. However, for now, there is no need.
   */
   return 0;
 }
@@ -349,7 +350,7 @@ bool Rpl_info_file::do_set_info(const int, const int value) {
 bool Rpl_info_file::do_set_info(const int, const float value) {
   /*
     64 bytes provide enough space considering that the precision is 3
-    bytes (See the appropriate set funciton):
+    bytes (See the appropriate set function):
 
     FLT_MAX  The value of this macro is the maximum number representable
              in type float. It is supposed to be at least 1E+37.
@@ -462,10 +463,7 @@ char *Rpl_info_file::do_get_description_info() { return info_fname; }
 
 bool Rpl_info_file::do_is_transactional() { return false; }
 
-bool Rpl_info_file::do_update_is_transactional() {
-  DBUG_EXECUTE_IF("simulate_update_is_transactional_error", { return true; });
-  return false;
-}
+bool Rpl_info_file::do_update_is_transactional() { return false; }
 
 uint Rpl_info_file::do_get_rpl_info_type() { return INFO_REPOSITORY_FILE; }
 
@@ -586,7 +584,7 @@ long init_ulongvar_from_file(ulong *var, IO_CACHE *f, ulong default_val) {
 long init_floatvar_from_file(float *var, IO_CACHE *f, float default_val) {
   /*
     64 bytes provide enough space considering that the precision is 3
-    bytes (See the appropriate set funciton):
+    bytes (See the appropriate set function):
 
     FLT_MAX  The value of this macro is the maximum number representable
              in type float. It is supposed to be at least 1E+37.
@@ -646,7 +644,7 @@ long init_dynarray_intvar_from_file(char *buffer, size_t size,
   }
   if (read_size + 1 == size && buf[size - 2] != '\n') {
     /*
-      short read happend; allocate sufficient memory and make the 2nd read
+      short read happened; allocate sufficient memory and make the 2nd read
     */
     char buf_work[(sizeof(long) * 3 + 1) * 16];
     memcpy(buf_work, buf, sizeof(buf_work));

@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -61,7 +62,9 @@ class Ssl_init_callback {
                                OptionalString *cipher,
                                OptionalString *ciphersuites,
                                OptionalString *key, OptionalString *crl,
-                               OptionalString *crl_path) = 0;
+                               OptionalString *crl_path,
+                               bool *session_cache_mode,
+                               long *session_cache_timeout) = 0;
 
   virtual bool provision_certs() = 0;
 
@@ -80,7 +83,8 @@ class Ssl_init_callback_server_main final : public Ssl_init_callback {
                        OptionalString *version, OptionalString *cert,
                        OptionalString *cipher, OptionalString *ciphersuites,
                        OptionalString *key, OptionalString *crl,
-                       OptionalString *crl_path) override;
+                       OptionalString *crl_path, bool *session_cache_mode,
+                       long *session_cache_timeout) override;
 
   bool provision_certs() override;
 
@@ -102,7 +106,8 @@ class Ssl_init_callback_server_admin final : public Ssl_init_callback {
                        OptionalString *version, OptionalString *cert,
                        OptionalString *cipher, OptionalString *ciphersuites,
                        OptionalString *key, OptionalString *crl,
-                       OptionalString *crl_path) override;
+                       OptionalString *crl_path, bool *session_cache_mode,
+                       long *session_cache_timeout) override;
 
   bool provision_certs() override {
     /*
@@ -120,4 +125,14 @@ class Ssl_init_callback_server_admin final : public Ssl_init_callback {
 extern Ssl_init_callback_server_main server_main_callback;
 extern Ssl_init_callback_server_admin server_admin_callback;
 
+/**
+  Helper method to validate values of --tls-version and --admin-tls-version
+*/
+bool validate_tls_version(const char *val);
+
+enum class TLS_version { TLSv12 = 0, TLSv13 };
+/**
+  Helper method to validate values of --ssl-cipher and --admin-ssl-cipher
+*/
+void validate_ciphers(const char *option, const char *val, TLS_version version);
 #endif  // !SSL_INIT_CALLBACK_INCLUDED

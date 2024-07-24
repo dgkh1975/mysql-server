@@ -1,15 +1,16 @@
-/* Copyright (c) 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2021, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,8 +31,9 @@
 #include "scope_guard.h"
 
 #include "my_rapidjson_size_t.h"
-#include "rapidjson/document.h"
-#include "rapidjson/schema.h"
+
+#include <rapidjson/document.h>
+#include <rapidjson/schema.h>
 
 namespace manifest {
 
@@ -63,11 +65,12 @@ class Manifest_reader final {
     Expected format: JSON.
 
     @param [in] executable_path Executable location
-    @param [in] use_cwd    Use current working directory as base location
+    @param [in] instance_path   Location of specific instance
+                                Must have separator character at the end
   */
 
   explicit Manifest_reader(const std::string executable_path,
-                           bool use_cwd = false,
+                           const std::string instance_path,
                            std::string json_schema = manifest_version_1_0)
       : config_file_path_(),
         schema_(),
@@ -85,11 +88,12 @@ class Manifest_reader final {
     executable = executable.substr(0, ext);
 #endif  // _WIN32
     executable.append(".my");
-    if (!use_cwd)
+    if (instance_path.length() == 0)
       config_file_path_ = path + executable;
     else
-      config_file_path_ = executable;
-    std::ifstream file_stream(config_file_path_, std::ios::in | std::ios::ate);
+      config_file_path_ = instance_path + executable;
+    std::ifstream file_stream(config_file_path_,
+                              std::ios::in | std::ios::ate | std::ios::binary);
     if (!file_stream.is_open()) return;
     file_present_ = true;
     {

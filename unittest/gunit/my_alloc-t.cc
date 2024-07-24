@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,6 +25,8 @@
 #include <gtest/gtest.h>
 #include <stddef.h>
 #include <sys/types.h>
+#include <memory>
+#include <string>
 
 #include "my_alloc.h"
 #include "my_inttypes.h"
@@ -88,9 +91,9 @@ const size_t num_iterations = 1ULL;
 class MyAllocTest : public ::testing::TestWithParam<size_t> {
  protected:
   void SetUp() override {
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &m_root, 1024, 0);
+    ::new ((void *)&m_root) MEM_ROOT(PSI_NOT_INSTRUMENTED, 1024);
   }
-  void TearDown() override { free_root(&m_root, MYF(0)); }
+  void TearDown() override { m_root.Clear(); }
   size_t m_num_objects;
   MEM_ROOT m_root;
 };
@@ -98,9 +101,9 @@ class MyAllocTest : public ::testing::TestWithParam<size_t> {
 class MyPreAllocTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    init_alloc_root(PSI_NOT_INSTRUMENTED, &m_prealloc_root, 1024, 2048);
+    ::new ((void *)&m_prealloc_root) MEM_ROOT(PSI_NOT_INSTRUMENTED, 1024);
   }
-  void TearDown() override { free_root(&m_prealloc_root, MYF(0)); }
+  void TearDown() override { m_prealloc_root.Clear(); }
   size_t m_num_objects;
   MEM_ROOT m_prealloc_root;
 };
@@ -192,10 +195,59 @@ TEST_F(MyAllocTest, RawInterface) {
   // Get a new block.
   alloc.ForceNewBlock(512);
   block = alloc.Peek();
+#if defined(HAVE_VALGRIND) || defined(HAVE_ASAN)
+  EXPECT_EQ(512, block.second - block.first);
+#else
   EXPECT_EQ(768, block.second - block.first);
+#endif
 
   // The value should still be there.
   EXPECT_STREQ("12345", store_ptr);
+}
+
+TEST_F(MyAllocTest, ArrayAllocInitialization) {
+  MEM_ROOT alloc(PSI_NOT_INSTRUMENTED, 512);
+
+  // No default value means each element is value-initialized. For int, it means
+  // they are set to 0.
+  int *int_array1 = alloc.ArrayAlloc<int>(100);
+  ASSERT_NE(nullptr, int_array1);
+  for (int i = 0; i < 100; ++i) {
+    EXPECT_EQ(0, int_array1[i]);
+  }
+
+  // Initialize to explicit value.
+  int *int_array2 = alloc.ArrayAlloc<int>(100, 123);
+  ASSERT_NE(nullptr, int_array2);
+  for (int i = 0; i < 100; ++i) {
+    EXPECT_EQ(123, int_array2[i]);
+  }
+
+  // Initialize from rvalue. (Verifies that a bug, which made it only initialize
+  // the first element correctly, is fixed.)
+  std::string *string_array1 = alloc.ArrayAlloc<std::string>(
+      10, std::string("abcdefghijklmnopqrstuvwxyz"));
+  ASSERT_NE(nullptr, string_array1);
+  for (int i = 0; i < 10; ++i) {
+    EXPECT_EQ("abcdefghijklmnopqrstuvwxyz", string_array1[i]);
+  }
+  destroy_array(string_array1, 10);
+
+  // Should be allowed to create an array of a class which is not
+  // copy-constructible.
+  auto uptr_array1 = alloc.ArrayAlloc<std::unique_ptr<int>>(10);
+  ASSERT_NE(nullptr, uptr_array1);
+  auto uptr_array2 = alloc.ArrayAlloc<std::unique_ptr<int>>(10, nullptr);
+  ASSERT_NE(nullptr, uptr_array2);
+  for (int i = 0; i < 10; ++i) {
+    EXPECT_EQ(nullptr, uptr_array1[i]);
+    EXPECT_EQ(nullptr, uptr_array2[i]);
+  }
+
+  // This should give a compiler error, because it attempts to copy a value of a
+  // non-copyable type:
+  //
+  // alloc.ArrayAlloc<std::unique_ptr<int>>(3, std::make_unique<int>(123));
 }
 
 }  // namespace my_alloc_unittest

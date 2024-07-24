@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -55,6 +56,22 @@ class path {
   string_type native_path_;
 };
 
+/**
+ * get current path.
+ *
+ * @throws std::system_error on error
+ *
+ * @returns current path
+ */
+HARNESS_STDX_EXPORT path current_path();
+
+/**
+ * get current path.
+ *
+ * sets ec on error.
+ *
+ * @returns current path
+ */
 HARNESS_STDX_EXPORT path current_path(std::error_code &ec) noexcept;
 
 HARNESS_STDX_EXPORT bool remove(const path &p, std::error_code &ec) noexcept;

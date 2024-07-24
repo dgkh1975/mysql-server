@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,14 +28,11 @@
 
 class Ndb_cluster_connection;
 
-int ndbcluster_connect(int (*connect_callback)(void), ulong wait_connected,
-                       uint connection_pool_size,
+int ndbcluster_connect(ulong wait_connected, uint connection_pool_size,
                        const char *connection_pool_nodeids_str,
                        bool optimized_node_select, const char *connect_string,
                        uint force_nodeid, uint recv_thread_activation_threshold,
                        uint data_node_neighbour);
-
-bool ndbcluster_is_connected(uint max_wait_sec);
 void ndbcluster_disconnect(void);
 
 Ndb_cluster_connection *ndb_get_cluster_connection();
@@ -48,3 +46,7 @@ void ndb_get_connection_stats(Uint64 *statsArr);
 
 // The information_schema.ndb_transid_mysql_connection_map table plugin
 extern struct st_mysql_plugin ndb_transid_mysql_connection_map_table;
+
+// Util function for checking if connection is ready
+bool ndb_connection_is_ready(Ndb_cluster_connection *connection,
+                             uint max_wait_sec);

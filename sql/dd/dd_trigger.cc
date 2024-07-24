@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -323,12 +324,13 @@ bool load_triggers(THD *thd, MEM_ROOT *mem_root, const char *schema_name,
     if (schema_cs == nullptr) schema_cs = thd->variables.collation_database;
 
     LEX_CSTRING client_cs_name, connection_cl_name, db_cl_name, trigger_name;
-    const char *csname = replace_utf8_utf8mb3(client_cs->csname);
+    const char *csname = client_cs->csname;
     if (lex_string_strmake(mem_root, &client_cs_name, csname, strlen(csname)) ||
-        lex_string_strmake(mem_root, &connection_cl_name, connection_cs->name,
-                           strlen(connection_cs->name)) ||
-        lex_string_strmake(mem_root, &db_cl_name, schema_cs->name,
-                           strlen(schema_cs->name)) ||
+        lex_string_strmake(mem_root, &connection_cl_name,
+                           connection_cs->m_coll_name,
+                           strlen(connection_cs->m_coll_name)) ||
+        lex_string_strmake(mem_root, &db_cl_name, schema_cs->m_coll_name,
+                           strlen(schema_cs->m_coll_name)) ||
         lex_string_strmake(mem_root, &trigger_name, trigger->name().c_str(),
                            trigger->name().length()))
       return true;

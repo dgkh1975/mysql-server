@@ -1,15 +1,16 @@
-/* Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    Without limiting anything contained in the foregoing, this file,
    which is part of C Driver for MySQL (Connector/C), is also subject to the
@@ -66,7 +67,7 @@ static int compare_bin(const uchar *a, uint a_length, const uchar *b,
     /*
       We are using space compression. We have to check if longer key
       has next character < ' ', in which case it's less than the shorter
-      key that has an implicite space afterwards.
+      key that has an implicit space afterwards.
 
       This code is identical to the one in
       strings/ctype-simple.c:my_strnncollsp_simple
@@ -108,12 +109,12 @@ static int compare_bin(const uchar *a, uint a_length, const uchar *b,
    Example1: if the function is called for tuples
      ('aaa','bbb') and ('eee','fff'), then
      diff_pos[0] = 1 (as 'aaa' != 'eee')
-     diff_pos[1] = 0 (offset from beggining of tuple b to 'eee' keypart).
+     diff_pos[1] = 0 (offset from beginning of tuple b to 'eee' keypart).
 
    Example2: if the index function is called for tuples
      ('aaa','bbb') and ('aaa','fff'),
      diff_pos[0] = 2 (as 'aaa' != 'eee')
-     diff_pos[1] = 3 (offset from beggining of tuple b to 'fff' keypart,
+     diff_pos[1] = 3 (offset from beginning of tuple b to 'fff' keypart,
                       here we assume that first key part is CHAR(3) NOT NULL)
 
   NOTES

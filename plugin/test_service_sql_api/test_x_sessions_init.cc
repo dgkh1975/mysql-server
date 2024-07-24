@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -140,7 +141,7 @@ static void test_session(void *p) {
   }
 }
 
-static void test_session_non_reverse(void *p MY_ATTRIBUTE((unused))) {
+static void test_session_non_reverse(void *p [[maybe_unused]]) {
   char buffer[STRING_BUFFER_SIZE];
   DBUG_TRACE;
 
@@ -172,7 +173,7 @@ static void test_session_non_reverse(void *p MY_ATTRIBUTE((unused))) {
   WRITE_VAL("Number of open sessions: %d\n", session_count);
 }
 
-static void test_session_only_open(void *p MY_ATTRIBUTE((unused))) {
+static void test_session_only_open(void *p [[maybe_unused]]) {
   char buffer[STRING_BUFFER_SIZE];
   DBUG_TRACE;
 
@@ -197,7 +198,7 @@ static void test_session_only_open(void *p MY_ATTRIBUTE((unused))) {
   cmd.com_query.query = "SELECT * FROM test.t_int";
   cmd.com_query.length = strlen(cmd.com_query.query);
   command_service_run_command(NULL, COM_QUERY, &cmd,
-                              &my_charset_utf8_general_ci, &sql_cbs,
+                              &my_charset_utf8mb3_general_ci, &sql_cbs,
                               CS_TEXT_REPRESENTATION, ctx);
   delete ctx;
 }
@@ -282,7 +283,7 @@ static int test_session_service_plugin_init(void *p) {
   return 0;
 }
 
-static int test_session_service_plugin_deinit(void *p MY_ATTRIBUTE((unused))) {
+static int test_session_service_plugin_deinit(void *p [[maybe_unused]]) {
   DBUG_TRACE;
   LogPluginErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "Uninstallation.");
   deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);

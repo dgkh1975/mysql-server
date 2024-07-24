@@ -1,15 +1,16 @@
-/* Copyright (c) 2010, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2010, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -80,18 +81,6 @@ typedef __int32 int32_t;
 typedef unsigned __int32 uint32_t;
 typedef __int64 int64_t;
 typedef unsigned __int64 uint64_t;
-
-#ifndef MCMD_COMPILE /* Outside MCM, we use stdint.h */
-#ifndef UINT8_MAX
-#define UINT8_MAX (255)
-#endif
-#ifndef UINT16_MAX
-#define UINT16_MAX (65535)
-#endif
-#ifndef UINT32_MAX
-#define UINT32_MAX (4294967295U)
-#endif
-#endif
 
 /* WIN32 missing net/if.h */
 typedef int __daddr_t;

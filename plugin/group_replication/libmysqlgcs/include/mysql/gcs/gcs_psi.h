@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,6 +26,7 @@
 
 #include <my_sys.h>
 #include "mysql/psi/psi_cond.h"
+#include "mysql/psi/psi_memory.h"
 #include "mysql/psi/psi_mutex.h"
 #include "mysql/psi/psi_thread.h"
 
@@ -54,9 +56,11 @@ extern PSI_cond_key key_GCS_COND_Gcs_async_buffer_m_wait_for_events_cond,
 extern PSI_thread_key key_GCS_THD_Gcs_ext_logger_impl_m_consumer,
     key_GCS_THD_Gcs_xcom_engine_m_engine_thread,
     key_GCS_THD_Gcs_xcom_control_m_xcom_thread,
-    key_GCS_THD_Gcs_xcom_control_m_suspicions_processing_thread;
+    key_GCS_THD_Gcs_xcom_control_m_suspicions_processing_thread,
+    key_GCS_THD_Gcs_xcom_network_provider_m_network_provider_tcp_server;
 
-extern PSI_memory_key key_MEM_XCOM_xcom_cache;
+extern PSI_memory_key key_MEM_XCOM_xcom_cache,
+    key_MEM_Gcs_message_data_m_buffer;
 
 /**
   Registers the psi keys for the threads that will be instrumented.

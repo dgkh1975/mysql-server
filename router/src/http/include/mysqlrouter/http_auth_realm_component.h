@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -27,6 +28,7 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <system_error>
 
@@ -47,9 +49,14 @@ class HTTP_AUTH_REALM_LIB_EXPORT HttpAuthRealmComponent {
   static HttpAuthRealmComponent &get_instance();
 
   /**
-   * init component from realms.
+   * register a realm with a handler.
    */
-  void init(std::shared_ptr<value_type> realms);
+  void add_realm(const std::string &name, std::shared_ptr<HttpAuthRealm> realm);
+
+  /**
+   * unregister a realm.
+   */
+  void remove_realm(const std::string &name);
 
   /**
    * authenticate user with authdata against realm.
@@ -74,7 +81,8 @@ class HTTP_AUTH_REALM_LIB_EXPORT HttpAuthRealmComponent {
   HttpAuthRealmComponent(HttpAuthRealmComponent const &) = delete;
   void operator=(HttpAuthRealmComponent const &) = delete;
 
-  std::weak_ptr<value_type> auth_realms_;
+  std::mutex realms_m_;
+  value_type auth_realms_;
 
   HttpAuthRealmComponent() = default;
 };

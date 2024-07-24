@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -309,7 +310,7 @@ int mi_create(const char *name, uint keys, MI_KEYDEF *keydefs, uint columns,
           keydef->flag &= ~HA_PACK_KEY;
           keydef->flag |= HA_BINARY_PACK_KEY | HA_VAR_LENGTH_KEY;
         } else {
-          keydef->seg[0].flag |= HA_PACK_KEY; /* for easyer intern test */
+          keydef->seg[0].flag |= HA_PACK_KEY; /* for easier intern test */
           keydef->flag |= HA_VAR_LENGTH_KEY;
           options |= HA_OPTION_PACK_KEYS; /* Using packed keys */
         }
@@ -540,7 +541,7 @@ int mi_create(const char *name, uint keys, MI_KEYDEF *keydefs, uint columns,
     int have_iext = iext && !strcmp(iext, MI_NAME_IEXT);
     if (options & HA_OPTION_TMP_TABLE) {
       char *path;
-      /* chop off the table name, tempory tables use generated name */
+      /* chop off the table name, temporary tables use generated name */
       if ((path = strrchr(const_cast<char *>(ci->index_file_name), FN_LIBCHAR)))
         *path = '\0';
       fn_format(filename, name, ci->index_file_name, MI_NAME_IEXT,
@@ -556,7 +557,7 @@ int mi_create(const char *name, uint keys, MI_KEYDEF *keydefs, uint columns,
     linkname_ptr = linkname;
     /*
       Don't create the table if the link or file exists to ensure that one
-      doesn't accidently destroy another table.
+      doesn't accidentally destroy another table.
     */
     create_flag = 0;
   } else {
@@ -603,7 +604,7 @@ int mi_create(const char *name, uint keys, MI_KEYDEF *keydefs, uint columns,
 
         if (options & HA_OPTION_TMP_TABLE) {
           char *path;
-          /* chop off the table name, tempory tables use generated name */
+          /* chop off the table name, temporary tables use generated name */
           if ((path =
                    strrchr(const_cast<char *>(ci->data_file_name), FN_LIBCHAR)))
             *path = '\0';
@@ -750,7 +751,7 @@ err_no_lock:
   switch (errpos) {
     case 3:
       (void)mysql_file_close(dfile, MYF(0));
-      /* fall through */
+      [[fallthrough]];
     case 2:
       if (!(flags & HA_DONT_TOUCH_DATA))
         mysql_file_delete_with_symlink(
@@ -758,7 +759,7 @@ err_no_lock:
             fn_format(filename, name, "", MI_NAME_DEXT,
                       MY_UNPACK_FILENAME | MY_APPEND_EXT),
             MYF(0));
-      /* fall through */
+      [[fallthrough]];
     case 1:
       (void)mysql_file_close(file, MYF(0));
       if (!(flags & HA_DONT_TOUCH_DATA))

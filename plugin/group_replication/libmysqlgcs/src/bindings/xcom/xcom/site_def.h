@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,6 +34,7 @@ void add_site_def(u_int n, node_address *names, site_def *nodes);
 void remove_site_def(u_int n, node_address *names, site_def *nodes);
 char *dbg_site_def(site_def const *site);
 void init_site_vars();
+void free_site_def_body(site_def *s);
 void free_site_def(site_def *s);
 void free_site_defs();
 site_def *push_site_def(site_def *s);
@@ -58,6 +60,8 @@ void get_all_site_defs(site_def ***s, uint32_t *n);
 synode_no get_min_delivered_msg(site_def const *s);
 void update_delivered(site_def *s, node_no node, synode_no msgno);
 synode_no config_max_boot_key(gcs_snapshot const *gcs_snap);
+leader_array alloc_leader_array(u_int n);
+leader_array clone_leader_array(leader_array const x);
 synode_no get_highest_boot_key(gcs_snapshot *gcs_snap);
 synode_no get_lowest_boot_key(gcs_snapshot *gcs_snap);
 
@@ -81,7 +85,7 @@ static inline server *get_server(site_def const *s, node_no i) {
   if (s && i != VOID_NODE_NO && i < s->nodes.node_list_len)
     return s->servers[i];
   else
-    return 0;
+    return nullptr;
 }
 
 #endif

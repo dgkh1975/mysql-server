@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 1996, 2021, Oracle and/or its affiliates.
+Copyright (c) 1996, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -46,9 +47,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 and varies in type, while 'user_arg' is a user-supplied argument. The
 meaning of the return type also varies. See the individual use cases, e.g.
 the FETCH statement, for details on them. */
-typedef ibool (*pars_user_func_cb_t)(void *arg, void *user_arg);
+typedef bool (*pars_user_func_cb_t)(void *arg, void *user_arg);
 
-/** If the following is set TRUE, the parser will emit debugging
+/** If the following is set true, the parser will emit debugging
 information */
 extern int yydebug;
 
@@ -176,7 +177,7 @@ col_assign_node_t *pars_column_assignment(
 /** Parses a delete or update statement start.
  @return own: update node in a query tree */
 upd_node_t *pars_update_statement_start(
-    ibool is_delete,                     /*!< in: TRUE if delete */
+    bool is_delete,                      /*!< in: true if delete */
     sym_node_t *table_sym,               /*!< in: table name node */
     col_assign_node_t *col_assign_list); /*!< in: column assignment list, NULL
                                      if delete */
@@ -266,9 +267,9 @@ sym_node_t *pars_column_def(sym_node_t *sym_node,  /*!< in: column node in the
                                                    is of type NOT NULL. */
 
 /** Parses a table creation operation.
-@param[in]	table_sym		table name node in the symbol table
-@param[in]	column_defs		list of column names
-@param[in]	not_fit_in_memory	a non-NULL pointer means that this is a
+@param[in]      table_sym               table name node in the symbol table
+@param[in]      column_defs             list of column names
+@param[in]      not_fit_in_memory       a non-NULL pointer means that this is a
                                         table which in simulations should be
                                         simulated as not fitting in memory;
                                         thread is put to sleep to simulate disk
@@ -277,23 +278,24 @@ sym_node_t *pars_column_def(sym_node_t *sym_node,  /*!< in: column node in the
                                         and the database will forget about
                                         non-NULL value if it has to reload the
                                         table definition from disk
-@param[in]	compact			non-NULL if COMPACT table
-@param[in]	block_size		block size (can be NULL)
+@param[in]      compact                 non-NULL if COMPACT table
+@param[in]      block_size              block size (can be NULL)
 @return table create subgraph */
 tab_node_t *pars_create_table(sym_node_t *table_sym, sym_node_t *column_defs,
                               sym_node_t *compact, sym_node_t *block_size,
                               void *not_fit_in_memory);
 
 /** Parses an index creation operation.
- @return index create subgraph */
-ind_node_t *pars_create_index(
-    pars_res_word_t *unique_def,    /*!< in: not NULL if a unique index */
-    pars_res_word_t *clustered_def, /*!< in: not NULL if a clustered index */
-    sym_node_t *index_sym,          /*!< in: index name node in the symbol
-                                    table */
-    sym_node_t *table_sym,          /*!< in: table name node in the symbol
-                                    table */
-    sym_node_t *column_list);       /*!< in: list of column names */
+@param[in] unique_def Not NULL if a unique index.
+@param[in] clustered_def Not NULL if a clustered index.
+@param[in] index_sym Index name node in the symbol table.
+@param[in] table_sym Table name node in the symbol table.
+@param[in] column_list List of column names.
+@return index create subgraph */
+ind_node_t *pars_create_index(pars_res_word_t *unique_def,
+                              pars_res_word_t *clustered_def,
+                              sym_node_t *index_sym, sym_node_t *table_sym,
+                              sym_node_t *column_list);
 /** Parses a procedure definition.
  @return query fork node */
 que_fork_t *pars_procedure_definition(
@@ -305,16 +307,16 @@ que_fork_t *pars_procedure_definition(
 /** Completes a query graph by adding query thread and fork nodes
 above it and prepares the graph for running. The fork created is of
 type QUE_FORK_MYSQL_INTERFACE.
-@param[in]	node		root node for an incomplete query
+@param[in]      node            root node for an incomplete query
                                 graph, or NULL for dummy graph
-@param[in]	trx		transaction handle
-@param[in]	heap		memory heap from which allocated
-@param[in]	prebuilt	row prebuilt structure
+@param[in]      trx             transaction handle
+@param[in]      heap            memory heap from which allocated
+@param[in]      prebuilt        row prebuilt structure
 @return query thread node to run */
-que_thr_t *pars_complete_graph_for_exec(que_node_t *node, trx_t *trx,
-                                        mem_heap_t *heap,
-                                        row_prebuilt_t *prebuilt)
-    MY_ATTRIBUTE((warn_unused_result));
+[[nodiscard]] que_thr_t *pars_complete_graph_for_exec(que_node_t *node,
+                                                      trx_t *trx,
+                                                      mem_heap_t *heap,
+                                                      row_prebuilt_t *prebuilt);
 
 /** Create parser info struct.
  @return own: info struct */
@@ -367,7 +369,7 @@ new entry.
 @param[in]  name  Name
 @param[in]  val   Value */
 void pars_info_bind_int4_literal(pars_info_t *info, const char *name,
-                                 const ib_uint32_t *val);
+                                 const uint32_t *val);
 
 /** If the literal value already exists then it rebinds otherwise it creates a
 new entry.
@@ -375,7 +377,7 @@ new entry.
 @param[in]  name  Name
 @param[in]  val   Value */
 void pars_info_bind_int8_literal(pars_info_t *info, const char *name,
-                                 const ib_uint64_t *val);
+                                 const uint64_t *val);
 
 /** Add user function.
 @param[in] info Info struct
@@ -386,11 +388,11 @@ void pars_info_bind_function(pars_info_t *info, const char *name,
                              pars_user_func_cb_t func, void *arg);
 
 /** Add bound id.
-@param[in]	info		info struct
-@param[in]	copy_name	copy name if TRUE
-@param[in]	name		name
-@param[in]	id		id */
-void pars_info_bind_id(pars_info_t *info, ibool copy_name, const char *name,
+@param[in]      info            info struct
+@param[in]      copy_name       copy name if true
+@param[in]      name            name
+@param[in]      id              id */
+void pars_info_bind_id(pars_info_t *info, bool copy_name, const char *name,
                        const char *id);
 
 /** Equivalent to:
@@ -415,7 +417,7 @@ void pars_info_add_int4_literal(pars_info_t *info, /*!< in: info struct */
  heap. */
 void pars_info_add_ull_literal(pars_info_t *info, /*!< in: info struct */
                                const char *name,  /*!< in: name */
-                               ib_uint64_t val);  /*!< in: value */
+                               uint64_t val);     /*!< in: value */
 
 /** If the literal value already exists then it rebinds otherwise it
  creates a new entry.
@@ -423,12 +425,12 @@ void pars_info_add_ull_literal(pars_info_t *info, /*!< in: info struct */
 @param[in] name Name
 @param[in] val Value */
 void pars_info_bind_ull_literal(pars_info_t *info, const char *name,
-                                const ib_uint64_t *val);
+                                const uint64_t *val);
 
 /** Add bound id.
-@param[in]	info	info struct
-@param[in]	name	name
-@param[in]	id	id */
+@param[in]      info    info struct
+@param[in]      name    name
+@param[in]      id      id */
 void pars_info_add_id(pars_info_t *info, const char *name, const char *id);
 
 /** Get bound literal with the given name.
@@ -438,8 +440,8 @@ pars_bound_lit_t *pars_info_get_bound_lit(
     const char *name); /*!< in: bound literal name to find */
 
 /** Get bound identifier with the given name.
-@param[in]	info	info struct
-@param[in]	name	bound id name to find
+@param[in]      info    info struct
+@param[in]      name    bound id name to find
 @return bound id, or NULL if not found */
 pars_bound_id_t *pars_info_get_bound_id(pars_info_t *info, const char *name);
 
@@ -457,7 +459,7 @@ struct pars_info_t {
   ib_vector_t *bound_ids;  /*!< bound ids, or NULL
                            (pars_bound_id_t*) */
 
-  ibool graph_owns_us; /*!< if TRUE (which is the default),
+  bool graph_owns_us; /*!< if true (which is the default),
                        que_graph_free() will free us */
 };
 
@@ -514,7 +516,7 @@ UT_LIST_NODE_GETTER_DEFINITION(func_node_t, func_node_list)
 struct order_node_t {
   que_common_t common; /*!< type: QUE_NODE_ORDER */
   sym_node_t *column;  /*!< order-by column */
-  ibool asc;           /*!< TRUE if ascending, FALSE if descending */
+  bool asc;            /*!< true if ascending, false if descending */
 };
 
 /** Procedure definition node */

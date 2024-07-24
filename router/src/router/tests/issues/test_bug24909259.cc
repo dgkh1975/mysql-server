@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,8 +24,8 @@
 */
 
 /**
- * BUG24909259 ROUTER IS NOT ABLE TO CONNECT TO M/C AFTER BOOSTRAPPED WITH DIR &
- * NAME OPTIONS
+ * BUG24909259 ROUTER IS NOT ABLE TO CONNECT TO M/C AFTER BOOTSTRAPPED WITH DIR
+ * AND NAME OPTIONS
  *
  */
 
@@ -34,16 +35,16 @@
 #include <stdexcept>
 #include <string>
 
-#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #include "dim.h"
 #include "keyring/keyring_manager.h"
 #include "keyring/keyring_memory.h"
 #include "mysql/harness/config_parser.h"
+#include "mysqlrouter/default_paths.h"
 #include "mysqlrouter/utils.h"
 #include "random_generator.h"
 #include "router_app.h"
-#include "router_test_helpers.h"
 
 static mysql_harness::Path g_origin;
 
@@ -110,7 +111,7 @@ TEST(Bug24909259, PasswordPrompt_plain) {
   {
     MySQLRouter router;
 
-    mysql_harness::Config config(router.get_default_paths(g_origin),
+    mysql_harness::Config config(mysqlrouter::get_default_paths(g_origin),
                                  mysql_harness::Config::allow_keys);
     std::stringstream ss("[metadata_cache]\n");
     config.read(ss);
@@ -123,7 +124,7 @@ TEST(Bug24909259, PasswordPrompt_plain) {
   EXPECT_TRUE(mysql_harness::get_keyring() == nullptr);
   {
     MySQLRouter router;
-    mysql_harness::Config config(router.get_default_paths(g_origin),
+    mysql_harness::Config config(mysqlrouter::get_default_paths(g_origin),
                                  mysql_harness::Config::allow_keys);
     std::stringstream ss("[metadata_cache]\nuser=foo\n");
     config.read(ss);
@@ -144,7 +145,7 @@ TEST(Bug24909259, PasswordPrompt_plain) {
   mysql_harness::reset_keyring();
   {
     MySQLRouter router;
-    mysql_harness::Config config(router.get_default_paths(g_origin),
+    mysql_harness::Config config(mysqlrouter::get_default_paths(g_origin),
                                  mysql_harness::Config::allow_keys);
     std::stringstream ss("[DEFAULT]\nkeyring_path=" + kTestKRFile2 +
                          "\n[metadata_cache]\nuser=foo\n");
@@ -158,7 +159,7 @@ TEST(Bug24909259, PasswordPrompt_plain) {
   {
     // this one should succeed completely
     MySQLRouter router;
-    mysql_harness::Config config(router.get_default_paths(g_origin),
+    mysql_harness::Config config(mysqlrouter::get_default_paths(g_origin),
                                  mysql_harness::Config::allow_keys);
     std::stringstream ss("[DEFAULT]\nkeyring_path=" + kTestKRFile +
                          "\nmaster_key_path=" + kTestKRFile +
@@ -187,7 +188,7 @@ TEST(Bug24909259, PasswordPrompt_keyed) {
   EXPECT_TRUE(mysql_harness::get_keyring() == nullptr);
   {
     MySQLRouter router;
-    mysql_harness::Config config(router.get_default_paths(g_origin),
+    mysql_harness::Config config(mysqlrouter::get_default_paths(g_origin),
                                  mysql_harness::Config::allow_keys);
     std::stringstream ss("[metadata_cache:foo]\n");
     config.read(ss);
@@ -200,7 +201,7 @@ TEST(Bug24909259, PasswordPrompt_keyed) {
   EXPECT_TRUE(mysql_harness::get_keyring() == nullptr);
   {
     MySQLRouter router;
-    mysql_harness::Config config(router.get_default_paths(g_origin),
+    mysql_harness::Config config(mysqlrouter::get_default_paths(g_origin),
                                  mysql_harness::Config::allow_keys);
     std::stringstream ss("[metadata_cache:foo]\nuser=foo\n");
     config.read(ss);
@@ -221,7 +222,7 @@ TEST(Bug24909259, PasswordPrompt_keyed) {
   mysql_harness::reset_keyring();
   {
     MySQLRouter router;
-    mysql_harness::Config config(router.get_default_paths(g_origin),
+    mysql_harness::Config config(mysqlrouter::get_default_paths(g_origin),
                                  mysql_harness::Config::allow_keys);
     std::stringstream ss("[DEFAULT]\nkeyring_path=" + kTestKRFile2 +
                          "\n[metadata_cache:foo]\nuser=foo\n");
@@ -235,7 +236,7 @@ TEST(Bug24909259, PasswordPrompt_keyed) {
   {
     // this one should succeed completely
     MySQLRouter router;
-    mysql_harness::Config config(router.get_default_paths(g_origin),
+    mysql_harness::Config config(mysqlrouter::get_default_paths(g_origin),
                                  mysql_harness::Config::allow_keys);
     std::stringstream ss("[DEFAULT]\nkeyring_path=" + kTestKRFile +
                          "\nmaster_key_path=" + kTestKRFile +

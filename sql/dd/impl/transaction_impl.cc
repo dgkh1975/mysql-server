@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -60,7 +61,7 @@ bool Open_dictionary_tables_ctx::open_tables() {
   Object_table_map::iterator it = m_tables.begin();
   Object_table_map::iterator it_next = m_tables.begin();
 
-  TABLE_LIST *table_list = it_next->second->get_table_list();
+  Table_ref *table_list = it_next->second->get_table_ref();
 
   ++it_next;
 
@@ -68,8 +69,7 @@ bool Open_dictionary_tables_ctx::open_tables() {
   while (it_next != m_tables.end()) {
     // fprintf(stderr, "  - '%s'\n", it->first.c_str());
 
-    it->second->get_table_list()->next_global =
-        it_next->second->get_table_list();
+    it->second->get_table_ref()->next_global = it_next->second->get_table_ref();
 
     ++it;
     ++it_next;
@@ -115,7 +115,7 @@ bool Open_dictionary_tables_ctx::open_tables() {
     is not really necessary for replicating data-dictionary changes
     (as we do not aim to replicate exact IDs in the data-dictionary).
   */
-  for (TABLE_LIST *t = table_list; t; t = t->next_global) {
+  for (Table_ref *t = table_list; t; t = t->next_global) {
     assert(t->table->file->ha_table_flags() & HA_ATTACHABLE_TRX_COMPATIBLE);
     if (t->table->file->ha_extra(HA_EXTRA_NO_AUTOINC_LOCKING)) return true;
   }

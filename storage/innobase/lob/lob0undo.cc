@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,13 +27,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 
 #include "lob0undo.h"
 #include "dict0dict.h"
-#include "sql/json_binary.h"
+#include "sql-common/json_binary.h"
 
 namespace lob {
 
 /** Apply the undo information to the given LOB.
-@param[in]	index		clustered index containing the LOB.
-@param[in]	lob_mem		LOB on which the given undo will be
+@param[in]      index           clustered index containing the LOB.
+@param[in]      lob_mem         LOB on which the given undo will be
                                 applied.
 @param[in]    len             length of LOB.
 @param[in]    lob_version     lob version number
@@ -73,7 +74,8 @@ std::ostream &undo_data_t::print(std::ostream &out) const {
 @return pointer past the old data. */
 const byte *undo_data_t::copy_old_data(const byte *undo_ptr, ulint len) {
   m_length = len;
-  m_old_data = UT_NEW_ARRAY_NOKEY(byte, m_length);
+  m_old_data =
+      ut::new_arr_withkey<byte>(UT_NEW_THIS_FILE_PSI_KEY, ut::Count{m_length});
   if (m_old_data == nullptr) {
     return (nullptr);
   }
@@ -84,7 +86,7 @@ const byte *undo_data_t::copy_old_data(const byte *undo_ptr, ulint len) {
 /** Free allocated memory for old data. */
 void undo_data_t::destroy() {
   if (m_old_data != nullptr) {
-    UT_DELETE_ARRAY(m_old_data);
+    ut::delete_arr(m_old_data);
     m_old_data = nullptr;
   }
 }

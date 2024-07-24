@@ -1,15 +1,16 @@
-/*  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/*  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License, version 2.0,
     as published by the Free Software Foundation.
 
-    This program is also distributed with certain software (including
+    This program is designed to work with certain software (including
     but not limited to OpenSSL) that is licensed under separate terms,
     as designated in a particular file or component or in included license
     documentation.  The authors of MySQL hereby grant you an additional
     permission to link the program and your derivative works with the
-    separately licensed software that they have included with MySQL.
+    separately licensed software that they have either included with
+    the program or referenced in the documentation.
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -95,7 +96,7 @@ DEFINE_METHOD(void, mysql_clone_start_statement,
     my_thread_init();
 
     /* Create thread with input key for PFS */
-    thd = create_thd(true, true, true, thread_key);
+    thd = create_thd(true, true, true, thread_key, 0);
 #ifdef HAVE_PSI_THREAD_INTERFACE
     thd_created = true;
 #endif
@@ -110,6 +111,9 @@ DEFINE_METHOD(void, mysql_clone_start_statement,
     }
   }
 #endif
+
+  mysql_thread_set_secondary_engine(false);
+
   /* Create and set PFS statement key */
   if (statement_key != PSI_NOT_INSTRUMENTED) {
     if (thd->m_statement_psi == nullptr) {
@@ -188,36 +192,35 @@ DEFINE_METHOD(int, mysql_clone_validate_charsets,
 */
 static int get_utf8_config(THD *thd, std::string config_name,
                            String &utf8_val) {
-  char val_buf[1024];
-  SHOW_VAR show;
-  show.type = SHOW_SYS;
+  auto f = [thd, &utf8_val](const System_variable_tracker &, sys_var *var) {
+    char val_buf[1024];
+    SHOW_VAR show;
+    show.type = SHOW_SYS;
+    show.value = pointer_cast<char *>(var);
+    show.name = var->name.str;
 
-  /* Get system configuration parameter. */
-  mysql_rwlock_rdlock(&LOCK_system_variables_hash);
-  auto var = intern_find_sys_var(config_name.c_str(), config_name.length());
-  mysql_rwlock_unlock(&LOCK_system_variables_hash);
+    mysql_mutex_lock(&LOCK_global_system_variables);
+    size_t val_length;
+    const CHARSET_INFO *fromcs;
 
-  if (var == nullptr) {
+    const char *value =
+        get_one_variable(thd, &show, OPT_GLOBAL, SHOW_SYS, nullptr, &fromcs,
+                         val_buf, &val_length);
+
+    uint dummy_err;
+    const CHARSET_INFO *tocs = &my_charset_utf8mb4_bin;
+    utf8_val.copy(value, val_length, fromcs, tocs, &dummy_err);
+    mysql_mutex_unlock(&LOCK_global_system_variables);
+  };
+
+  System_variable_tracker sv =
+      System_variable_tracker::make_tracker(config_name);
+  if (sv.access_system_variable(thd, f, Suppress_not_found_error::YES)) {
     my_error(ER_INTERNAL_ERROR, MYF(0),
              "Clone failed to get system configuration parameter.");
     return (ER_INTERNAL_ERROR);
   }
 
-  show.value = reinterpret_cast<char *>(var);
-  show.name = var->name.str;
-
-  mysql_mutex_lock(&LOCK_global_system_variables);
-  size_t val_length;
-  const CHARSET_INFO *fromcs;
-
-  auto value = get_one_variable(thd, &show, OPT_GLOBAL, SHOW_SYS, nullptr,
-                                &fromcs, val_buf, &val_length);
-
-  mysql_mutex_unlock(&LOCK_global_system_variables);
-
-  uint dummy_err;
-  const CHARSET_INFO *tocs = &my_charset_utf8mb4_bin;
-  utf8_val.copy(value, val_length, fromcs, tocs, &dummy_err);
   return (0);
 }
 
@@ -240,40 +243,130 @@ DEFINE_METHOD(int, mysql_clone_get_configs,
   return (err);
 }
 
-/**
- Says whether a character is a digit or a dot.
- @param c character
- @return true if c is a digit or a dot, otherwise false
- */
-inline bool is_digit_or_dot(char c) { return std::isdigit(c) || c == '.'; }
+/* Clone-related macros to parse version strings and determine if clone
+should be allowed */
+/** Size of the parsed version strings array */
+constexpr unsigned int CLONE_PARSE_ARRAY_SIZE = 4;
+/** Parsed version strings array type */
+typedef std::array<std::string, CLONE_PARSE_ARRAY_SIZE> ParseArray;
+
+/** Index of the array correpsonding to parts of version */
+constexpr unsigned int MAJOR = 0;
+constexpr unsigned int MINOR = 1;
+constexpr unsigned int PATCH = 2;
+constexpr unsigned int BUILD = 3;
+
+/* Patch version in 8.0.37 where wl15989 is backported */
+constexpr unsigned long CLONE_BACKPORT_VERSION = 37;
+
+/** Parse a version string into an array of strings corresponding to the MAJOR,
+MINOR, PATCH and BUILD versions. A string of length 0 is filled in case a
+particular version string could not be parsed. For example,
+  "Major.Minor.Patch-Build" yields ["Major", "Minor", "Patch", "Build"],
+  "8.0.23-SR1"              yields ["8", "0", "23", "SR1"],
+  "8.0.-u5"                 yields ["8", "0", "", "u5"]
+@note: This function allocates the array, populates it and returns the array
+@param version input version string
+*/
+static ParseArray parse_version_string(std::string version) {
+  ParseArray parsed;
+  auto parse_next_part{[&parsed, &version](size_t index, char delimiter) {
+    const auto pos = version.find(delimiter);
+    if (pos != std::string::npos) {
+      /* pos + 1 to skip the delimiter*/
+      parsed[index] = version.substr(0, pos);
+      version.erase(0, pos + 1);
+    } else {
+      /* MAJOR part of the version string to expected to be present always */
+      assert(index != MAJOR);
+      /* unable to parse, store rest of the string and make it empty */
+      parsed[index] = version.substr(0, version.length());
+      version.erase(0, version.length());
+    }
+  }};
+
+  parse_next_part(MAJOR, '.');
+  parse_next_part(MINOR, '.');
+  parse_next_part(PATCH, '-');
+  parsed[BUILD] = version;
+  return parsed;
+}
+
+/** Test specific function to configure the version strings of the donor and
+recipient to cover various scenarios where clone is allowed or not. This
+function will modify the input to ensure correct error message is printed.
+@param config_val recipient server's version string
+@param donor_val  donor server's version string
+*/
+static void test_configure_versions([[maybe_unused]] std::string &config_val,
+                                    [[maybe_unused]] std::string &donor_val) {
+  /* Test specific code to check for cross version clone support */
+  DBUG_EXECUTE_IF("clone_across_lts_version_match",
+                  { config_val = donor_val; });
+  DBUG_EXECUTE_IF("clone_across_lts_major_mismatch", {
+    config_val = "8.4.0";
+    donor_val = "9.7.2";
+  });
+  DBUG_EXECUTE_IF("clone_across_lts_minor_mismatch", {
+    config_val = "8.4.0";
+    donor_val = "8.3.2";
+  });
+  DBUG_EXECUTE_IF("clone_across_lts_non_8_0_patch_mismatch", {
+    config_val = "8.4.2";
+    donor_val = "8.4.1";
+  });
+  DBUG_EXECUTE_IF("clone_across_lts_8_0_patch_match", {
+    config_val = "8.0.25";
+    donor_val = "8.0.25-debug";
+  });
+  DBUG_EXECUTE_IF("clone_across_lts_8_0_before_backport_patch_mismatch", {
+    config_val = "8.0.34";
+    donor_val = "8.0.35";
+  });
+  DBUG_EXECUTE_IF("clone_across_lts_8_0_before_backport_patch_mis_single", {
+    config_val = "8.0.6";
+    donor_val = "8.0.7";
+  });
+  DBUG_EXECUTE_IF("clone_across_lts_8_0_across_backport_patch_mismatch", {
+    config_val = "8.0.38";
+    donor_val = "8.0.35";
+  });
+  DBUG_EXECUTE_IF("clone_across_lts_8_0_after_backport_patch_mismatch", {
+    config_val = "8.0.38";
+    donor_val = "8.0.37";
+  });
+}
 
 /**
- Compares versions, ignoring suffixes, i.e. 8.0.25 should be the same
- as 8.0.25-debug, but 8.0.25 isn't the same as 8.0.251.
+ Compares versions and determine if clone is allowed. Clone is allowed if both
+ the donor and recipient have exactly same version string. In version series 8.1
+ and above, cloning is allowed if Major and Minor versions match. In 8.0 series,
+ clone is allowed if patch version is above clone backport version. In this
+ comparison, suffixes are ignored: i.e. 8.0.25 should be the same as
+ 8.0.25-debug, but 8.0.25 isn't the same as 8.0.251
  @param ver1 version1 string
  @param ver2 version2 string
- @return true if versions match (ignoring suffixes), false otherwise
+ @return true if cloning is allowed between ver1 and ver2, false otherwise
  */
-inline bool compare_prefix_version(std::string ver1, std::string ver2) {
-  size_t i;
-  /* we iterate  over both versions */
-  for (i = 0; i < ver1.size() && i < ver2.size(); i++) {
-    if (!is_digit_or_dot(ver1[i])) {
-      /*  If in one version we have something else than digit or dot,
-      we check what's in other version - if we also have a suffix or still
-      a version. */
-      return !is_digit_or_dot(ver2[i]);
+inline bool compare_server_version(std::string ver1, std::string ver2) {
+  if (ver1 == ver2) {
+    return true;
+  }
+  const auto parse_v1 = parse_version_string(ver1);
+  const auto parse_v2 = parse_version_string(ver2);
+
+  if ((parse_v1[MAJOR] != parse_v2[MAJOR]) ||
+      (parse_v1[MINOR] != parse_v2[MINOR])) {
+    return false;
+  } else if ((parse_v1[MAJOR] == "8") && (parse_v1[MINOR] == "0")) {
+    /* Specific checks for clone across 8.0 series */
+    try {
+      return ((parse_v1[PATCH] == parse_v2[PATCH]) ||
+              (std::stoul(parse_v1[PATCH]) >= CLONE_BACKPORT_VERSION &&
+               std::stoul(parse_v2[PATCH]) >= CLONE_BACKPORT_VERSION));
+    } catch (...) {
+      return false;
     }
-    /* We still compare version, and have a difference */
-    if (ver1[i] != ver2[i]) return false;
-  }
-  if (i < ver1.size()) {
-    /* we finished iterate over ver2, but still have some digits in ver1 */
-    return !std::isdigit(ver1[i]);
-  }
-  if (i < ver2.size()) {
-    /* we finished iterate over ver1, but still have some digits in ver2 */
-    return !std::isdigit(ver2[i]);
   }
   return true;
 }
@@ -297,7 +390,10 @@ DEFINE_METHOD(int, mysql_clone_validate_configs,
     config_val.assign(utf8_str.c_ptr_quick());
 
     /* Check if the parameter value matches. */
-    if (config_val == donor_val) {
+    if (DBUG_EVALUATE_IF(
+            "clone_across_lts_compare_versions",
+            config_val == donor_val && config_name.compare("version") != 0,
+            config_val == donor_val)) {
       continue;
     }
 
@@ -308,9 +404,9 @@ DEFINE_METHOD(int, mysql_clone_validate_configs,
     if (config_name.compare("version_compile_os") == 0) {
       critical_error = ER_CLONE_OS;
     } else if (config_name.compare("version") == 0) {
-      /* we want to allow to add some suffix to the version and still match
-      i.e. 8.0.25 should be the same as 8.0.25-debug */
-      if (compare_prefix_version(config_val, donor_val)) {
+      /* test specific modifications to version strings */
+      test_configure_versions(config_val, donor_val);
+      if (compare_server_version(config_val, donor_val)) {
         continue;
       }
       critical_error = ER_CLONE_DONOR_VERSION;
@@ -374,11 +470,13 @@ DEFINE_METHOD(MYSQL *, mysql_clone_connect,
 
     server_main_callback.read_parameters(nullptr, &capath, &version, nullptr,
                                          &cipher, &ciphersuites, nullptr, &crl,
-                                         &crlpath);
+                                         &crlpath, nullptr, nullptr);
 
-    mysql_ssl_set(mysql, ssl_ctx->m_ssl_key, ssl_ctx->m_ssl_cert,
-                  ssl_ctx->m_ssl_ca, capath.c_str(), cipher.c_str());
-
+    mysql_options(mysql, MYSQL_OPT_SSL_KEY, ssl_ctx->m_ssl_key);
+    mysql_options(mysql, MYSQL_OPT_SSL_CERT, ssl_ctx->m_ssl_cert);
+    mysql_options(mysql, MYSQL_OPT_SSL_CIPHER, cipher.c_str());
+    mysql_options(mysql, MYSQL_OPT_SSL_CA, ssl_ctx->m_ssl_ca);
+    mysql_options(mysql, MYSQL_OPT_SSL_CAPATH, capath.c_str());
     mysql_options(mysql, MYSQL_OPT_SSL_CRL, crl.c_str());
     mysql_options(mysql, MYSQL_OPT_SSL_CRLPATH, crlpath.c_str());
     mysql_options(mysql, MYSQL_OPT_TLS_VERSION, version.c_str());
@@ -525,6 +623,7 @@ DEFINE_METHOD(int, mysql_clone_get_response,
 
   /* Use server extension callback to capture network byte information. */
   NET_SERVER server_extn;
+  net_server_ext_init(&server_extn);
   server_extn.m_user_data = static_cast<void *>(net_length);
   server_extn.m_before_header = func_before;
   server_extn.m_after_header = func_after;
@@ -558,6 +657,19 @@ DEFINE_METHOD(int, mysql_clone_get_response,
     thd->get_stmt_da()->reset_condition_info(thd);
     my_error(ER_QUERY_INTERRUPTED, MYF(0));
     err = ER_QUERY_INTERRUPTED;
+  }
+
+  /* This error is not relevant for client but is raised by network
+  net_read_raw_loop() as the code is compiled in server MYSQL_SERVER.
+  For clone client we need to set valid client network error. */
+  if (err == ER_CLIENT_INTERACTION_TIMEOUT) {
+    /* purecov: begin inspected */
+    thd->clear_error();
+    thd->get_stmt_da()->reset_condition_info(thd);
+    net->last_errno = ER_NET_READ_ERROR;
+    err = ER_NET_READ_ERROR;
+    my_error(ER_NET_READ_ERROR, MYF(0));
+    /* purecov: end */
   }
 
   if (err == 0) {
@@ -708,6 +820,32 @@ DEFINE_METHOD(int, mysql_clone_send_error,
               (THD * thd, uchar err_cmd, bool is_fatal)) {
   DBUG_TRACE;
 
+  NET *net = thd->get_protocol_classic()->get_net();
+  auto da = thd->get_stmt_da();
+
+  /* Consider any previous network error as fatal. */
+  if (!is_fatal && net->last_errno != 0) {
+    is_fatal = true;
+  }
+
+  if (is_fatal) {
+    int err = 0;
+
+    /* Handle the case if network layer hasn't set the error in THD. */
+    if (da->is_error()) {
+      err = da->mysql_errno();
+    } else {
+      err = ER_NET_ERROR_ON_WRITE;
+      my_error(err, MYF(0));
+    }
+
+    mysql_mutex_lock(&thd->LOCK_thd_data);
+    thd->shutdown_active_vio();
+    mysql_mutex_unlock(&thd->LOCK_thd_data);
+
+    return err;
+  }
+
   uchar err_packet[1 + 4 + MYSQL_ERRMSG_SIZE + 1];
   uchar *buf_ptr = &err_packet[0];
   size_t packet_length = 0;
@@ -715,8 +853,6 @@ DEFINE_METHOD(int, mysql_clone_send_error,
   *buf_ptr = err_cmd;
   ++buf_ptr;
   ++packet_length;
-
-  auto da = thd->get_stmt_da();
 
   char *bufp;
 
@@ -728,13 +864,6 @@ DEFINE_METHOD(int, mysql_clone_send_error,
     bufp = reinterpret_cast<char *>(buf_ptr);
     packet_length +=
         snprintf(bufp, MYSQL_ERRMSG_SIZE, "%s", da->message_text());
-    if (is_fatal) {
-      mysql_mutex_lock(&thd->LOCK_thd_data);
-      thd->shutdown_active_vio();
-      mysql_mutex_unlock(&thd->LOCK_thd_data);
-
-      return da->mysql_errno();
-    }
   } else {
     int4store(buf_ptr, ER_INTERNAL_ERROR);
     buf_ptr += 4;
@@ -744,14 +873,6 @@ DEFINE_METHOD(int, mysql_clone_send_error,
     packet_length += snprintf(bufp, MYSQL_ERRMSG_SIZE, "%s", "Unknown Error");
   }
 
-  NET *net = thd->get_protocol_classic()->get_net();
-
-  if (net->last_errno != 0) {
-    return static_cast<int>(net->last_errno);
-  }
-
-  assert(!is_fatal);
-
   /* Clean error in THD */
   thd->clear_error();
   thd->get_stmt_da()->reset_condition_info(thd);
@@ -759,12 +880,18 @@ DEFINE_METHOD(int, mysql_clone_send_error,
 
   if (my_net_write(net, &err_packet[0], packet_length) || net_flush(net)) {
     int err = static_cast<int>(net->last_errno);
+    da = thd->get_stmt_da();
 
-    if (err == 0) {
+    if (err == 0 || !da->is_error()) {
       net->last_errno = ER_NET_PACKETS_OUT_OF_ORDER;
       err = ER_NET_PACKETS_OUT_OF_ORDER;
       my_error(err, MYF(0));
     }
+
+    mysql_mutex_lock(&thd->LOCK_thd_data);
+    thd->shutdown_active_vio();
+    mysql_mutex_unlock(&thd->LOCK_thd_data);
+
     return err;
   }
   return 0;

@@ -17,6 +17,7 @@ var common_stmts = require("common_statements");
 
 var options = {
   cluster_type: "gr",
+  gr_id: mysqld.global.gr_id,
 };
 
 var common_responses = common_stmts.prepare_statement_responses(
@@ -31,13 +32,14 @@ var common_responses = common_stmts.prepare_statement_responses(
       "router_select_replication_group_name",  // account verification also
                                                // needs it
       "router_show_cipher_status",
-      "router_select_cluster_instances_v2",
+      "router_select_cluster_instances_v2_gr",
       "router_select_cluster_instance_addresses_v2",
       "router_start_transaction",
       "router_commit",
+      "router_clusterset_present",
 
       // account verification
-      "router_select_metadata_v2_gr",
+      "router_select_metadata_v2_gr_account_verification",
       "router_select_group_replication_primary_member",
       "router_select_group_membership_with_primary_mode",
     ],
@@ -49,9 +51,11 @@ var common_responses_regex = common_stmts.prepare_statement_responses_regex(
       "router_create_user_if_not_exists",  // \
       "router_grant_on_metadata_db",       //  \
       "router_grant_on_pfs_db",            //   > overwritten by most tests
-      "router_grant_on_routers",           //   /
-      "router_grant_on_v2_routers",        //   /
+      "router_grant_on_routers",           //  /
+      "router_grant_on_v2_routers",        // /
+      "router_check_auth_plugin",
       "router_update_routers_in_metadata",
+      "router_update_router_options_in_metadata",
       "router_select_router_id",
     ],
     options);

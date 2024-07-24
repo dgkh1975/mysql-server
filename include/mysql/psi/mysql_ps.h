@@ -1,15 +1,16 @@
-/* Copyright (c) 2013, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2013, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -56,6 +57,8 @@
   inline_mysql_reprepare_prepared_stmt(PREPARED_STMT)
 #define MYSQL_SET_PS_TEXT(PREPARED_STMT, SQLTEXT, SQLTEXT_LENGTH) \
   inline_mysql_set_prepared_stmt_text(PREPARED_STMT, SQLTEXT, SQLTEXT_LENGTH)
+#define MYSQL_SET_PS_SECONDARY_ENGINE(PREPARED_STMT, SECONDARY) \
+  inline_mysql_set_prepared_stmt_secondary_engine(PREPARED_STMT, SECONDARY)
 
 #else
 
@@ -73,6 +76,9 @@
   } while (0)
 #define MYSQL_SET_PS_TEXT(PREPARED_STMT, SQLTEXT, SQLTEXT_LENGTH) \
   do {                                                            \
+  } while (0)
+#define MYSQL_SET_PS_SECONDARY_ENGINE(PREPARED_STMT, SECONDARY) \
+  do {                                                          \
   } while (0)
 
 #endif
@@ -115,6 +121,13 @@ static inline void inline_mysql_set_prepared_stmt_text(
     PSI_prepared_stmt *prepared_stmt, const char *text, uint text_len) {
   if (prepared_stmt != nullptr) {
     PSI_PS_CALL(set_prepared_stmt_text)(prepared_stmt, text, text_len);
+  }
+}
+
+static inline void inline_mysql_set_prepared_stmt_secondary_engine(
+    PSI_prepared_stmt *prepared_stmt, bool secondary) {
+  if (prepared_stmt != nullptr) {
+    PSI_PS_CALL(set_prepared_stmt_secondary_engine)(prepared_stmt, secondary);
   }
 }
 

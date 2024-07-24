@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -131,7 +132,7 @@ class Gcs_xcom_input_queue_impl {
    * Takes ownership of @c msg.
    *
    * @param msg the app_data_ptr to send to XCom
-   * @retval false if there is no memory avaiable
+   * @retval false if there is no memory available
    * @retval true otherwise (operation was successful)
    */
   bool push(app_data_ptr msg) {
@@ -169,7 +170,7 @@ class Gcs_xcom_input_queue_impl {
    * Transfers ownership of the returned pointer(s).
    * Note that this method is non-blocking.
    *
-   * @retval app_data_ptr linked list of the queued comamnds if the queue is
+   * @retval app_data_ptr linked list of the queued commands if the queue is
    *                      not empty
    * @retval nullptr if the queue is empty
    */

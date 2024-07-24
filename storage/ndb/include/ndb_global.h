@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2004, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2004, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -37,11 +38,12 @@
 #include <assert.h>
 #include <errno.h>
 #include <math.h>
+#include <mysql/service_mysql_alloc.h>
 #include <stddef.h>
 #include <stdio.h>
+#include "my_config.h"
 #include "my_dbug.h"
 #include "my_inttypes.h"
-#include <mysql/service_mysql_alloc.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
@@ -59,13 +61,7 @@
 */
 
 #define my_offsetof(TYPE, MEMBER) \
-        ((size_t)((char *)&(((TYPE *)0x10)->MEMBER) - (char*)0x10))
-
-#if defined __GNUC__
-# define ATTRIBUTE_FORMAT(style, m, n) MY_ATTRIBUTE((format(style, m, n)))
-#else
-# define ATTRIBUTE_FORMAT(style, m, n)
-#endif
+  ((size_t)((char *)&(((TYPE *)0x10)->MEMBER) - (char *)0x10))
 
 #ifdef HAVE_NDB_CONFIG_H
 #include "ndb_config.h"
@@ -90,19 +86,19 @@
 
 /* Disable a few compiler warnings on Windows */
 /* 4355: 'this': used in base member initializer list */
-#pragma warning(disable: 4355)
+#pragma warning(disable : 4355)
 
 #endif
 
-#if ! (NDB_SIZEOF_CHAR == SIZEOF_CHAR)
+#if !(NDB_SIZEOF_CHAR == SIZEOF_CHAR)
 #error "Invalid define for Uint8"
 #endif
 
-#if ! (NDB_SIZEOF_INT == SIZEOF_INT)
+#if !(NDB_SIZEOF_INT == SIZEOF_INT)
 #error "Invalid define for Uint32"
 #endif
 
-#if ! (NDB_SIZEOF_LONG_LONG == SIZEOF_LONG_LONG)
+#if !(NDB_SIZEOF_LONG_LONG == SIZEOF_LONG_LONG)
 #error "Invalid define for Uint64"
 #endif
 
@@ -139,19 +135,17 @@
 #include <sys/mman.h>
 #endif
 
-static const char table_name_separator =  '/';
+static const char table_name_separator = '/';
 
-#ifdef  __cplusplus
+#ifdef __cplusplus
 extern "C" {
 #endif
-	
 
-
-#ifdef  __cplusplus
+#ifdef __cplusplus
 }
 #endif
 
-#ifdef  __cplusplus
+#ifdef __cplusplus
 #include <new>
 #endif
 
@@ -162,16 +156,16 @@ extern "C" {
 #endif
 
 #ifndef MIN
-#define MIN(x,y) (((x)<(y))?(x):(y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 #endif
 
 #ifndef MAX
-#define MAX(x,y) (((x)>(y))?(x):(y))
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #endif
 
 /*
-  Dont allow use of min() or max() macros
-   - in order to enforce forward compatibilty
+  Don't allow use of min() or max() macros
+   - in order to enforce forward compatibility
 */
 
 #ifdef min
@@ -185,72 +179,24 @@ extern "C" {
 #define NDB_O_DIRECT_WRITE_ALIGNMENT 512
 #define NDB_O_DIRECT_WRITE_BLOCKSIZE 4096
 
-#ifndef STATIC_ASSERT
-#if defined VM_TRACE
-/**
- * Compile-time assert for use from procedure body
- * Zero length array not allowed in C
- * Add use of array to avoid compiler warning
- */
-#define STATIC_ASSERT(expr) { char a_static_assert[(expr)? 1 : 0] = {'\0'}; if (a_static_assert[0]) {}; }
-#else
-#define STATIC_ASSERT(expr)
-#endif
-#endif
-
 #define NDB_ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
-
-
-/*
-  NDB_STATIC_ASSERT(expr)
-   - Check coding assumptions during compile time
-     by laying out code that will generate a compiler error
-     if the expression is false.
-*/
-
-#define NDB_STATIC_ASSERT(expr) static_assert(expr, #expr)
 
 #if defined(_WIN32) && (_MSC_VER > 1500)
 #define HAVE___HAS_TRIVIAL_CONSTRUCTOR
 #define HAVE___IS_POD
 #endif
 
-#ifdef HAVE___HAS_TRIVIAL_CONSTRUCTOR
-#define ASSERT_TYPE_HAS_CONSTRUCTOR(x)     \
-  NDB_STATIC_ASSERT(!__has_trivial_constructor(x))
-#else
-#define ASSERT_TYPE_HAS_CONSTRUCTOR(x)
-#endif
-
 /**
- * visual studio is stricter than gcc for __is_pod, settle for __has_trivial_constructor
- *  until we really really made all signal data classes POD
+ * visual studio is stricter than gcc for __is_pod, settle for
+ * __has_trivial_constructor until we really really made all signal data classes
+ * POD
  *
  * UPDATE: also gcc fails to compile our code with gcc4.4.3
  */
 #ifdef HAVE___HAS_TRIVIAL_CONSTRUCTOR
-#define NDB_ASSERT_POD(x) \
-  NDB_STATIC_ASSERT(__has_trivial_constructor(x))
+#define NDB_ASSERT_POD(x) static_assert(__has_trivial_constructor(x))
 #else
 #define NDB_ASSERT_POD(x)
-#endif
-
-/**
- *  MY_ATTRIBUTE((noinline)) was introduce in gcc 3.1
- */
-#ifdef __GNUC__
-#define ATTRIBUTE_NOINLINE MY_ATTRIBUTE((noinline))
-#else
-#define ATTRIBUTE_NOINLINE
-#endif
-
-/**
- *  Attribute used for unused function arguments
- */
-#if defined(__GNUC__) || defined(__clang__)
-#define ATTRIBUTE_UNUSED __attribute__((unused))
-#else
-#define ATTRIBUTE_UNUSED
 #endif
 
 /**
@@ -265,83 +211,43 @@ extern "C" {
  */
 #define NDB_CL_PADSZ(x) (NDB_CL - ((x) % NDB_CL))
 
-/*
- * require is like a normal assert, only it's always on (eg. in release)
- */
-typedef int(*RequirePrinter)(const char *fmt, ...)
-  ATTRIBUTE_FORMAT(printf, 1, 2);
-[[noreturn]] void require_failed(int exitcode,
-                                 RequirePrinter p,
-                                 const char* expr,
-                                 const char* file,
-                                 int line);
-int ndbout_printer(const char * fmt, ...)
-  ATTRIBUTE_FORMAT(printf, 1, 2);
-/*
- *  this allows for an exit() call if exitcode is not zero
- *  and takes a Printer to print the error
- */
-#define require_exit_or_core_with_printer(v, exitcode, printer) \
-  do { if (likely(!(!(v)))) break;                                    \
-       require_failed((exitcode), (printer), #v, __FILE__, __LINE__); \
-  } while (0)
-
-/*
- *  this allows for an exit() call if exitcode is not zero
-*/
-#define require_exit_or_core(v, exitcode) \
-       require_exit_or_core_with_printer((v), (exitcode), 0)
-
-/*
- * this require is like a normal assert.  (only it's always on)
-*/
-#define require(v) require_exit_or_core_with_printer((v), 0, 0)
-
-struct LinearSectionPtr
-{
+struct LinearSectionPtr {
   Uint32 sz;
-  Uint32 * p;
+  const Uint32 *p;
 };
 
-struct SegmentedSectionPtrPOD
-{
+struct SegmentedSectionPtrPOD {
   Uint32 sz;
   Uint32 i;
-  struct SectionSegment * p;
+  struct SectionSegment *p;
 
 #ifdef __cplusplus
-  void setNull() { p = 0;}
-  bool isNull() const { return p == 0;}
-  inline SegmentedSectionPtrPOD& assign(struct SegmentedSectionPtr&);
+  void setNull() { p = nullptr; }
+  bool isNull() const { return p == nullptr; }
+  inline SegmentedSectionPtrPOD &assign(struct SegmentedSectionPtr &);
 #endif
 };
 
-struct SegmentedSectionPtr
-{
+struct SegmentedSectionPtr {
   Uint32 sz;
   Uint32 i;
-  struct SectionSegment * p;
+  struct SectionSegment *p;
 
 #ifdef __cplusplus
   SegmentedSectionPtr() {}
-  SegmentedSectionPtr(Uint32 sz_arg, Uint32 i_arg,
-                      struct SectionSegment *p_arg)
-    :sz(sz_arg), i(i_arg), p(p_arg)
-  {}
-  SegmentedSectionPtr(const SegmentedSectionPtrPOD & src)
-    :sz(src.sz), i(src.i), p(src.p)
-  {}
+  SegmentedSectionPtr(Uint32 sz_arg, Uint32 i_arg, struct SectionSegment *p_arg)
+      : sz(sz_arg), i(i_arg), p(p_arg) {}
+  SegmentedSectionPtr(const SegmentedSectionPtrPOD &src)
+      : sz(src.sz), i(src.i), p(src.p) {}
 
-  void setNull() { p = 0;}
-  bool isNull() const { return p == 0;}
+  void setNull() { p = nullptr; }
+  bool isNull() const { return p == nullptr; }
 #endif
 };
 
 #ifdef __cplusplus
-inline
-SegmentedSectionPtrPOD&
-SegmentedSectionPtrPOD::assign(struct SegmentedSectionPtr& src)
-{
+inline SegmentedSectionPtrPOD &SegmentedSectionPtrPOD::assign(
+    struct SegmentedSectionPtr &src) {
   this->i = src.i;
   this->p = src.p;
   this->sz = src.sz;
@@ -353,20 +259,18 @@ SegmentedSectionPtrPOD::assign(struct SegmentedSectionPtr& src)
  * words in a section
  */
 #ifdef __cplusplus
-struct GenericSectionIterator
-{
+struct GenericSectionIterator {
   virtual ~GenericSectionIterator() {}
-  virtual void reset()=0;
-  virtual const Uint32* getNextWords(Uint32& sz)=0;
+  virtual void reset() = 0;
+  virtual const Uint32 *getNextWords(Uint32 &sz) = 0;
 };
 #else
 struct GenericSectionIterator;
 #endif
 
-struct GenericSectionPtr
-{
+struct GenericSectionPtr {
   Uint32 sz;
-  struct GenericSectionIterator* sectionIter;
+  struct GenericSectionIterator *sectionIter;
 };
 
 #endif

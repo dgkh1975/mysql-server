@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-Copyright (c) 1995, 2021, Oracle and/or its affiliates.
+Copyright (c) 1995, 2024, Oracle and/or its affiliates.
 Copyright (c) 2008, Google Inc.
 Copyright (c) 2012, Facebook Inc.
 
@@ -14,12 +14,13 @@ This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -55,7 +56,7 @@ struct mysql_pfs_key_t {
   /** Constructor */
   mysql_pfs_key_t(unsigned int val) : m_value(val) {}
 
-  /** Retreive the count.
+  /** Retrieve the count.
   @return number of keys defined */
   static int get_count() { return s_count; }
 
@@ -94,7 +95,7 @@ extern mysql_pfs_key_t buf_pool_free_list_mutex_key;
 extern mysql_pfs_key_t buf_pool_zip_free_mutex_key;
 extern mysql_pfs_key_t buf_pool_zip_hash_mutex_key;
 extern mysql_pfs_key_t buf_pool_zip_mutex_key;
-extern mysql_pfs_key_t cache_last_read_mutex_key;
+extern mysql_pfs_key_t ddl_autoinc_mutex_key;
 extern mysql_pfs_key_t dict_foreign_err_mutex_key;
 extern mysql_pfs_key_t dict_persist_dirty_tables_mutex_key;
 extern mysql_pfs_key_t dict_sys_mutex_key;
@@ -119,6 +120,7 @@ extern mysql_pfs_key_t log_flusher_mutex_key;
 extern mysql_pfs_key_t log_write_notifier_mutex_key;
 extern mysql_pfs_key_t log_flush_notifier_mutex_key;
 extern mysql_pfs_key_t log_limits_mutex_key;
+extern mysql_pfs_key_t log_files_mutex_key;
 extern mysql_pfs_key_t log_cmdq_mutex_key;
 extern mysql_pfs_key_t log_sn_lock_key;
 extern mysql_pfs_key_t log_sn_mutex_key;
@@ -178,6 +180,7 @@ extern mysql_pfs_key_t clone_task_mutex_key;
 extern mysql_pfs_key_t clone_snapshot_mutex_key;
 extern mysql_pfs_key_t parallel_read_mutex_key;
 extern mysql_pfs_key_t dblwr_mutex_key;
+extern mysql_pfs_key_t ahi_enabled_mutex_key;
 #endif /* UNIV_PFS_MUTEX */
 
 #ifdef UNIV_PFS_RWLOCK
@@ -215,7 +218,7 @@ extern mysql_pfs_key_t PFS_NOT_INSTRUMENTED;
 #endif /* HAVE_PFS_INTERFACE */
 
 /** Prints info of the sync system.
-@param[in]	file	where to print */
+@param[in]      file    where to print */
 void sync_print(FILE *file);
 
 #endif /* !sync0sync_h */

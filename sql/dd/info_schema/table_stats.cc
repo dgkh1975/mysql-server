@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -313,7 +314,7 @@ static bool report_error_except_ignore_dup(THD *thd, const char *object_type) {
 namespace dd {
 namespace info_schema {
 
-bool update_table_stats(THD *thd, TABLE_LIST *table) {
+bool update_table_stats(THD *thd, Table_ref *table) {
   // Update the object properties
   HA_CREATE_INFO create_info;
 
@@ -339,7 +340,7 @@ bool update_table_stats(THD *thd, TABLE_LIST *table) {
          report_error_except_ignore_dup(thd, "table");
 }
 
-bool update_index_stats(THD *thd, TABLE_LIST *table) {
+bool update_index_stats(THD *thd, Table_ref *table) {
   // Update the object properties
   TABLE *analyze_table = table->table;
   KEY *key_info = analyze_table->s->key_info;
@@ -711,8 +712,8 @@ ulonglong Table_statistics::read_stat_by_open_table(
     goto end;
   }
 
-  TABLE_LIST *table_list;
-  table_list = lex->query_block->table_list.first;
+  Table_ref *table_list;
+  table_list = lex->query_block->get_table_list();
   table_list->required_type = dd::enum_table_type::BASE_TABLE;
 
   /*
@@ -887,7 +888,7 @@ ulonglong Table_statistics::read_stat_by_open_table(
   }
 
 end:
-  lex->cleanup(thd, true);
+  lex->cleanup(true);
 
   /* Restore original LEX value, statement's arena and THD arena values. */
   lex_end(thd->lex);

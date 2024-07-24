@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,7 +39,7 @@ cursor_by_error_log::cursor_by_error_log(const PFS_engine_table_share *share)
     : PFS_engine_table(share, &m_pos), m_pos(), m_next_pos() {}
 
 /// Get row-count (by getting the number of events in the ring-buffer)
-ha_rows cursor_by_error_log::get_row_count(void) {
+ha_rows cursor_by_error_log::get_row_count() {
   return (ha_rows)log_sink_pfs_event_count();
 }
 
@@ -58,7 +59,7 @@ ha_rows cursor_by_error_log::get_row_count(void) {
   to the next entry, either of which will imply
   log_sink_pfs_event_first() at some point).
 */
-void cursor_by_error_log::reset_position(void) {
+void cursor_by_error_log::reset_position() {
   m_pos.reset();
   m_next_pos.reset();
 }
@@ -71,7 +72,7 @@ void cursor_by_error_log::reset_position(void) {
   @retval HA_ERR_END_OF_FILE  failed to locate data, or to create a row from it
   @retval 0                   success
 */
-int cursor_by_error_log::rnd_next(void) {
+int cursor_by_error_log::rnd_next() {
   log_sink_pfs_event *row;
   int ret = HA_ERR_END_OF_FILE;
 

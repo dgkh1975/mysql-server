@@ -1,15 +1,16 @@
-/*  Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/*  Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License, version 2.0,
     as published by the Free Software Foundation.
 
-    This program is also distributed with certain software (including
+    This program is designed to work with certain software (including
     but not limited to OpenSSL) that is licensed under separate terms,
     as designated in a particular file or component or in included license
     documentation.  The authors of MySQL hereby grant you an additional
     permission to link the program and your derivative works with the
-    separately licensed software that they have included with MySQL.
+    separately licensed software that they have either included with
+    the program or referenced in the documentation.
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -102,36 +103,45 @@ Srv_session *srv_session_open_internal(srv_session_error_cb error_cb,
     return nullptr;
   }
 
-  Srv_session *session =
-      new (std::nothrow) class Srv_session(error_cb, plugin_ctx);
-
-  if (!session) {
+  Srv_session *session = nullptr;
+  try {
+    session = new Srv_session(error_cb, plugin_ctx);
+  } catch (...) {
     DBUG_PRINT("error", ("Can't allocate a Srv_session object"));
     connection_errors_internal++;
     if (error_cb)
       error_cb(plugin_ctx, ER_OUT_OF_RESOURCES,
                ER_DEFAULT(ER_OUT_OF_RESOURCES));
-  } else {
-    THD *current = current_thd;
-    THD *stack_thd = session->get_thd();
-
-    session->get_thd()->thread_stack = reinterpret_cast<char *>(&stack_thd);
-    session->get_thd()->store_globals();
-
-    bool result = session->open();
-
-    session->get_thd()->restore_globals();
-
-    if (result) {
-      delete session;
-      session = nullptr;
-    }
-
-    if (current) current->store_globals();
+    return nullptr;
   }
+
+  THD *current = current_thd;
+  THD *stack_thd = session->get_thd();
+
+  session->get_thd()->thread_stack = reinterpret_cast<char *>(&stack_thd);
+  session->get_thd()->store_globals();
+
+  bool result = session->open();
+
+  session->get_thd()->restore_globals();
+
+  if (result) {
+    delete session;
+    session = nullptr;
+  }
+
+  if (current) current->store_globals();
+
   return session;
 }
 
+/**
+  Opens server session
+
+  @return
+    handler of session   on success
+    NULL                 on failure
+*/
 Srv_session *srv_session_open(srv_session_error_cb error_cb, void *plugin_ctx) {
   DBUG_TRACE;
   return srv_session_open_internal(error_cb, plugin_ctx, false);
@@ -212,6 +222,13 @@ int srv_session_server_is_available() {
   return get_server_state() == SERVER_OPERATING;
 }
 
+/**
+  Attaches a session to current srv_session physical thread.
+
+  @returns
+    0  success
+    1  failure
+*/
 int srv_session_attach(MYSQL_SESSION session, MYSQL_THD *ret_previous_thd) {
   DBUG_TRACE;
 

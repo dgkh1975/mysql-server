@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -34,8 +35,6 @@
 #include <gmock/gmock.h>
 
 #ifdef RAPIDJSON_NO_SIZETYPEDEFINE
-// if we build within the server, it will set RAPIDJSON_NO_SIZETYPEDEFINE
-// globally and require to include my_rapidjson_size_t.h
 #include "my_rapidjson_size_t.h"
 #endif
 #include <rapidjson/document.h>
@@ -212,7 +211,9 @@ TEST_F(ShutdownTest, flaky_connection_to_cluster) {
         launch_mysql_server_mock(json_primary_node, cluster_node_ports[i],
                                  EXIT_SUCCESS, false /*debug_mode*/, http_port);
     cluster_nodes.emplace_back(&node);
-    set_mock_metadata(http_port, "gr-id", cluster_node_ports);
+    set_mock_metadata(http_port, "gr-id",
+                      classic_ports_to_gr_nodes(cluster_node_ports), i,
+                      classic_ports_to_cluster_nodes(cluster_node_ports));
   }
 
   // write Router config
@@ -254,7 +255,9 @@ TEST_F(ShutdownTest, flaky_connection_to_cluster) {
 
   // now let's tell server nodes to delay sending MySQL Protocol handshake on
   // new connections (to simulate them being unreachable)
-  auto current_globals = mock_GR_metadata_as_json("gr-id", cluster_node_ports);
+  auto current_globals = mock_GR_metadata_as_json(
+      "gr-id", classic_ports_to_gr_nodes(cluster_node_ports), 0,
+      classic_ports_to_cluster_nodes(cluster_node_ports));
   ASSERT_NO_FATAL_FAILURE(
       { delay_sending_handshake(current_globals, cluster_node_http_ports); });
 

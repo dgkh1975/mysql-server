@@ -1,18 +1,19 @@
 #ifndef JSON_DIFF_INCLUDED
 #define JSON_DIFF_INCLUDED
 
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,8 +40,9 @@
 #include <memory>  // std::unique_ptr
 #include <vector>
 
-#include "sql/json_path.h"
+#include "sql-common/json_path.h"
 #include "sql/mem_root_allocator.h"
+#include "sql/psi_memory_key.h"  // key_memory_JSON
 
 class Field_json;
 class Json_dom;
@@ -102,7 +104,9 @@ class Json_diff final {
   */
   Json_diff(const Json_seekable_path &path, enum_json_diff_operation operation,
             std::unique_ptr<Json_dom> value)
-      : m_path(), m_operation(operation), m_value(std::move(value)) {
+      : m_path(key_memory_JSON),
+        m_operation(operation),
+        m_value(std::move(value)) {
     for (const Json_path_leg *leg : path) m_path.append(*leg);
   }
 

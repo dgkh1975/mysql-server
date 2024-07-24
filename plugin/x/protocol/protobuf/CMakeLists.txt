@@ -1,15 +1,16 @@
-# Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -56,12 +57,21 @@ FOREACH(PROTOBUF_FILE ${MYSQLX_PROTOBUF_PROTO_FILES})
 ENDFOREACH()
 
 # Be sure to convert all proto files to protobuf_lite before running protoc
-ADD_CUSTOM_TARGET(GenLiteProtos ALL DEPENDS ${GENERATED_LITE_PROTO_FILES})
+MY_ADD_CUSTOM_TARGET(GenLiteProtos ALL
+  DEPENDS ${GENERATED_LITE_PROTO_FILES})
 
 MYSQL_PROTOBUF_GENERATE_CPP_LIBRARY(
   ${PROTOBUF_FULL_LIB_NAME}
   ${MYSQLX_PROTOBUF_PROTO_FILES}
   OUTPUT_DIRECTORY ${PROTOBUF_FULL_GENERATE_DIR})
+TARGET_LINK_LIBRARIES(${PROTOBUF_FULL_LIB_NAME} PUBLIC ext::libprotobuf)
+
+TARGET_INCLUDE_DIRECTORIES(${PROTOBUF_FULL_LIB_NAME} SYSTEM PUBLIC
+  ${MYSQLX_PROJECT_DIR}/client/
+  ${PROTOBUF_FULL_GENERATE_DIR}
+  ${MYSQLX_GENERATE_DIR})
+MYSQLX_APPEND_INTERFACE_COMPILE_DEFINITIONS(${PROTOBUF_FULL_LIB_NAME}
+  "USE_MYSQLX_FULL_PROTO")
 
 MYSQL_PROTOBUF_GENERATE_CPP_LIBRARY(
   ${PROTOBUF_LITE_LIB_NAME}
@@ -69,6 +79,14 @@ MYSQL_PROTOBUF_GENERATE_CPP_LIBRARY(
   OUTPUT_DIRECTORY ${PROTOBUF_LITE_GENERATE_DIR}
   DEPENDENCIES GenLiteProtos
   ADDITIONAL_COMMENT "- lite version")
+TARGET_LINK_LIBRARIES(${PROTOBUF_LITE_LIB_NAME} PUBLIC ext::libprotobuf-lite)
+
+TARGET_INCLUDE_DIRECTORIES(${PROTOBUF_LITE_LIB_NAME} SYSTEM PUBLIC
+  ${MYSQLX_PROJECT_DIR}/client/
+  ${PROTOBUF_LITE_GENERATE_DIR}
+  ${MYSQLX_GENERATE_DIR})
+# Exclude ${PROTOBUF_LITE_LIB_NAME} from PGO on Windows to avoid linker error LNK1248
+EXCLUDE_FROM_MSVC_PGO(${PROTOBUF_LITE_LIB_NAME})
 
 SET(MYSQLX_PROTOCOL_FLAGS "${MY_PUBLIC_PROTOBUF_FLAGS}" PARENT_SCOPE)
 SET(MYSQLX_PROTOCOL_FULL_LIB ${PROTOBUF_FULL_LIB_NAME} PARENT_SCOPE)

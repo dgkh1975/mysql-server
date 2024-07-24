@@ -32,6 +32,7 @@ TRIGGER	%.%	YES	YES
 enabled_consumers
 events_stages_current
 events_stages_history
+events_statements_cpu
 events_statements_current
 events_statements_history
 events_transactions_current
@@ -56,6 +57,7 @@ TRIGGER	%.%	YES	YES
 enabled_consumers
 events_stages_current
 events_stages_history
+events_statements_cpu
 events_statements_current
 events_statements_history
 events_transactions_current
@@ -70,6 +72,7 @@ idle	YES
 memory/performance_schema/accounts	NULL
 memory/performance_schema/cond_class	NULL
 memory/performance_schema/cond_instances	NULL
+memory/performance_schema/data_container	NULL
 memory/performance_schema/events_errors_summary_by_account_by_error	NULL
 memory/performance_schema/events_errors_summary_by_host_by_error	NULL
 memory/performance_schema/events_errors_summary_by_thread_by_error	NULL
@@ -169,6 +172,7 @@ statement/com/Error	YES
 statement/com/Execute	YES
 statement/com/Fetch	YES
 statement/com/Field List	YES
+statement/com/Group Replication Data Stream subscription	YES
 statement/com/Init DB	YES
 statement/com/Kill	YES
 statement/com/Long Data	YES
@@ -201,6 +205,7 @@ TRIGGER	%.%	YES	YES
 enabled_consumers
 events_stages_current
 events_stages_history
+events_statements_cpu
 events_statements_current
 events_statements_history
 events_transactions_current
@@ -217,7 +222,6 @@ innodb/clone_gtid_thread	BACKGROUND
 innodb/dict_stats_thread	BACKGROUND
 innodb/fts_optimize_thread	BACKGROUND
 innodb/io_ibuf_thread	BACKGROUND
-innodb/io_log_thread	BACKGROUND
 innodb/io_read_thread	BACKGROUND
 innodb/io_read_thread	BACKGROUND
 innodb/io_read_thread	BACKGROUND
@@ -227,6 +231,7 @@ innodb/io_write_thread	BACKGROUND
 innodb/io_write_thread	BACKGROUND
 innodb/io_write_thread	BACKGROUND
 innodb/log_checkpointer_thread	BACKGROUND
+innodb/log_files_governor_thread	BACKGROUND
 innodb/log_flush_notifier_thread	BACKGROUND
 innodb/log_flusher_thread	BACKGROUND
 innodb/log_write_notifier_thread	BACKGROUND
@@ -251,6 +256,7 @@ TRIGGER	%.%	YES	YES
 enabled_consumers
 events_stages_current
 events_stages_history
+events_statements_cpu
 events_statements_current
 events_statements_history
 events_transactions_current
@@ -267,7 +273,6 @@ innodb/clone_gtid_thread	BACKGROUND
 innodb/dict_stats_thread	BACKGROUND
 innodb/fts_optimize_thread	BACKGROUND
 innodb/io_ibuf_thread	BACKGROUND
-innodb/io_log_thread	BACKGROUND
 innodb/io_read_thread	BACKGROUND
 innodb/io_read_thread	BACKGROUND
 innodb/io_read_thread	BACKGROUND
@@ -277,6 +282,7 @@ innodb/io_write_thread	BACKGROUND
 innodb/io_write_thread	BACKGROUND
 innodb/io_write_thread	BACKGROUND
 innodb/log_checkpointer_thread	BACKGROUND
+innodb/log_files_governor_thread	BACKGROUND
 innodb/log_flush_notifier_thread	BACKGROUND
 innodb/log_flusher_thread	BACKGROUND
 innodb/log_write_notifier_thread	BACKGROUND
@@ -291,6 +297,7 @@ idle	YES
 memory/performance_schema/accounts	NULL
 memory/performance_schema/cond_class	NULL
 memory/performance_schema/cond_instances	NULL
+memory/performance_schema/data_container	NULL
 memory/performance_schema/events_errors_summary_by_account_by_error	NULL
 memory/performance_schema/events_errors_summary_by_host_by_error	NULL
 memory/performance_schema/events_errors_summary_by_thread_by_error	NULL
@@ -390,6 +397,7 @@ statement/com/Error	YES
 statement/com/Execute	YES
 statement/com/Fetch	YES
 statement/com/Field List	YES
+statement/com/Group Replication Data Stream subscription	YES
 statement/com/Init DB	YES
 statement/com/Kill	YES
 statement/com/Long Data	YES

@@ -1,16 +1,17 @@
 /*
-Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -195,7 +196,7 @@ bool Generate_scramble::scramble(unsigned char *out_scramble,
   unsigned char *scramble_stage1;
 
   if (!out_scramble || scramble_length != m_digest_length) {
-    DBUG_PRINT("info", ("Unexpected scrable length"
+    DBUG_PRINT("info", ("Unexpected scramble length"
                         "Expected: %d, Actual: %d",
                         m_digest_length, !out_scramble ? 0 : scramble_length));
     return true;
@@ -238,7 +239,7 @@ bool Generate_scramble::scramble(unsigned char *out_scramble,
   if (m_digest_generator->update_digest(digest_stage2, m_digest_length) ||
       m_digest_generator->update_digest(m_rnd.c_str(), m_rnd.length()) ||
       m_digest_generator->retrieve_digest(scramble_stage1, m_digest_length)) {
-    DBUG_PRINT("info", ("Failed to generate scrmable_stage1: "
+    DBUG_PRINT("info", ("Failed to generate scramble_stage1: "
                         "SHA2(digest_stage2, m_rnd)"));
     return true;
   }
@@ -265,7 +266,7 @@ bool Generate_scramble::scramble(unsigned char *out_scramble,
   @note
     SHA2(src) => X
     SHA2(X) => Y
-    SHA2(XOR(salt, Y) => Z
+    SHA2(Y, salt) => Z
     XOR(X, Z) => scramble
 
   @returns Status of scramble generation

@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,6 +24,7 @@
 */
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdarg>
 #include <iostream>  // cerr
@@ -53,20 +55,25 @@ using mysql_harness::logging::Record;
 #define harness_assert(COND) \
   if (!(COND)) abort();
 
-namespace mysql_harness {
+namespace {
 
-namespace logging {
+using mysql_harness::logging::LogLevel;
+using mysql_harness::logging::LogTimestampPrecision;
 
-/*static*/
-const std::map<std::string, LogLevel> Registry::kLogLevels{
-    {"fatal", LogLevel::kFatal}, {"system", LogLevel::kSystem},
-    {"error", LogLevel::kError}, {"warning", LogLevel::kWarning},
-    {"info", LogLevel::kInfo},   {"note", LogLevel::kNote},
-    {"debug", LogLevel::kDebug},
-};
+constexpr const std::array<std::pair<std::string_view, LogLevel>, 7> kLogLevels{
+    {
+        {"fatal", LogLevel::kFatal},
+        {"system", LogLevel::kSystem},
+        {"error", LogLevel::kError},
+        {"warning", LogLevel::kWarning},
+        {"info", LogLevel::kInfo},
+        {"note", LogLevel::kNote},
+        {"debug", LogLevel::kDebug},
+    }};
 
-const std::map<std::string, LogTimestampPrecision>
-    Registry::kLogTimestampPrecisions{
+constexpr const std::array<std::pair<std::string_view, LogTimestampPrecision>,
+                           12>
+    kLogTimestampPrecisions{{
         {"second", LogTimestampPrecision::kSec},
         {"sec", LogTimestampPrecision::kSec},
         {"s", LogTimestampPrecision::kSec},
@@ -79,7 +86,12 @@ const std::map<std::string, LogTimestampPrecision>
         {"nanosecond", LogTimestampPrecision::kNanoSec},
         {"nsec", LogTimestampPrecision::kNanoSec},
         {"ns", LogTimestampPrecision::kNanoSec},
-    };
+    }};
+}  // namespace
+
+namespace mysql_harness {
+
+namespace logging {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -245,6 +257,13 @@ void set_log_level_for_all_loggers(Registry &registry, LogLevel level) {
   }
 }
 
+void set_log_level_for_all_handlers(const Registry &registry, LogLevel level) {
+  for (const std::string &handler_name : registry.get_handler_names()) {
+    std::shared_ptr<Handler> handler = registry.get_handler(handler_name);
+    handler->set_level(level);
+  }
+}
+
 void set_timestamp_precision_for_all_loggers(Registry &registry,
                                              LogTimestampPrecision precision) {
   for (const std::string &logger_name : registry.get_logger_names()) {
@@ -334,20 +353,24 @@ LogLevel log_level_from_string(std::string name) {
   std::transform(name.begin(), name.end(), name.begin(), ::tolower);
 
   // Return its enum representation
-  try {
-    return Registry::kLogLevels.at(name);
-  } catch (const std::out_of_range &) {
-    std::stringstream buffer;
-
-    buffer << "Log level '" << name << "' is not valid. Valid values are: ";
-
-    // Print the entries using a serial comma
-    std::vector<std::string> alternatives;
-    for (const auto &pair : Registry::kLogLevels)
-      alternatives.push_back(pair.first);
-    serial_comma(buffer, alternatives.begin(), alternatives.end());
-    throw std::invalid_argument(buffer.str());
+  for (const auto &lvl : kLogLevels) {
+    if (lvl.first == name) {
+      return lvl.second;
+    }
   }
+
+  std::stringstream buffer;
+
+  buffer << "Log level '" << name << "' is not valid. Valid values are: ";
+
+  // Print the entries using a serial comma
+  std::vector<std::string> alternatives;
+  for (const auto &pair : kLogLevels) {
+    alternatives.emplace_back(pair.first);
+  }
+
+  serial_comma(buffer, alternatives.begin(), alternatives.end());
+  throw std::invalid_argument(buffer.str());
 }
 
 LogLevel get_default_log_level(const Config &config, bool raw_mode) {
@@ -396,21 +419,22 @@ LogTimestampPrecision log_timestamp_precision_from_string(std::string name) {
   std::transform(name.begin(), name.end(), name.begin(), ::tolower);
 
   // Return its enum representation
-  try {
-    return Registry::kLogTimestampPrecisions.at(name);
-  } catch (const std::out_of_range &) {
-    std::stringstream buffer;
-
-    buffer << "Timestamp precision '" << name
-           << "' is not valid. Valid values are: ";
-
-    // Print the entries using a serial comma
-    std::vector<std::string> alternatives;
-    for (const auto &pair : Registry::kLogTimestampPrecisions)
-      alternatives.push_back(pair.first);
-    serial_comma(buffer, alternatives.begin(), alternatives.end());
-    throw std::invalid_argument(buffer.str());
+  for (const auto &prec : kLogTimestampPrecisions) {
+    if (prec.first == name) return prec.second;
   }
+
+  std::stringstream buffer;
+
+  buffer << "Timestamp precision '" << name
+         << "' is not valid. Valid values are: ";
+
+  // Print the entries using a serial comma
+  std::vector<std::string> alternatives;
+  for (const auto &pair : kLogTimestampPrecisions) {
+    alternatives.emplace_back(pair.first);
+  }
+  serial_comma(buffer, alternatives.begin(), alternatives.end());
+  throw std::invalid_argument(buffer.str());
 }
 
 LogTimestampPrecision get_default_timestamp_precision(const Config &config) {
@@ -460,6 +484,12 @@ void set_log_level_for_all_loggers(LogLevel level) {
   mysql_harness::logging::Registry &registry =
       mysql_harness::DIM::instance().get_LoggingRegistry();
   set_log_level_for_all_loggers(registry, level);
+}
+
+void set_log_level_for_all_handlers(LogLevel level) {
+  mysql_harness::logging::Registry &registry =
+      mysql_harness::DIM::instance().get_LoggingRegistry();
+  set_log_level_for_all_handlers(registry, level);
 }
 
 bool log_level_is_handled(LogLevel level, const char *module) {

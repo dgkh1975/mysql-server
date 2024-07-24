@@ -1,15 +1,16 @@
-# Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,8 +26,6 @@ INCLUDE_DIRECTORIES(
   ${CMAKE_SOURCE_DIR}/storage/ndb/src/mgmapi)
 
 ADD_CONVENIENCE_LIBRARY(ndbapi
-  ${CMAKE_SOURCE_DIR}/storage/ndb/src/kernel/blocks/dblqh/DblqhStateDesc.cpp
-  ${CMAKE_SOURCE_DIR}/storage/ndb/src/kernel/blocks/dbtc/DbtcStateDesc.cpp
   AssembleFragments.cpp
   ClusterMgr.cpp
   DictCache.cpp
@@ -49,7 +48,6 @@ ADD_CONVENIENCE_LIBRARY(ndbapi
   NdbOperationDefine.cpp
   NdbOperationExec.cpp
   NdbOperationInt.cpp
-  NdbOperationScan.cpp
   NdbOperationSearch.cpp
   NdbPool.cpp
   NdbPoolImpl.cpp
@@ -69,6 +67,7 @@ ADD_CONVENIENCE_LIBRARY(ndbapi
   Ndblist.cpp
   ObjectMap.cpp
   SignalSender.cpp
+  SectionIterators.cpp
   TransporterFacade.cpp
   WakeupHandler.cpp
   ndb_cluster_connection.cpp
@@ -77,4 +76,10 @@ ADD_CONVENIENCE_LIBRARY(ndbapi
   trp_buffer.cpp
   trp_client.cpp
   trp_node.cpp
+  LINK_LIBRARIES ext::zlib
   )
+
+# Exclude ndbapi_objlib from PGO on Windows to avoid linker error LNK1248
+EXCLUDE_FROM_MSVC_PGO(ndbapi_objlib)
+
+NDB_ADD_TEST(SectionIterators-t SectionIterators.cpp NdbApiSignal.cpp)

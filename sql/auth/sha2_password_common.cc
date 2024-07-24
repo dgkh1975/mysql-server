@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -80,7 +81,7 @@ bool SHA256_digest::update_digest(const void *src, unsigned int length) {
 }
 
 /**
-  Retrive generated digest
+  Retrieve generated digest
 
   @param [out] digest Digest text
   @param [in]  length Length of the digest buffer
@@ -210,7 +211,7 @@ bool Generate_scramble::scramble(unsigned char *scramble,
   unsigned char *scramble_stage1;
 
   if (!scramble || scramble_length != m_digest_length) {
-    DBUG_PRINT("info", ("Unexpected scrable length"
+    DBUG_PRINT("info", ("Unexpected scramble length"
                         "Expected: %d, Actual: %d",
                         m_digest_length, !scramble ? 0 : scramble_length));
     return true;
@@ -250,7 +251,7 @@ bool Generate_scramble::scramble(unsigned char *scramble,
   if (m_digest_generator->update_digest(digest_stage2, m_digest_length) ||
       m_digest_generator->update_digest(m_rnd.c_str(), m_rnd.length()) ||
       m_digest_generator->retrieve_digest(scramble_stage1, m_digest_length)) {
-    DBUG_PRINT("info", ("Failed to generate scrmable_stage1: "
+    DBUG_PRINT("info", ("Failed to generate scramble_stage1: "
                         "SHA2(digest_stage2, m_rnd)"));
     return true;
   }
@@ -374,7 +375,7 @@ bool Validate_scramble::validate() {
   @note
     SHA2(src) => X
     SHA2(X) => Y
-    SHA2(XOR(rnd, Y) => Z
+    SHA2(Y, rnd) => Z
     XOR(X, Z) => scramble
 
   @returns Status of scramble generation
@@ -433,9 +434,9 @@ bool generate_sha256_scramble(unsigned char *scramble, size_t scramble_size,
 */
 
 bool validate_sha256_scramble(const unsigned char *scramble,
-                              size_t scramble_size MY_ATTRIBUTE((unused)),
+                              size_t scramble_size [[maybe_unused]],
                               const unsigned char *known,
-                              size_t known_size MY_ATTRIBUTE((unused)),
+                              size_t known_size [[maybe_unused]],
                               const unsigned char *rnd, size_t rnd_size) {
   DBUG_TRACE;
 

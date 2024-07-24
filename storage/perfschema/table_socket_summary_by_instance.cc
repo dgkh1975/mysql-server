@@ -1,15 +1,16 @@
-/* Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -127,21 +128,21 @@ table_socket_summary_by_instance::table_socket_summary_by_instance()
   m_normalizer = time_normalizer::get_wait();
 }
 
-int table_socket_summary_by_instance::delete_all_rows(void) {
+int table_socket_summary_by_instance::delete_all_rows() {
   reset_socket_instance_io();
   return 0;
 }
 
-ha_rows table_socket_summary_by_instance::get_row_count(void) {
+ha_rows table_socket_summary_by_instance::get_row_count() {
   return global_socket_container.get_row_count();
 }
 
-void table_socket_summary_by_instance::reset_position(void) {
+void table_socket_summary_by_instance::reset_position() {
   m_pos.m_index = 0;
   m_next_pos.m_index = 0;
 }
 
-int table_socket_summary_by_instance::rnd_next(void) {
+int table_socket_summary_by_instance::rnd_next() {
   PFS_socket *pfs;
 
   m_pos.set_at(&m_next_pos);
@@ -188,7 +189,7 @@ int table_socket_summary_by_instance::index_init(uint idx, bool) {
   return 0;
 }
 
-int table_socket_summary_by_instance::index_next(void) {
+int table_socket_summary_by_instance::index_next() {
   PFS_socket *pfs;
 
   m_pos.set_at(&m_next_pos);

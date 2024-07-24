@@ -61,7 +61,7 @@ SHOW STATUS LIKE 'Ssl_cipher';
 connection default;
 
 --echo # setting new values for ssl_cipher
-SET GLOBAL ssl_cipher = "DHE-RSA-AES256-SHA256";
+SET GLOBAL ssl_cipher = "ECDHE-RSA-AES256-GCM-SHA384";
 SET GLOBAL tls_version = "TLSv1.2";
 ALTER INSTANCE RELOAD TLS;
 
@@ -107,7 +107,7 @@ SET @orig_ssl_cipher = @@global.ssl_cipher;
 
 
 --echo # setting new values for ssl_cipher
-SET GLOBAL ssl_cipher = "DHE-RSA-AES256-SHA256";
+SET GLOBAL ssl_cipher = "ECDHE-RSA-AES128-GCM-SHA256";
 
 --echo # in ssl_con
 connect (ssl_con,localhost,root,,,,,SSL);
@@ -235,6 +235,7 @@ SET GLOBAL ssl_crl = 'gizmo';
 SET GLOBAL ssl_crlpath = 'gizmo';
 SET GLOBAL ssl_cipher = 'gizmo';
 SET GLOBAL tls_ciphersuites = 'gizmo';
+--error ER_WRONG_VALUE_FOR_VAR
 SET GLOBAL tls_version = 'gizmo';
 
 --echo # Must fail

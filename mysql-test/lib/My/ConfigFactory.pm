@@ -1,16 +1,17 @@
 # -*- cperl -*-
-# Copyright (c) 2007, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2007, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -119,6 +120,16 @@ sub fix_host {
   return $hosts[$host_no];
 }
 
+sub fix_cpubind {
+  my ($self, $config, $group_name, $group) = @_;
+  # Replace cpubind with #cpubind
+  my $value = $group->if_exist('cpubind');
+  if (defined $value) {
+    $group->remove('cpubind');
+  }
+  return $value;
+}
+
 sub fix_cluster_config_suffix {
   my ($self, $config, $group_name, $group) = @_;
 
@@ -209,6 +220,26 @@ sub fix_log {
   return "$dir/mysqld.log";
 }
 
+sub fix_group_setting {
+  my ($self, $config, $group_name, $group, $option_name) = @_;
+  # Use value from [mysqld.X], [mysqld](if group exists) or 1
+  return $group->if_exist($option_name) ||
+         ($config->group_exists('mysqld') &&
+          $config->group('mysqld')->if_exist($option_name)) || 1;
+}
+
+sub fix_slow_query_log {
+  my ($self, $config, $group_name, $group) = @_;
+  return fix_group_setting($self, $config, $group_name,
+                           $group, 'slow_query_log');
+}
+
+sub fix_general_log {
+  my ($self, $config, $group_name, $group) = @_;
+  return fix_group_setting($self, $config, $group_name,
+                           $group, 'general_log');
+}
+
 sub fix_log_slow_queries {
   my ($self, $config, $group_name, $group) = @_;
   my $dir = dirname($group->value('datadir'));
@@ -262,11 +293,21 @@ sub fix_rsa_public_key {
   return "$std_data/rsa_public_key.pem";
 }
 
+sub fix_bind_address {
+  my ($self) = @_;
+  if ($self->{ARGS}->{bind_local}) {
+    # Listen only for incoming network connections from local machine
+    return "localhost";
+  }
+  return undef;
+}
+
 # Rules to run for each mysqld in the config
 #  - some rules depend on each other and thus need to be run
 #    in the order listed here
 my @mysqld_rules = (
   { '#abs_datadir'                                 => \&fix_abs_datadir },
+  { '#cpubind'                                     => \&fix_cpubind },
   { '#host'                                        => \&fix_host },
   { '#log-error'                                   => \&fix_log_error },
   { 'caching_sha2_password_private_key_path'       => \&fix_rsa_private_key },
@@ -277,9 +318,11 @@ my @mysqld_rules = (
   { 'datadir'                                      => \&fix_datadir },
   { 'port'                                         => \&fix_port },
   { 'admin-port'                                   => \&fix_admin_port },
-  { 'general_log'                                  => 1 },
+  { 'bind-address'                                 => \&fix_bind_address },
+  { 'general_log'                                  => \&fix_general_log },
   { 'general_log_file'                             => \&fix_log },
   { 'loose-mysqlx-port'                            => \&fix_x_port },
+  { 'loose-mysqlx-bind-address'                    => \&fix_bind_address },
   { 'loose-mysqlx-socket'                          => \&fix_x_socket },
   { 'loose-mysqlx-ssl'                             => \&fix_ssl_disabled },
   { 'loose-mysqlx-ssl-ca'                          => "" },
@@ -287,7 +330,7 @@ my @mysqld_rules = (
   { 'loose-mysqlx-ssl-key'                         => "" },
   { 'pid-file'                                     => \&fix_pidfile },
   { 'server-id'                                    => \&fix_server_id, },
-  { 'slow_query_log'                               => 1 },
+  { 'slow_query_log'                               => \&fix_slow_query_log },
   { 'slow_query_log_file'                          => \&fix_log_slow_queries },
   { 'socket'                                       => \&fix_socket },
   { 'ssl-ca'                                       => \&fix_ssl_ca },
@@ -340,13 +383,15 @@ sub fix_cluster_backup_dir {
 #  - will be run in order listed here
 my @ndb_mgmd_rules =
   ({ 'DataDir' => \&fix_cluster_dir },
-   { 'PortNumber' => \&fix_ndb_mgmd_port },);
+   { 'PortNumber' => \&fix_ndb_mgmd_port },
+   { '#cpubind'   => \&fix_cpubind },);
 
 # Rules to run for each ndbd in the config
 #  - will be run in order listed here
 my @ndbd_rules = ({ 'BackupDataDir' => \&fix_cluster_backup_dir },
                   { 'DataDir'       => \&fix_cluster_dir },
-                  { 'HostName'      => \&fix_host },);
+                  { 'HostName'      => \&fix_host },
+                  { '#cpubind'      => \&fix_cpubind },);
 
 # Rules to run for each memcached in the config
 #  - will be run in order listed here
@@ -366,7 +411,8 @@ my @client_rules = ();
 # Rules to run for [mysqltest] section
 #  - will be run in order listed here
 my @mysqltest_rules = ({ 'server-public-key-path' => \&fix_rsa_public_key },
-                       { 'ssl-mode'               => \&fix_ssl_disabled },);
+                       { 'ssl-mode'               => \&fix_ssl_disabled },
+                       { '#cpubind'               => \&fix_cpubind },);
 
 # Rules to run for [mysqlbinlog] section
 #  - will be run in order listed here
@@ -724,7 +770,9 @@ sub new_config {
                            @ndb_mgmd_rules);
 
   $self->run_section_rules($config, 'ndb_mgmd.',
-    ({ 'cluster-config-suffix' => \&fix_cluster_config_suffix },));
+    ({ 'cluster-config-suffix' => \&fix_cluster_config_suffix },
+     { 'bind-address' => \&fix_bind_address },
+    ));
 
   $self->run_section_rules($config, 'cluster_config.ndbd', @ndbd_rules);
 

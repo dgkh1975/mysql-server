@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -46,17 +47,19 @@ Continent_record continent_array[] =
 /* Records to be inserted into pfs_example_country table from component code */
 Country_record country_array[] =
 {
-    {"foo1", 4, "bar1", 4, {2016, false}, {10000, false}, {1.11, false}, true},
-    {"foo2", 4, "bar2", 4, {2016, false}, {1000, false}, {2.22, false}, true}
+    {"foo1", 4, "bar1", 4, "FO1", 3, {2016, false}, {10000, false}, {1.11, false}, true},
+    {"foo2", 4, "bar2", 4, "FO2", 3, {2016, false}, {1000, false}, {2.22, false}, true}
 };
 /* clang-format on */
 
 #define MAX_BUFFER_LENGTH 80
 
-#define WRITE_LOG(lit_log_text)                                         \
-  if (outfile) {                                                        \
-    strcpy(log_text, lit_log_text);                                     \
-    fwrite((uchar *)log_text, sizeof(char), strlen(log_text), outfile); \
+#define WRITE_LOG(lit_log_text)                                               \
+  if (outfile) {                                                              \
+    strcpy(log_text, lit_log_text);                                           \
+    if (fwrite((uchar *)log_text, sizeof(char), strlen(log_text), outfile) != \
+        strlen(log_text))                                                     \
+      return true;                                                            \
   }
 
 /* Log file */
@@ -104,6 +107,10 @@ int country_prepare_insert_row() {
             country_array[i].continent_name_length);
     handle.current_row.continent_name_length =
         country_array[i].continent_name_length;
+    strncpy(handle.current_row.country_code, country_array[i].country_code,
+            country_array[i].country_code_length);
+    handle.current_row.country_code_length =
+        country_array[i].country_code_length;
     handle.current_row.year = country_array[i].year;
     handle.current_row.population = country_array[i].population;
     handle.current_row.growth_factor = country_array[i].growth_factor;
@@ -123,7 +130,7 @@ int country_prepare_insert_row() {
  *
  *    - Instantiate and initialize PFS_engine_table_share_proxy.
  *    - Prepare and insert rows in tables from here.
- *    - Call add_table method of pfs_plugin_table service.
+ *    - Call add_table method of pfs_plugin_table_v1 service.
  *
  *  @retval 0  success
  *  @retval non-zero   failure
@@ -162,11 +169,10 @@ mysql_service_status_t pfs_example_component_population_init() {
   share_list[1] = &country_st_share;
 
   /**
-   * Call add_table function of pfs_plugin_table service to
+   * Call add_table function of pfs_plugin_table_v1 service to
    * add component tables in performance schema.
    */
-  if (mysql_service_pfs_plugin_table->add_tables(&share_list[0],
-                                                 share_list_count)) {
+  if (pt_srv->add_tables(&share_list[0], share_list_count)) {
     WRITE_LOG("Error returned from add_tables()\n");
     result = true;
     goto error;
@@ -204,11 +210,10 @@ mysql_service_status_t pfs_example_component_population_deinit() {
   WRITE_LOG("pfs_example_component_population_deinit:\n");
 
   /**
-   * Call delete_tables function of pfs_plugin_table service to
+   * Call delete_tables function of pfs_plugin_table_v1 service to
    * delete component tables from performance schema
    */
-  if (mysql_service_pfs_plugin_table->delete_tables(&share_list[0],
-                                                    share_list_count)) {
+  if (pt_srv->delete_tables(&share_list[0], share_list_count)) {
     WRITE_LOG("Error returned from delete_table()\n");
     result = 1;
     goto error;
@@ -232,11 +237,22 @@ error:
 BEGIN_COMPONENT_PROVIDES(pfs_example_component_population)
 END_COMPONENT_PROVIDES();
 
-/* pfs_example_component requires/uses pfs_plugin_table service */
-REQUIRES_SERVICE_PLACEHOLDER(pfs_plugin_table);
+/* pfs_example_component requires/uses pfs_plugin_table_v1 service */
+REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_table_v1, pt_srv);
+REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_string_v2, pc_string_srv);
+REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_year_v1, pc_year_srv);
+REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_bigint_v1, pc_bigint_srv);
+REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_double_v1, pc_double_srv);
+REQUIRES_SERVICE_PLACEHOLDER_AS(pfs_plugin_column_text_v1, pc_text_srv);
 
 BEGIN_COMPONENT_REQUIRES(pfs_example_component_population)
-REQUIRES_SERVICE(pfs_plugin_table), END_COMPONENT_REQUIRES();
+REQUIRES_SERVICE_AS(pfs_plugin_table_v1, pt_srv),
+    REQUIRES_SERVICE_AS(pfs_plugin_column_string_v2, pc_string_srv),
+    REQUIRES_SERVICE_AS(pfs_plugin_column_year_v1, pc_year_srv),
+    REQUIRES_SERVICE_AS(pfs_plugin_column_bigint_v1, pc_bigint_srv),
+    REQUIRES_SERVICE_AS(pfs_plugin_column_double_v1, pc_double_srv),
+    REQUIRES_SERVICE_AS(pfs_plugin_column_text_v1, pc_text_srv),
+    END_COMPONENT_REQUIRES();
 
 /* A list of metadata to describe the Component. */
 BEGIN_COMPONENT_METADATA(pfs_example_component_population)

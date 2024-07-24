@@ -1,15 +1,16 @@
-/* Copyright (c) 2004, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2004, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -110,9 +111,8 @@ class ha_example : public handler {
     If all_parts is set, MySQL wants to know the flags for the combined
     index, up to and including 'part'.
   */
-  ulong index_flags(uint inx MY_ATTRIBUTE((unused)),
-                    uint part MY_ATTRIBUTE((unused)),
-                    bool all_parts MY_ATTRIBUTE((unused))) const override {
+  ulong index_flags(uint inx [[maybe_unused]], uint part [[maybe_unused]],
+                    bool all_parts [[maybe_unused]]) const override {
     return 0;
   }
 

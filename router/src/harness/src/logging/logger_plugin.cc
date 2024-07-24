@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,11 +27,14 @@
 #include "mysql/harness/logging/logger_plugin.h"
 
 #include <sstream>
+#include <vector>
 
 #include "consolelog_plugin.h"
 #include "dim.h"
 #include "filelog_plugin.h"
+#include "mysql/harness/logging/supported_logger_options.h"
 #include "mysql/harness/string_utils.h"
+#include "mysql/harness/utility/string.h"  // join
 
 #ifdef _WIN32
 #include "mysql/harness/logging/eventlog_plugin.h"
@@ -50,7 +54,10 @@ IMPORT_LOG_FUNCTIONS()
 using HandlerPtr = std::shared_ptr<mysql_harness::logging::Handler>;
 using LoggerHandlersList = std::vector<std::pair<std::string, HandlerPtr>>;
 
-#ifdef WIN32
+std::vector<on_switch_to_configured_loggers>
+    g_on_switch_to_configured_loggers_clbs;
+
+#ifdef _WIN32
 #define NULL_DEVICE_NAME "NUL"
 #define STDOUT_DEVICE_NAME "CON"
 // no equivalent for STDERR_DEVICE_NAME
@@ -66,7 +73,7 @@ using LoggerHandlersList = std::vector<std::pair<std::string, HandlerPtr>>;
 static inline bool legal_consolelog_destination(
     const std::string &destination) {
   if ((destination != NULL_DEVICE_NAME) &&
-#ifndef WIN32
+#ifndef _WIN32
       (destination != STDERR_DEVICE_NAME) &&
 #endif
       (destination != STDOUT_DEVICE_NAME))
@@ -74,8 +81,9 @@ static inline bool legal_consolelog_destination(
 
   return true;
 }
+namespace {
 
-static HandlerPtr create_logging_sink(
+HandlerPtr create_logging_sink(
     const std::string &sink_name, const mysql_harness::LoaderConfig &config,
     const std::string &default_log_filename,
     const mysql_harness::logging::LogLevel default_log_level,
@@ -232,6 +240,8 @@ static HandlerPtr create_logging_sink(
   return result;
 }
 
+}  // namespace
+
 void create_plugin_loggers(const mysql_harness::LoaderConfig &config,
                            mysql_harness::logging::Registry &registry,
                            const mysql_harness::logging::LogLevel level) {
@@ -255,6 +265,11 @@ void create_plugin_loggers(const mysql_harness::LoaderConfig &config,
   // take all the handlers that exist, and attach them to all new loggers.
   for (const std::string &h : registry.get_handler_names())
     attach_handler_to_all_loggers(registry, h);
+}
+
+void register_on_switch_to_configured_loggers_callback(
+    on_switch_to_configured_loggers callback) {
+  g_on_switch_to_configured_loggers_clbs.push_back(callback);
 }
 
 static bool init_handlers(mysql_harness::PluginFuncEnv *env,
@@ -355,18 +370,37 @@ static void switch_to_loggers_in_config(
   mysql_harness::logging::create_logger(*registry, min_log_level, "sql");
 
   // attach all loggers to the handlers (throws std::runtime_error)
+  bool new_config_has_consolelog{false};
   for (const auto &handler : logger_handlers) {
     registry->add_handler(handler.first, handler.second);
     attach_handler_to_all_loggers(*registry, handler.first);
+
+    if (handler.first == kConsolelogPluginName) {
+      new_config_has_consolelog = true;
+    }
   }
 
-  // in case we switched away from the default consolelog, log that we are now
-  // switching away
-  if (!(logger_handlers.size() == 1 &&
-        logger_handlers.at(0).first == "consolelog")) {
-    log_info(
-        "logging facility initialized, switching logging to loggers specified "
-        "in configuration");
+  // in case we switched away from the default consolelog and something was
+  // already logged to the console, log that we are now switching away
+  if (!new_config_has_consolelog) {
+    auto &reg = DIM::instance().get_LoggingRegistry();
+    try {
+      // there may be no main_console_handler.
+      auto handler =
+          reg.get_handler(mysql_harness::logging::kMainConsoleHandler);
+
+      if (handler->has_logged()) {
+        std::vector<std::string> handler_names;
+        for (const auto &handler : logger_handlers) {
+          handler_names.push_back(handler.first);
+        }
+
+        log_info("stopping to log to the console. Continuing to log to %s",
+                 mysql_harness::join(handler_names, ", ").c_str());
+      }
+    } catch (const std::exception &) {
+      // not found.
+    }
   }
 
   // nothing threw - we're good. Now let's replace the new registry with the
@@ -392,11 +426,17 @@ static void init(mysql_harness::PluginFuncEnv *env) {
   auto &config = DIM::instance().get_Config();
 
   bool res = init_handlers(env, config, logger_handlers);
-  // something went wrong; the init_handlers called set_error() so we just stop
-  // progress further and let Loader deal with it
+  // something went wrong; the init_handlers called set_error() so we just
+  // stop progress further and let Loader deal with it
   if (!res) return;
 
   switch_to_loggers_in_config(config, logger_handlers);
+
+  for (auto &clb : g_on_switch_to_configured_loggers_clbs) {
+    clb();
+  }
+
+  g_on_switch_to_configured_loggers_clbs.clear();
 }
 
 mysql_harness::Plugin harness_plugin_logger = {
@@ -413,4 +453,6 @@ mysql_harness::Plugin harness_plugin_logger = {
     nullptr,  // start
     nullptr,  // stop
     false,    // declares_readiness
+    logger_supported_options.size(),
+    logger_supported_options.data(),
 };

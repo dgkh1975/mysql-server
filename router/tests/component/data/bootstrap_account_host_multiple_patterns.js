@@ -4,10 +4,8 @@ var common_stmts = require("common_statements");
   stmts: function(stmt) {
     var options = {
       cluster_type: "gr",
-
+      gr_id: mysqld.global.gr_id,
       innodb_cluster_name: "test",
-      innodb_cluster_instances:
-          [["localhost", 5500], ["localhost", 5510], ["localhost", 5520]],
     };
 
     var common_responses = common_stmts.prepare_statement_responses(
@@ -22,10 +20,11 @@ var common_stmts = require("common_statements");
           "router_select_members_count",
           "router_select_replication_group_name",
           "router_show_cipher_status",
-          "router_select_cluster_instances_v2",
+          "router_select_cluster_instances_v2_gr",
           "router_select_cluster_instance_addresses_v2",
           "router_start_transaction",
           "router_commit",
+          "router_clusterset_present",
 
           // account verification
           "router_select_metadata_v2_gr",
@@ -38,10 +37,12 @@ var common_stmts = require("common_statements");
         [
           "router_insert_into_routers",
           "router_create_user_if_not_exists",
+          "router_check_auth_plugin",
           "router_grant_on_metadata_db",
           "router_grant_on_pfs_db",
           "router_grant_on_routers",
           "router_update_routers_in_metadata",
+          "router_update_router_options_in_metadata",
         ],
         options);
 
@@ -53,9 +54,9 @@ var common_stmts = require("common_statements");
             options);
 
     var cu_regex = "CREATE USER IF NOT EXISTS " +
-        "'mysql_router1_.*'@'.*' IDENTIFIED WITH mysql_native_password AS '.*'," +
-        "'mysql_router1_.*'@'.*' IDENTIFIED WITH mysql_native_password AS '.*'," +
-        "'mysql_router1_.*'@'.*' IDENTIFIED WITH mysql_native_password AS '.*'";
+        "'mysql_router1_.*'@'.*' IDENTIFIED BY '.*'," +
+        "'mysql_router1_.*'@'.*' IDENTIFIED BY '.*'," +
+        "'mysql_router1_.*'@'.*' IDENTIFIED BY '.*'";
 
     if (stmt.match(cu_regex)) {
       return {"ok": {}};

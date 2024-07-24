@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -98,16 +99,27 @@ int set_transaction_ctx(
                        transaction_termination_ctx.m_sidno,
                        transaction_termination_ctx.m_gno));
 
-  THD *thd = nullptr;
   uint error = ER_NO_SUCH_THREAD;
-  Find_thd_with_id find_thd_with_id(transaction_termination_ctx.m_thread_id);
+  Find_thd_with_id find_thd_with_id(transaction_termination_ctx.m_thread_id,
+                                    true);
 
-  thd = Global_THD_manager::get_instance()->find_thd(&find_thd_with_id);
-  if (thd) {
-    error = thd->get_transaction()
+  THD_ptr thd_ptr =
+      Global_THD_manager::get_instance()->find_thd(&find_thd_with_id);
+  if (thd_ptr) {
+    error = thd_ptr->get_transaction()
                 ->get_rpl_transaction_ctx()
                 ->set_rpl_transaction_ctx(transaction_termination_ctx);
-    mysql_mutex_unlock(&thd->LOCK_thd_data);
+
+    if (!error && !transaction_termination_ctx.m_rollback_transaction) {
+      /*
+        Assign the session commit ticket while the transaction is
+        still under the control of the external transaction
+        arbitrator, thence matching the arbitrator's transactions
+        order.
+      */
+      thd_ptr->rpl_thd_ctx.binlog_group_commit_ctx().assign_ticket();
+    }
   }
+
   return error;
 }

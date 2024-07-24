@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -35,7 +36,7 @@ class Create_field;
 class Field;
 class String;
 class THD;
-struct TABLE_LIST;
+class Table_ref;
 class handler;
 
 /**
@@ -199,10 +200,10 @@ class MDL_deadlock_and_lock_abort_error_handler
 
 */
 class View_error_handler : public Internal_error_handler {
-  TABLE_LIST *m_top_view;
+  Table_ref *m_top_view;
 
  public:
-  View_error_handler(TABLE_LIST *top_view) : m_top_view(top_view) {}
+  View_error_handler(Table_ref *top_view) : m_top_view(top_view) {}
   bool handle_condition(THD *thd, uint sql_errno, const char *,
                         Sql_condition::enum_severity_level *level,
                         const char *message) override;

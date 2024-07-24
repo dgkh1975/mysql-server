@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,12 +27,39 @@
 
 #include <gtest/gtest.h>
 
+#include "mysqlrouter/classic_protocol_session_track.h"
 #include "test_classic_protocol_codec.h"
 
 // string_literals are supposed to solve the same problem, but they are broken
 // on dev-studio 12.6
 
 #define S(x) std::string((x), sizeof(x) - 1)
+
+namespace cl = classic_protocol;
+
+static_assert(cl::Codec<cl::borrowed::session_track::Field>({1, "abc"}, {})
+                  .size() == 1 + 4);
+
+static_assert(
+    cl::Codec<cl::borrowed::session_track::SystemVariable>({"key", "var"}, {})
+        .size() == 1 + 3 + 1 + 3);
+
+static_assert(cl::Codec<cl::borrowed::session_track::Schema>({"var"}, {})
+                  .size() == 1 + 3);
+
+static_assert(cl::Codec<cl::session_track::State>({1}, {}).size() == 1);
+
+static_assert(cl::Codec<cl::borrowed::session_track::Gtid>({1, "gtid"}, {})
+                  .size() == 1 + 1 + 4);
+
+static_assert(
+    cl::Codec<cl::session_track::TransactionState>({1, 1, 1, 1, 1, 1, 1, 1}, {})
+        .size() == 1 + 8);
+
+static_assert(
+    cl::Codec<cl::borrowed::session_track::TransactionCharacteristics>(
+        {"SET foo"}, {})
+        .size() == 1 + 7);
 
 // session_track::Schema
 
@@ -69,15 +97,15 @@ const CodecParam<classic_protocol::session_track::TransactionState>
         {"all_flags_explicit_trx",
          {'T', 'r', 'R', 'w', 'W', 's', 'S', 'L'},
          {},
-         {'T', 'r', 'R', 'w', 'W', 's', 'S', 'L'}},
+         {0x08, 'T', 'r', 'R', 'w', 'W', 's', 'S', 'L'}},
         {"all_flags_implicit_trx",
          {'I', 'r', 'R', 'w', 'W', 's', 'S', 'L'},
          {},
-         {'I', 'r', 'R', 'w', 'W', 's', 'S', 'L'}},
+         {0x08, 'I', 'r', 'R', 'w', 'W', 's', 'S', 'L'}},
         {"no_flags",
          {'_', '_', '_', '_', '_', '_', '_', '_'},
          {},
-         {'_', '_', '_', '_', '_', '_', '_', '_'}},
+         {0x08, '_', '_', '_', '_', '_', '_', '_', '_'}},
 };
 
 INSTANTIATE_TEST_SUITE_P(

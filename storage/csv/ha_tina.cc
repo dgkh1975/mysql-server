@@ -1,15 +1,16 @@
-/* Copyright (c) 2004, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2004, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -643,9 +644,6 @@ int ha_tina::find_current_row(uchar *buf) {
   bool read_all;
   DBUG_TRACE;
 
-  // Clear BLOB data from the previous row.
-  blobroot.ClearForReuse();
-
   /*
     We do not read further then local_saved_data_file_length in order
     not to conflict with undergoing concurrent insert.
@@ -654,6 +652,9 @@ int ha_tina::find_current_row(uchar *buf) {
                                    local_saved_data_file_length, &eoln_len)) ==
       0)
     return HA_ERR_END_OF_FILE;
+
+  // Clear BLOB data from the previous row.
+  blobroot.ClearForReuse();
 
   /* We must read all columns in case a table is opened for update */
   read_all = !bitmap_is_clear_all(table->write_set);
@@ -916,7 +917,7 @@ int ha_tina::open(const char *name, int, uint open_options, const dd::Table *) {
 }
 
 /*
-  Close a database file. We remove ourselves from the shared strucutre.
+  Close a database file. We remove ourselves from the shared structure.
   If it is empty we destroy it.
 */
 int ha_tina::close(void) {
@@ -1253,9 +1254,9 @@ int ha_tina::rnd_end() {
 
     /*
       The sort is needed when there were updates/deletes with random orders.
-      It sorts so that we move the firts blocks to the beginning.
+      It sorts so that we move the first blocks to the beginning.
 
-      We assume that intervals do not intersect. So, it is enought to compare
+      We assume that intervals do not intersect. So, it is enough to compare
       any two points. Here we take start of intervals for comparison.
     */
     std::sort(chain, chain_ptr, [](const tina_set &a, const tina_set &b) {

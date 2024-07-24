@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -101,7 +102,7 @@ class Sql_service_interface {
   */
   Sql_service_interface(
       enum cs_text_or_binary cs_txt_bin = CS_TEXT_REPRESENTATION,
-      const CHARSET_INFO *cs_charset = &my_charset_utf8_general_ci);
+      const CHARSET_INFO *cs_charset = &my_charset_utf8mb3_general_ci);
 
   /**
     Sql_service_interface destructor
@@ -162,7 +163,7 @@ class Sql_service_interface {
   long execute_query(
       std::string sql_string, Sql_resultset *rset,
       enum cs_text_or_binary cs_txt_bin = CS_TEXT_REPRESENTATION,
-      const CHARSET_INFO *cs_charset = &my_charset_utf8_general_ci);
+      const CHARSET_INFO *cs_charset = &my_charset_utf8mb3_general_ci);
 
   /**
     Executes a server command in a session.
@@ -185,7 +186,7 @@ class Sql_service_interface {
   long execute(COM_DATA cmd, enum enum_server_command cmd_type,
                Sql_resultset *rset,
                enum cs_text_or_binary cs_txt_bin = CS_TEXT_REPRESENTATION,
-               const CHARSET_INFO *cs_charset = &my_charset_utf8_general_ci);
+               const CHARSET_INFO *cs_charset = &my_charset_utf8mb3_general_ci);
 
   /**
     Set send result type to CS_TEXT_REPRESENTATION or

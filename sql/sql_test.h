@@ -1,15 +1,16 @@
-/* Copyright (c) 2006, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2006, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,7 +34,7 @@
 
 class Item;
 class JOIN;
-struct TABLE_LIST;
+class Table_ref;
 
 typedef Mem_root_array<Key_use> Key_use_array;
 
@@ -45,7 +46,7 @@ void print_where(const THD *thd, const Item *cond, const char *info,
 void TEST_join(JOIN *join);
 void print_plan(JOIN *join, uint idx, double record_count, double read_time,
                 double current_read_time, const char *info);
-void dump_TABLE_LIST_graph(Query_block *query_block, TABLE_LIST *tl);
+void dump_TABLE_LIST_graph(Query_block *query_block, Table_ref *tl);
 #endif
 class Opt_trace_context;
 

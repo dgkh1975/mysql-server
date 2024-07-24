@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -137,4 +138,31 @@ class Gcs_message_stage_lz4_v2 : public Gcs_message_stage_lz4 {
    */
   Stage_code get_stage_code() const override { return Stage_code::ST_LZ4_V2; }
 };
+
+class Gcs_message_stage_lz4_v3 : public Gcs_message_stage_lz4 {
+ public:
+  /**
+   Creates an instance of the stage with the default threshold in bytes.
+   */
+  explicit Gcs_message_stage_lz4_v3() : Gcs_message_stage_lz4() {}
+
+  /**
+   Creates an instance of the stage with the given threshold in bytes.
+
+   @param enabled enables this message stage
+   @param compress_threshold messages with the payload larger
+   than compress_threshold in bytes are compressed.
+   */
+  explicit Gcs_message_stage_lz4_v3(bool enabled,
+                                    unsigned long long compress_threshold)
+      : Gcs_message_stage_lz4(enabled, compress_threshold) {}
+
+  ~Gcs_message_stage_lz4_v3() override {}
+
+  /*
+   Return the stage code.
+   */
+  Stage_code get_stage_code() const override { return Stage_code::ST_LZ4_V3; }
+};
+
 #endif /* GCS_MESSAGE_STAGE_LZ4_H */

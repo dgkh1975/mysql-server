@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -52,7 +53,7 @@ typedef Mem_root_array_YY<Hint_param_table> Hint_param_table_list;
 /**
   The class is a base class for representation of the
   different types of the hints. For the complex hints
-  it is also used as a container for additional argumnets.
+  it is also used as a container for additional arguments.
 */
 class PT_hint : public Parse_tree_node {
   opt_hints_enum hint_type;  // Hint type
@@ -83,8 +84,8 @@ class PT_hint : public Parse_tree_node {
     @param thd             Pointer to THD object
     @param str             Pointer to String object
   */
-  virtual void append_args(const THD *thd MY_ATTRIBUTE((unused)),
-                           String *str MY_ATTRIBUTE((unused))) const {}
+  virtual void append_args(const THD *thd [[maybe_unused]],
+                           String *str [[maybe_unused]]) const {}
   bool supports_view() {
     /*
       Only index hints are supported to be used in views.

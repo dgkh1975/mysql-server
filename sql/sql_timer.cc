@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -31,7 +32,7 @@
 #include "my_sys.h"
 #include "my_thread_local.h"
 #include "my_timer.h"  // my_timer_t
-#include "mysql/components/services/mysql_mutex_bits.h"
+#include "mysql/components/services/bits/mysql_mutex_bits.h"
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql/service_mysql_alloc.h"
 #include "sql/mysqld.h"              // key_thd_timer_mutex
@@ -99,7 +100,8 @@ static THD_timer_info *thd_timer_create(void) {
 
 static bool timer_notify(THD_timer_info *thd_timer) {
   Find_thd_with_id find_thd_with_id(thd_timer->thread_id);
-  THD *thd = Global_THD_manager::get_instance()->find_thd(&find_thd_with_id);
+  THD_ptr thd_ptr =
+      Global_THD_manager::get_instance()->find_thd(&find_thd_with_id);
 
   assert(!thd_timer->destroy || !thd_timer->thread_id);
   /*
@@ -107,12 +109,11 @@ static bool timer_notify(THD_timer_info *thd_timer) {
     was being delivered. If this is the case, the timer object
     was detached (orphaned) and has no associated session (thd).
   */
-  if (thd) {
+  if (thd_ptr) {
     /* process only if thread is not already undergoing any kill connection. */
-    if (thd->killed != THD::KILL_CONNECTION) {
-      thd->awake(THD::KILL_TIMEOUT);
+    if (thd_ptr->killed != THD::KILL_CONNECTION) {
+      thd_ptr->awake(THD::KILL_TIMEOUT);
     }
-    mysql_mutex_unlock(&thd->LOCK_thd_data);
   }
 
   /* Mark the object as unreachable. */

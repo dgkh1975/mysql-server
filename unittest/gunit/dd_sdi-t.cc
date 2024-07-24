@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -127,10 +128,11 @@ static void mock_column_statistics_obj(dd::Column_statistics *c,
                                              histograms::Value_map_type::INT);
   int_values.add_values(0LL, 10);
 
-  histograms::Equi_height<longlong> *equi_height = new (mem_root)
-      histograms::Equi_height<longlong>(mem_root, "my_schema", "my_table",
-                                        "my_column",
-                                        histograms::Value_map_type::INT);
+  histograms::Equi_height<longlong> *equi_height =
+      histograms::Equi_height<longlong>::create(
+          mem_root, "my_schema", "my_table", "my_column",
+          histograms::Value_map_type::INT);
+  ASSERT_TRUE(equi_height != nullptr);
 
   EXPECT_FALSE(equi_height->build_histogram(int_values, 1024));
   c->set_histogram(equi_height);
@@ -249,7 +251,8 @@ class SdiTest : public ::testing::Test {
   SdiTest() = default;
 
  private:
-  GTEST_DISALLOW_COPY_AND_ASSIGN_(SdiTest);
+  SdiTest(SdiTest const &) = delete;
+  SdiTest &operator=(SdiTest const &) = delete;
 };
 
 bool diff(const dd::String_type &expected, dd::String_type actual) {
@@ -341,8 +344,7 @@ TEST(SdiTest, Column_statistics) {
   std::unique_ptr<dd::Column_statistics> dd_obj(
       dd::create_object<dd::Column_statistics>());
 
-  MEM_ROOT mem_root;
-  init_alloc_root(PSI_NOT_INSTRUMENTED, &mem_root, 256, 0);
+  MEM_ROOT mem_root(PSI_NOT_INSTRUMENTED, 256);
 
   mock_column_statistics_obj(dd_obj.get(), &mem_root);
 
@@ -360,7 +362,7 @@ TEST(SdiTest, Column_statistics) {
   EXPECT_TRUE(dd_obj.get()->schema_name() == deserialized.get()->schema_name());
   EXPECT_TRUE(dd_obj.get()->table_name() == deserialized.get()->table_name());
   EXPECT_TRUE(dd_obj.get()->column_name() == deserialized.get()->column_name());
-  free_root(&mem_root, MYF(0));
+  mem_root.Clear();
 }
 
 TEST(SdiTest, Index_element) { simple_test<dd::Index_element>(); }

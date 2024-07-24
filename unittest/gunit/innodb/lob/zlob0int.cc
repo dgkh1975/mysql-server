@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -497,7 +498,7 @@ dberr_t z_insert_chunk(z_first_page_t &first, trx_id_t trxid, ref_t ref,
   const ulint max_buf = deflateBound(&strm, len);
 
   /** @todo We should use mem_heap here. */
-  std::unique_ptr<byte> tmpbuf(new byte[max_buf]);
+  std::unique_ptr<byte[]> tmpbuf(new byte[max_buf]);
   strm.avail_out = max_buf;
   strm.next_out = tmpbuf.get();
 
@@ -611,7 +612,7 @@ ulint z_read_chunk(trx_id_t trxid, z_index_entry_t &entry, ulint offset,
   ulint zbuf_size = entry.get_zdata_len();
 
   /** @todo This might need to be converted to a mem_heap call. */
-  std::unique_ptr<byte> zbuf(new byte[zbuf_size]);
+  std::unique_ptr<byte[]> zbuf(new byte[zbuf_size]);
 
   ulint zbytes = z_read_strm(entry, zbuf.get(), zbuf_size);
   ut_a(zbytes == zbuf_size);

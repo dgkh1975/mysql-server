@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -40,6 +41,7 @@
 #include <string>
 #include <vector>
 
+#include "libbinlogevents/include/nodiscard.h"
 #include "my_inttypes.h"
 #include "my_sys.h"
 #include "plugin/group_replication/include/gcs_plugin_messages.h"
@@ -47,6 +49,7 @@
 #include "plugin/group_replication/include/plugin_psi.h"
 #include "plugin/group_replication/include/services/notification/notification.h"
 #include "plugin/group_replication/libmysqlgcs/include/mysql/gcs/gcs_member_identifier.h"
+#include "sql/malloc_allocator.h"
 
 /*
   Encoding of the group_replication_enforce_update_everywhere_checks
@@ -144,8 +147,17 @@ class Group_member_info : public Plugin_gcs_message {
     // Length of the payload item: variable
     PIT_VIEW_CHANGE_UUID = 21,
 
+    // Length of the paylod item: 1 byte
+    PIT_ALLOW_SINGLE_LEADER = 22,
+
+    // Length of the paylod item: variable
+    PIT_GROUP_ACTION_RUNNING_NAME = 23,
+
+    // Length of the paylod item: variable
+    PIT_GROUP_ACTION_RUNNING_DESCRIPTION = 24,
+
     // No valid type codes can appear after this one.
-    PIT_MAX = 22
+    PIT_MAX = 25
   };
 
   /*
@@ -174,6 +186,72 @@ class Group_member_info : public Plugin_gcs_message {
     MEMBER_ROLE_END
   } Group_member_role;
 
+  /*
+    Allocate memory on the heap with instrumented memory allocation, so
+    that memory consumption can be tracked.
+
+    @param[in] size    memory size to be allocated
+    @param[in] nothrow When the nothrow constant is passed as second parameter
+                       to operator new, operator new returns a null-pointer on
+                       failure instead of throwing a bad_alloc exception.
+
+    @return pointer to the allocated memory, or NULL if memory could not
+            be allocated.
+  */
+  void *operator new(size_t size, const std::nothrow_t &) noexcept {
+    /*
+      Call my_malloc() with the MY_WME flag to make sure that it will
+      write an error message if the memory could not be allocated.
+    */
+    return my_malloc(key_group_member_info, size, MYF(MY_WME));
+  }
+
+  /*
+    Deallocate memory on the heap with instrumented memory allocation, so
+    that memory consumption can be tracked.
+
+    @param[in] ptr     pointer to the allocated memory
+    @param[in] nothrow When the nothrow constant is passed as second parameter
+                       to operator new, operator new returns a null-pointer on
+                       failure instead of throwing a bad_alloc exception.
+  */
+  void operator delete(void *ptr, const std::nothrow_t &) noexcept {
+    my_free(ptr);
+  }
+
+  /**
+    Allocate memory on the heap with instrumented memory allocation, so
+    that memory consumption can be tracked.
+
+    @param[in] size    memory size to be allocated
+
+    @return pointer to the allocated memory, or NULL if memory could not
+            be allocated.
+  */
+  void *operator new(size_t size) noexcept {
+    /*
+      Call my_malloc() with the MY_WME flag to make sure that it will
+      write an error message if the memory could not be allocated.
+    */
+    return my_malloc(key_group_member_info, size, MYF(MY_WME));
+  }
+
+  /**
+    Deallocate memory on the heap with instrumented memory allocation, so
+    that memory consumption can be tracked.
+
+    @param[in] ptr     pointer to the allocated memory
+  */
+  void operator delete(void *ptr) noexcept { my_free(ptr); }
+
+  /**
+    Group_member_info empty constructor
+
+    @param[in] psi_mutex_key_arg                      mutex key
+   */
+  Group_member_info(PSI_mutex_key psi_mutex_key_arg =
+                        key_GR_LOCK_group_member_info_update_lock);
+
   /**
     Group_member_info constructor
 
@@ -195,11 +273,13 @@ class Group_member_info : public Plugin_gcs_message {
     check
     @param[in] member_weight_arg                      member_weight
     @param[in] lower_case_table_names_arg             lower case table names
-    @param[in] psi_mutex_key_arg                      mutex key
     @param[in] default_table_encryption_arg           default_table_encryption
     @param[in] recovery_endpoints_arg                 recovery endpoints
     @param[in] view_change_uuid_arg                   view change uuid
     advertised
+    @param[in] allow_single_leader                    flag indicating whether or
+    not to use single-leader behavior
+    @param[in] psi_mutex_key_arg                      mutex key
    */
   Group_member_info(const char *hostname_arg, uint port_arg,
                     const char *uuid_arg, int write_set_extraction_algorithm,
@@ -213,7 +293,7 @@ class Group_member_info : public Plugin_gcs_message {
                     uint member_weight_arg, uint lower_case_table_names_arg,
                     bool default_table_encryption_arg,
                     const char *recovery_endpoints_arg,
-                    const char *view_change_uuid_arg,
+                    const char *view_change_uuid_arg, bool allow_single_leader,
                     PSI_mutex_key psi_mutex_key_arg =
                         key_GR_LOCK_group_member_info_update_lock);
 
@@ -265,6 +345,8 @@ class Group_member_info : public Plugin_gcs_message {
     @param[in] recovery_endpoints_arg                 recovery endpoints
     advertised
     @param[in] view_change_uuid_arg                   view change uuid
+    @param[in] allow_single_leader                    flag indicating whether or
+    not to use single-leader behavior
    */
   void update(const char *hostname_arg, uint port_arg, const char *uuid_arg,
               int write_set_extraction_algorithm,
@@ -278,7 +360,7 @@ class Group_member_info : public Plugin_gcs_message {
               uint member_weight_arg, uint lower_case_table_names_arg,
               bool default_table_encryption_arg,
               const char *recovery_endpoints_arg,
-              const char *view_change_uuid_arg);
+              const char *view_change_uuid_arg, bool allow_single_leader);
 
   /**
     Update Group_member_info.
@@ -556,6 +638,38 @@ class Group_member_info : public Plugin_gcs_message {
    */
   std::string get_view_change_uuid();
 
+  bool get_allow_single_leader();
+
+  /**
+    Get group action name if running on the member.
+    Refer group_action_running to check if any action is running.
+    @return group action name if running on the member
+   */
+  const std::string &get_group_action_running_name();
+
+  /**
+    Set group action name if running on the member.
+    Refer group_action_running to check if any action is running.
+    @param group_action_running_name set group action name
+   */
+  void set_group_action_running_name(
+      const std::string &group_action_running_name);
+
+  /**
+    Get group action description if running on the member.
+    Refer group_action_running to check if any action is running.
+    @return group action description if running on the member
+   */
+  const std::string &get_group_action_running_description();
+
+  /**
+    Set group action description if running on the member.
+    Refer group_action_running to check if any action is running.
+    @param group_action_running_description set group action description
+   */
+  void set_group_action_running_description(
+      const std::string &group_action_running_description);
+
   /**
     Save member view change uuid
     @param view_change_cnf uuid to be used on change views or "AUTOMATIC"
@@ -587,8 +701,8 @@ class Group_member_info : public Plugin_gcs_message {
   uint port;
   std::string uuid;
   Group_member_status status;
-  Gcs_member_identifier *gcs_member_id;
-  Member_version *member_version;
+  Gcs_member_identifier *gcs_member_id{nullptr};
+  Member_version *member_version{nullptr};
   std::string executed_gtid_set;
   std::string purged_gtid_set;
   std::string retrieved_gtid_set;
@@ -605,6 +719,9 @@ class Group_member_info : public Plugin_gcs_message {
   bool primary_election_running;
   std::string recovery_endpoints;
   std::string m_view_change_uuid;
+  bool m_allow_single_leader;
+  std::string m_group_action_running_name;
+  std::string m_group_action_running_description;
 #ifndef NDEBUG
  public:
   bool skip_encode_default_table_encryption;
@@ -613,6 +730,16 @@ class Group_member_info : public Plugin_gcs_message {
   // Allow use copy constructor on unit tests.
   PSI_mutex_key psi_mutex_key;
 };
+
+typedef std::vector<Group_member_info *, Malloc_allocator<Group_member_info *>>
+    Group_member_info_list;
+typedef Group_member_info_list::iterator Group_member_info_list_iterator;
+
+typedef std::map<
+    std::string, Group_member_info *, std::less<std::string>,
+    Malloc_allocator<std::pair<const std::string, Group_member_info *>>>
+    Group_member_info_map;
+typedef Group_member_info_map::iterator Group_member_info_map_iterator;
 
 /*
   @interface Group_member_info_manager_interface
@@ -651,21 +778,32 @@ class Group_member_info_manager_interface {
   /**
     Retrieves a registered Group member by its uuid
 
-    @param[in] uuid uuid to retrieve
-    @return reference to a copy of Group_member_info. NULL if not managed.
-            The return value must deallocated by the caller.
+    @param[in]  uuid             uuid to retrieve
+    @param[out] member_info_arg  a member info reference local to the
+                                 method caller that is updated when the
+                                 member is found.
+
+    @return true  if the member is not found.
+            false if the member is found.
    */
-  virtual Group_member_info *get_group_member_info(const std::string &uuid) = 0;
+  [[NODISCARD]] virtual bool get_group_member_info(
+      const std::string &uuid, Group_member_info &member_info_arg) = 0;
 
   /**
     Retrieves a registered Group member by an index function.
     One is free to determine the index function. Nevertheless, it should have
     the same result regardless of the member of the group where it is called
 
-    @param[in] idx the index
-    @return reference to a Group_member_info. NULL if not managed
+    @param[in]  idx              the index
+    @param[out] member_info_arg  a member info reference local to the
+                                 method caller that is updated when the
+                                 member is found.
+
+    @return true  if the member is not found.
+            false if the member is found.
    */
-  virtual Group_member_info *get_group_member_info_by_index(int idx) = 0;
+  [[NODISCARD]] virtual bool get_group_member_info_by_index(
+      int idx, Group_member_info &member_info_arg) = 0;
 
   /**
     Return lowest member version.
@@ -678,12 +816,16 @@ class Group_member_info_manager_interface {
   /**
     Retrieves a registered Group member by its backbone GCS identifier.
 
-    @param[in] id the GCS identifier
-    @return reference to a copy of Group_member_info. NULL if not managed.
-            The return value must be deallocated by the caller.
+    @param[in]  id               the GCS identifier
+    @param[out] member_info_arg  a member info reference local to the
+                                 method caller that is updated when the
+                                 member is found.
+
+    @return true  if the member is not found.
+            false if the member is found.
    */
-  virtual Group_member_info *get_group_member_info_by_member_id(
-      const Gcs_member_identifier &id) = 0;
+  [[NODISCARD]] virtual bool get_group_member_info_by_member_id(
+      const Gcs_member_identifier &id, Group_member_info &member_info_arg) = 0;
 
   /**
     Return the status of the member with the given GCS identifier.
@@ -700,7 +842,7 @@ class Group_member_info_manager_interface {
 
     @return a vector with copies to all managed Group_member_info
    */
-  virtual std::vector<Group_member_info *> *get_all_members() = 0;
+  virtual Group_member_info_list *get_all_members() = 0;
 
   /**
     Retrieves all ONLINE Group members managed by this site, or
@@ -736,7 +878,7 @@ class Group_member_info_manager_interface {
 
     @param[in] new_members new Group members
    */
-  virtual void update(std::vector<Group_member_info *> *new_members) = 0;
+  virtual void update(Group_member_info_list *new_members) = 0;
 
   /**
     Updates the status of a single member
@@ -834,8 +976,8 @@ class Group_member_info_manager_interface {
     @param[in] length    raw encoded data length
     @return a vector of Group_member_info references
    */
-  virtual std::vector<Group_member_info *> *decode(const uchar *to_decode,
-                                                   size_t length) = 0;
+  virtual Group_member_info_list *decode(const uchar *to_decode,
+                                         size_t length) = 0;
 
   /**
     Check if some member of the group has the conflict detection enable
@@ -860,11 +1002,15 @@ class Group_member_info_manager_interface {
   /**
     Return the group member info for the current group primary
 
-    @note the returned reference must be deallocated by the caller.
+    @param[out] member_info_arg  a member info reference local to the
+                                 method caller that is updated when the
+                                 member is found.
 
-    @return reference to a Group_member_info. NULL if not managed
+    @return true  if the member is not found.
+            false if the member is found.
   */
-  virtual Group_member_info *get_primary_member_info() = 0;
+  [[NODISCARD]] virtual bool get_primary_member_info(
+      Group_member_info &member_info_arg) = 0;
 
   /**
     Check if majority of the group is unreachable
@@ -880,7 +1026,7 @@ class Group_member_info_manager_interface {
     Check if an unreachable member exists
 
     This approach is optimistic, right after return a member can be marked as
-    rechable/unreachable
+    reachable/unreachable
 
     @return true if an unreachable member exists
   */
@@ -925,25 +1071,86 @@ class Group_member_info_manager : public Group_member_info_manager_interface {
 
   ~Group_member_info_manager() override;
 
+  /*
+    Allocate memory on the heap with instrumented memory allocation, so
+    that memory consumption can be tracked.
+
+    @param[in] size    memory size to be allocated
+    @param[in] nothrow When the nothrow constant is passed as second parameter
+                       to operator new, operator new returns a null-pointer on
+                       failure instead of throwing a bad_alloc exception.
+
+    @return pointer to the allocated memory, or NULL if memory could not
+            be allocated.
+  */
+  void *operator new(size_t size, const std::nothrow_t &) noexcept {
+    /*
+      Call my_malloc() with the MY_WME flag to make sure that it will
+      write an error message if the memory could not be allocated.
+    */
+    return my_malloc(key_group_member_info, size, MYF(MY_WME));
+  }
+
+  /*
+    Deallocate memory on the heap with instrumented memory allocation, so
+    that memory consumption can be tracked.
+
+    @param[in] ptr     pointer to the allocated memory
+    @param[in] nothrow When the nothrow constant is passed as second parameter
+                       to operator new, operator new returns a null-pointer on
+                       failure instead of throwing a bad_alloc exception.
+  */
+  void operator delete(void *ptr, const std::nothrow_t &) noexcept {
+    my_free(ptr);
+  }
+
+  /**
+    Allocate memory on the heap with instrumented memory allocation, so
+    that memory consumption can be tracked.
+
+    @param[in] size    memory size to be allocated
+
+    @return pointer to the allocated memory, or NULL if memory could not
+            be allocated.
+  */
+  void *operator new(size_t size) noexcept {
+    /*
+      Call my_malloc() with the MY_WME flag to make sure that it will
+      write an error message if the memory could not be allocated.
+    */
+    return my_malloc(key_group_member_info, size, MYF(MY_WME));
+  }
+
+  /**
+    Deallocate memory on the heap with instrumented memory allocation, so
+    that memory consumption can be tracked.
+
+    @param[in] ptr     pointer to the allocated memory
+  */
+  void operator delete(void *ptr) noexcept { my_free(ptr); }
+
   size_t get_number_of_members() override;
 
   size_t get_number_of_members_online() override;
 
   bool is_member_info_present(const std::string &uuid) override;
 
-  Group_member_info *get_group_member_info(const std::string &uuid) override;
+  [[NODISCARD]] bool get_group_member_info(
+      const std::string &uuid, Group_member_info &member_info_arg) override;
 
-  Group_member_info *get_group_member_info_by_index(int idx) override;
+  [[NODISCARD]] bool get_group_member_info_by_index(
+      int idx, Group_member_info &member_info_arg) override;
 
   Member_version get_group_lowest_online_version() override;
 
-  Group_member_info *get_group_member_info_by_member_id(
-      const Gcs_member_identifier &id) override;
+  [[NODISCARD]] bool get_group_member_info_by_member_id(
+      const Gcs_member_identifier &id,
+      Group_member_info &member_info_arg) override;
 
   Group_member_info::Group_member_status get_group_member_status_by_member_id(
       const Gcs_member_identifier &id) override;
 
-  std::vector<Group_member_info *> *get_all_members() override;
+  Group_member_info_list *get_all_members() override;
 
   std::list<Gcs_member_identifier> *get_online_members_with_guarantees(
       const Gcs_member_identifier &exclude_member) override;
@@ -952,7 +1159,7 @@ class Group_member_info_manager : public Group_member_info_manager_interface {
 
   void update(Group_member_info *update_local_member) override;
 
-  void update(std::vector<Group_member_info *> *new_members) override;
+  void update(Group_member_info_list *new_members) override;
 
   void update_member_status(const std::string &uuid,
                             Group_member_info::Group_member_status new_status,
@@ -982,14 +1189,15 @@ class Group_member_info_manager : public Group_member_info_manager_interface {
 
   void encode(std::vector<uchar> *to_encode) override;
 
-  std::vector<Group_member_info *> *decode(const uchar *to_decode,
-                                           size_t length) override;
+  Group_member_info_list *decode(const uchar *to_decode,
+                                 size_t length) override;
 
   bool is_conflict_detection_enabled() override;
 
   bool get_primary_member_uuid(std::string &primary_member_uuid) override;
 
-  Group_member_info *get_primary_member_info() override;
+  [[NODISCARD]] bool get_primary_member_info(
+      Group_member_info &member_info_arg) override;
 
   bool is_majority_unreachable() override;
 
@@ -1007,7 +1215,7 @@ class Group_member_info_manager : public Group_member_info_manager_interface {
   Group_member_info *get_group_member_info_by_member_id_internal(
       const Gcs_member_identifier &id);
 
-  std::map<std::string, Group_member_info *> *members;
+  Group_member_info_map *members;
   Group_member_info *local_member_info;
 
   mysql_mutex_t update_lock;
@@ -1040,11 +1248,17 @@ class Group_member_info_manager : public Group_member_info_manager_interface {
   | payload_item_len  |   8 bytes | size of PIT_MEMBER_ACTIONS data      |
   | payload_item      |   X bytes | PIT_MEMBER_ACTIONS data              |
   +-------------------+-----------+--------------------------------------+
+  | payload_item_type |   2 bytes | PIT_RPL_FAILOVER_CONFIGURATION       |
+  | payload_item_len  |   8 bytes | size of                              |
+  |                   |           | PIT_RPL_FAILOVER_CONFIGURATION data  |
+  | payload_item      |   X bytes | PIT_RPL_FAILOVER_CONFIGURATION data  |
+  +-------------------+-----------+--------------------------------------+
 
  The PIT_MEMBER_DATA lines occur the number of times specified on
  PIT_MEMBERS_NUMBER.
- The PIT_MEMBER_ACTIONS line will exist if the member that sent the
- Group_member_info_manager message is not joining.
+ The PIT_MEMBER_ACTIONS and PIT_RPL_FAILOVER_CONFIGURATION lines will
+ exist if the member that sent the Group_member_info_manager message
+ is not joining.
 */
 class Group_member_info_manager_message : public Plugin_gcs_message {
  public:
@@ -1061,8 +1275,11 @@ class Group_member_info_manager_message : public Plugin_gcs_message {
     // Length of the payload item: variable
     PIT_MEMBER_ACTIONS = 3,
 
+    // Length of the payload item: variable
+    PIT_RPL_FAILOVER_CONFIGURATION = 4,
+
     // No valid type codes can appear after this one.
-    PIT_MAX = 4
+    PIT_MAX = 5
   };
 
   /**
@@ -1094,7 +1311,7 @@ class Group_member_info_manager_message : public Plugin_gcs_message {
 
     @return a vector with copies to all members.
    */
-  std::vector<Group_member_info *> *get_all_members();
+  Group_member_info_list *get_all_members();
 
   /**
     Adds a already serialized member actions configuration
@@ -1109,23 +1326,36 @@ class Group_member_info_manager_message : public Plugin_gcs_message {
       const std::string &member_actions_serialized_configuration) const;
 
   /**
-    Gets the serialized member actions configuration.
+    Gets the data that belongs to payload_item_type pit.
 
+    @param[in]  pit     the payload_item_type to which the data belongs
     @param[in]  buffer  message buffer
     @param[in]  length  message buffer length
-    @param[out] member_actions_serialized_configuration
-                       serialized member actions configuration
-    @param[out] member_actions_serialized_configuration_length
-                       serialized member actions configuration length
+    @param[out] pit_data
+                       the data from payload_item_type pit
+    @param[out] pit_length
+                       the length of the data from payload_item_type pit
 
     @return the operation status
       @retval false  OK
       @retval true   member actions do not exist on the message
    */
-  bool get_member_actions_serialized_configuration(
-      const unsigned char *buffer, size_t length,
-      const unsigned char **member_actions_serialized_configuration,
-      size_t *member_actions_serialized_configuration_length);
+  bool get_pit_data(const enum_payload_item_type pit,
+                    const unsigned char *buffer, size_t length,
+                    const unsigned char **pit_data, size_t *pit_length);
+
+  /**
+    Adds a already serialized replication failover channels
+    configuration to the Group_member_info_manager_message content.
+
+    @param[in] buffer  message buffer
+    @param[in] replication_failover_channels_serialized_configuration
+                       serialized failover channels configuration
+   */
+  void add_replication_failover_channels_serialized_configuration(
+      std::vector<unsigned char> *buffer,
+      const std::string &replication_failover_channels_serialized_configuration)
+      const;
 
  protected:
   void encode_payload(std::vector<unsigned char> *buffer) const override;
@@ -1138,7 +1368,7 @@ class Group_member_info_manager_message : public Plugin_gcs_message {
   */
   void clear_members();
 
-  std::vector<Group_member_info *> *members;
+  Group_member_info_list *members;
 };
 
 #endif /* MEMBER_INFO_INCLUDE */

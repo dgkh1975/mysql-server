@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,8 +25,8 @@
 
 #include "my_config.h"
 
-#include "mysql/components/services/psi_cond_bits.h"
-#include "mysql/components/services/psi_mutex_bits.h"
+#include "mysql/components/services/bits/psi_cond_bits.h"
+#include "mysql/components/services/bits/psi_mutex_bits.h"
 #include "mysql/psi/mysql_cond.h"
 #include "mysql/psi/mysql_mutex.h"
 
@@ -45,6 +46,7 @@
 #include "my_psi_config.h"
 #include "my_sys.h"
 #include "mysql/components/services/bits/psi_bits.h"
+#include "mysql/components/services/log_builtins.h"
 #include "mysql/thread_pool_priv.h"  // inc_thread_created
 #include "sql/sql_class.h"           // THD
 #include "thr_mutex.h"
@@ -57,12 +59,8 @@ static inline int thd_partition(my_thread_id thread_id) {
 }
 
 bool Find_thd_with_id::operator()(THD *thd) {
-  if (thd->get_command() == COM_DAEMON) return false;
-  if (thd->thread_id() == m_thread_id) {
-    mysql_mutex_lock(&thd->LOCK_thd_data);
-    return true;
-  }
-  return false;
+  if (thd->get_command() == COM_DAEMON && !m_daemon_allowed) return false;
+  return (thd->thread_id() == m_thread_id);
 }
 
 /**
@@ -98,6 +96,35 @@ class Find_THD {
  private:
   Find_THD_Impl *m_impl;
 };
+
+THD_ptr::THD_ptr(THD *thd) : m_underlying(thd) {
+  if (m_underlying != nullptr) {
+    mysql_mutex_assert_not_owner(&m_underlying->LOCK_thd_data);
+    mysql_mutex_lock(&m_underlying->LOCK_thd_data);
+  }
+}
+
+THD_ptr::THD_ptr(THD_ptr &&thd_ptr) {
+  if (m_underlying != nullptr) mysql_mutex_unlock(&m_underlying->LOCK_thd_data);
+  m_underlying = thd_ptr.m_underlying;
+  thd_ptr.m_underlying = nullptr;
+}
+
+THD_ptr &THD_ptr::operator=(THD_ptr &&thd_ptr) {
+  if (m_underlying != nullptr) mysql_mutex_unlock(&m_underlying->LOCK_thd_data);
+  m_underlying = thd_ptr.m_underlying;
+  thd_ptr.m_underlying = nullptr;
+  return *this;
+}
+
+THD *THD_ptr::release() {
+  if (m_underlying == nullptr) return nullptr;
+
+  THD *tmp = m_underlying;
+  mysql_mutex_unlock(&m_underlying->LOCK_thd_data);
+  m_underlying = nullptr;
+  return tmp;
+}
 
 #ifdef HAVE_PSI_INTERFACE
 static PSI_mutex_key key_LOCK_thd_list;
@@ -237,8 +264,7 @@ void Global_THD_manager::release_thread_id(my_thread_id thread_id) {
   if (thread_id == reserved_thread_id)
     return;  // Some temporary THDs are never given a proper ID.
   MUTEX_LOCK(lock, &LOCK_thread_ids);
-  const size_t num_erased MY_ATTRIBUTE((unused)) =
-      thread_ids.erase_unique(thread_id);
+  const size_t num_erased [[maybe_unused]] = thread_ids.erase_unique(thread_id);
   // Assert if the ID was not found in the list.
   assert(1 == num_erased);
 }
@@ -253,6 +279,8 @@ void Global_THD_manager::wait_till_no_thd() {
   for (int i = 0; i < NUM_PARTITIONS; i++) {
     MUTEX_LOCK(lock, &LOCK_thd_list[i]);
     while (thd_list[i].size() > 0) {
+      LogErr(INFORMATION_LEVEL, ER_WAITING_FOR_NO_THDS, i, thd_list[i].size(),
+             get_thd_count());
       mysql_cond_wait(&COND_thd_list[i], &LOCK_thd_list[i]);
       DBUG_PRINT("quit", ("One thread died (count=%u)", get_thd_count()));
     }
@@ -290,20 +318,24 @@ void Global_THD_manager::do_for_all_thd(Do_THD_Impl *func) {
   }
 }
 
-THD *Global_THD_manager::find_thd(Find_THD_Impl *func) {
+THD_ptr Global_THD_manager::find_thd(Find_THD_Impl *func) {
   Find_THD find_thd(func);
   for (int i = 0; i < NUM_PARTITIONS; i++) {
     MUTEX_LOCK(lock, &LOCK_thd_list[i]);
     THD_array::const_iterator it =
         std::find_if(thd_list[i].begin(), thd_list[i].end(), find_thd);
-    if (it != thd_list[i].end()) return (*it);
+    if (it != thd_list[i].end()) {
+      THD_ptr thd_ptr(*it);
+      if (!thd_ptr->is_being_disposed()) return thd_ptr;
+      break;
+    }
   }
-  return nullptr;
+  return THD_ptr{nullptr};
 }
 
 // Optimized version of the above function for when we know
 // the thread_id of the THD we are looking for.
-THD *Global_THD_manager::find_thd(Find_thd_with_id *func) {
+THD_ptr Global_THD_manager::find_thd(Find_thd_with_id *func) {
   Find_THD find_thd(func);
   // Since we know the thread_id, we can check the correct
   // partition directly.
@@ -311,8 +343,11 @@ THD *Global_THD_manager::find_thd(Find_thd_with_id *func) {
   MUTEX_LOCK(lock, &LOCK_thd_list[partition]);
   THD_array::const_iterator it = std::find_if(
       thd_list[partition].begin(), thd_list[partition].end(), find_thd);
-  if (it != thd_list[partition].end()) return (*it);
-  return nullptr;
+  if (it != thd_list[partition].end()) {
+    THD_ptr thd_ptr(*it);
+    if (!thd_ptr->is_being_disposed()) return thd_ptr;
+  }
+  return THD_ptr{nullptr};
 }
 
 void inc_thread_created() {

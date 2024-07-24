@@ -1,15 +1,16 @@
-/* Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -193,6 +194,18 @@ typedef struct Trans_param {
 
   /*
     Flag to identify a 'CREATE TABLE ... AS SELECT'.
+
+    'CREATE TABLE ... AS SELECT' is binlogged as
+
+      'CREATE TABLE ... START TRANSACTION'
+      'TABLE MAP'
+      'ROW EVENT'
+      'ROW EVENT'
+      ...
+      'XID / COMMIT'
+
+    At replica, flag is used to identify the 'CREATE TABLE ... START
+    TRANSACTION' block of 'CREATE TABLE ... AS SELECT' event.
   */
   bool is_create_table_as_query_block;
 } Trans_param;
@@ -594,6 +607,8 @@ typedef struct Binlog_relay_IO_param {
   my_off_t master_log_pos;
 
   MYSQL *mysql; /* the connection to master */
+
+  bool source_connection_auto_failover;
 } Binlog_relay_IO_param;
 
 /**
@@ -621,7 +636,7 @@ typedef int (*thread_stop_t)(Binlog_relay_IO_param *param);
 
   @param param Observer common parameter
 
-  @retval 0 Sucess
+  @retval 0 Success
   @retval 1 Failure
 */
 typedef int (*applier_start_t)(Binlog_relay_IO_param *param);
@@ -732,7 +747,7 @@ typedef struct Binlog_relay_IO_observer {
    @param observer The transaction observer to register
    @param p pointer to the internal plugin structure
 
-   @retval 0 Sucess
+   @retval 0 Success
    @retval 1 Observer already exists
 */
 int register_trans_observer(Trans_observer *observer, void *p);
@@ -743,7 +758,7 @@ int register_trans_observer(Trans_observer *observer, void *p);
    @param observer The transaction observer to unregister
    @param p pointer to the internal plugin structure
 
-   @retval 0 Sucess
+   @retval 0 Success
    @retval 1 Observer not exists
 */
 int unregister_trans_observer(Trans_observer *observer, void *p);
@@ -754,7 +769,7 @@ int unregister_trans_observer(Trans_observer *observer, void *p);
    @param observer The binlog storage observer to register
    @param p pointer to the internal plugin structure
 
-   @retval 0 Sucess
+   @retval 0 Success
    @retval 1 Observer already exists
 */
 int register_binlog_storage_observer(Binlog_storage_observer *observer,
@@ -766,7 +781,7 @@ int register_binlog_storage_observer(Binlog_storage_observer *observer,
    @param observer The binlog storage observer to unregister
    @param p pointer to the internal plugin structure
 
-   @retval 0 Sucess
+   @retval 0 Success
    @retval 1 Observer not exists
 */
 int unregister_binlog_storage_observer(Binlog_storage_observer *observer,
@@ -778,7 +793,7 @@ int unregister_binlog_storage_observer(Binlog_storage_observer *observer,
    @param observer The binlog transmit observer to register
    @param p pointer to the internal plugin structure
 
-   @retval 0 Sucess
+   @retval 0 Success
    @retval 1 Observer already exists
 */
 int register_binlog_transmit_observer(Binlog_transmit_observer *observer,
@@ -790,7 +805,7 @@ int register_binlog_transmit_observer(Binlog_transmit_observer *observer,
    @param observer The binlog transmit observer to unregister
    @param p pointer to the internal plugin structure
 
-   @retval 0 Sucess
+   @retval 0 Success
    @retval 1 Observer not exists
 */
 int unregister_binlog_transmit_observer(Binlog_transmit_observer *observer,
@@ -824,7 +839,7 @@ int unregister_server_state_observer(Server_state_observer *observer, void *p);
    @param observer The binlog relay IO observer to register
    @param p pointer to the internal plugin structure
 
-   @retval 0 Sucess
+   @retval 0 Success
    @retval 1 Observer already exists
 */
 int register_binlog_relay_io_observer(Binlog_relay_IO_observer *observer,
@@ -836,7 +851,7 @@ int register_binlog_relay_io_observer(Binlog_relay_IO_observer *observer,
    @param observer The binlog relay IO observer to unregister
    @param p pointer to the internal plugin structure
 
-   @retval 0 Sucess
+   @retval 0 Success
    @retval 1 Observer not exists
 */
 int unregister_binlog_relay_io_observer(Binlog_relay_IO_observer *observer,

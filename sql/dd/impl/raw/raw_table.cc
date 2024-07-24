@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -43,9 +44,9 @@ namespace dd {
 ///////////////////////////////////////////////////////////////////////////
 
 Raw_table::Raw_table(thr_lock_type lock_type, const String_type &name)
-    : m_table_list(STRING_WITH_LEN("mysql"), name.c_str(), name.length(),
-                   name.c_str(), lock_type) {
-  m_table_list.is_dd_ctx_table = true;
+    : m_table_ref(STRING_WITH_LEN("mysql"), name.c_str(), name.length(),
+                  name.c_str(), lock_type) {
+  m_table_ref.is_dd_ctx_table = true;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -75,8 +76,8 @@ bool Raw_table::find_record(const Object_key &key,
     return true;
   }
 
-  rc = table->file->ha_index_read_idx_map(
-      table->record[0], k->index_no, k->key, k->keypart_map,
+  rc = table->file->ha_index_read_map(
+      table->record[0], k->key, k->keypart_map,
       (k->keypart_map == HA_WHOLE_KEY) ? HA_READ_KEY_EXACT : HA_READ_PREFIX);
 
   if (table->file->inited)
@@ -194,9 +195,8 @@ bool Raw_table::find_last_record(const Object_key &key,
     return true;
   }
 
-  rc = table->file->ha_index_read_idx_map(table->record[0], k->index_no, k->key,
-                                          k->keypart_map,
-                                          HA_READ_PREFIX_LAST_OR_PREV);
+  rc = table->file->ha_index_read_map(table->record[0], k->key, k->keypart_map,
+                                      HA_READ_PREFIX_LAST_OR_PREV);
 
   if (table->file->inited)
     table->file->ha_index_end();  // Close the scan over the index

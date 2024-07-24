@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -76,11 +77,11 @@ class Binlog_read_error {
   Binlog_read_error() = default;
   Binlog_read_error(Error_type type) : m_type(type) {}
 
-  bool has_error() { return m_type != SUCCESS; }
-  bool has_fatal_error() { return m_type > READ_EOF; }
+  bool has_error() const { return m_type != SUCCESS; }
+  bool has_fatal_error() const { return m_type > READ_EOF; }
 
   /**
-     Return the error encounted when reading events.
+     Return the error encountered when reading events.
    */
   Error_type get_type() const { return m_type; }
 
@@ -182,6 +183,7 @@ class Basic_binlog_ifile : public Basic_seekable_istream {
   my_off_t position() const { return m_position; }
   bool is_open() const { return m_istream != nullptr; }
 
+  const std::string &file_name() const { return m_file_name; }
   /**
      Get length of the binlog file. It is not os file length. The content maybe
      encrypted or compressed. It is the total length of BINLOG_MAGIC and all
@@ -215,7 +217,8 @@ class Basic_binlog_ifile : public Basic_seekable_istream {
   my_off_t m_position = 0;
   /** It is the entry of the low level stream pipeline. */
   std::unique_ptr<Basic_seekable_istream> m_istream;
-
+  /** Name of the file opened */
+  std::string m_file_name;
   /**
      Read binlog magic from binlog file and check if it is valid binlog magic.
 

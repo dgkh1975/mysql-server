@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -31,6 +32,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <algorithm>
+#include <thread>
 
 REQUIRES_SERVICE_PLACEHOLDER_AS(mysql_current_thread_reader, current_thd_srv);
 REQUIRES_SERVICE_PLACEHOLDER_AS(udf_registration, udf_srv);
@@ -73,7 +75,7 @@ const char *common_insert_customer(char * /* out */, size_t num_tables,
   size_t ticket;
   int rc;
 
-  CHARSET_INFO_h utf8 = charset_srv->get_utf8mb4();
+  CHARSET_INFO_h utf8mb4_h = charset_srv->get_utf8mb4();
   MYSQL_THD thd;
   current_thd_srv->get(&thd);
 
@@ -112,7 +114,8 @@ const char *common_insert_customer(char * /* out */, size_t num_tables,
     goto cleanup;
   }
 
-  string_converter_srv->convert_from_buffer(name_value, "John Doe", 8, utf8);
+  string_converter_srv->convert_from_buffer(name_value, "John Doe", 8,
+                                            utf8mb4_h);
 
   if (fa_varchar_srv->set(access, table, NAME_COL, name_value)) {
     result = "set(name) failed";
@@ -233,7 +236,7 @@ const char *common_fetch_order(char *out, int order_num) {
   size_t ticket_order_line;
   int rc;
 
-  CHARSET_INFO_h utf8 = charset_srv->get_utf8mb4();
+  CHARSET_INFO_h utf8mb4_h = charset_srv->get_utf8mb4();
   MYSQL_THD thd;
   current_thd_srv->get(&thd);
 
@@ -309,9 +312,9 @@ const char *common_fetch_order(char *out, int order_num) {
       goto cleanup_index;
     }
 
-    string_converter_srv->convert_to_buffer(order_comment_value,
-                                            buff_order_comment,
-                                            sizeof(buff_order_comment), utf8);
+    string_converter_srv->convert_to_buffer(
+        order_comment_value, buff_order_comment, sizeof(buff_order_comment),
+        utf8mb4_h);
   }
 
   if (ta_index_srv->end(access, table_order, order_pk)) {
@@ -571,7 +574,7 @@ const char *test_index_fetch_bfas(char *out) {
   return common_index(out, false, 100, 1005, 5, 5, 5);
 }
 
-const char *test_math_insert(char * /* out */, bool utf8mb4) {
+const char *test_math_insert(char * /* out */, bool is_utf8mb4) {
   static const char *schema_name =
       "\xE2" /* for each */
       "\x88"
@@ -638,7 +641,7 @@ const char *test_math_insert(char * /* out */, bool utf8mb4) {
   const char *table_name;
   size_t table_name_length;
 
-  CHARSET_INFO_h utf8 = charset_srv->get_utf8mb4();
+  CHARSET_INFO_h utf8mb4_h = charset_srv->get_utf8mb4();
   MYSQL_THD thd;
   current_thd_srv->get(&thd);
 
@@ -650,7 +653,7 @@ const char *test_math_insert(char * /* out */, bool utf8mb4) {
     goto cleanup;
   }
 
-  if (utf8mb4) {
+  if (is_utf8mb4) {
     table_name = table_name_utf8mb4;
     table_name_length = table_name_utf8mb4_length;
   } else {
@@ -697,7 +700,7 @@ const char *test_math_insert(char * /* out */, bool utf8mb4) {
   ptr += column_name_length;
 
   string_converter_srv->convert_from_buffer(row_value, value_buffer,
-                                            value_length, utf8);
+                                            value_length, utf8mb4_h);
 
   if (fa_varchar_srv->set(access, table, 0, row_value)) {
     result = "set() failed";
@@ -822,6 +825,45 @@ static char *test_table_access_driver(UDF_INIT *, UDF_ARGS *args, char *result,
   return nullptr;
 }
 
+#define CONST_STR_AND_LEN(x) x, sizeof(x) - 1
+
+/**
+ @param [out] status: true for failure, false otherwise
+ */
+static void thd_function(bool *ret) {
+  TA_table tb = nullptr, write_tb = nullptr;
+  Table_access ta = nullptr;
+  size_t ticket = 0, ticket_write = 0;
+  bool txn_started = false;
+  *ret = true;
+
+  ta = ta_factory_srv->create(nullptr, 2);
+  if (!ta) goto cleanup;
+  ticket = ta_srv->add(ta, CONST_STR_AND_LEN("mysql"), CONST_STR_AND_LEN("db"),
+                       TA_READ);
+  ticket_write = ta_srv->add(ta, CONST_STR_AND_LEN("mysql"),
+                             CONST_STR_AND_LEN("user"), TA_WRITE);
+
+  if (ta_srv->begin(ta)) goto cleanup;
+  txn_started = true;
+  tb = ta_srv->get(ta, ticket);
+  if (!tb) goto cleanup;
+  write_tb = ta_srv->get(ta, ticket_write);
+  if (!write_tb) goto cleanup;
+
+  *ret = false;
+cleanup:
+  if (txn_started) ta_srv->rollback(ta);
+  if (ta) ta_factory_srv->destroy(ta);
+}
+
+static bool test_native_thread() {
+  bool retval = true;
+  std::thread thd(thd_function, &retval);
+  thd.join();
+  return retval;
+}
+
 mysql_service_status_t test_table_access_init() {
   if (udf_srv->udf_register(udf_name, Item_result::STRING_RESULT,
                             (Udf_func_any)test_table_access_driver, udf_init,
@@ -836,6 +878,7 @@ mysql_service_status_t test_table_access_init() {
   */
   (void)test_math_insert_utf8mb3(nullptr);
   (void)test_math_insert_utf8mb4(nullptr);
+  if (test_native_thread()) return 1;
 
   return 0;
 }

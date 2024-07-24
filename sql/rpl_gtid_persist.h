@@ -1,15 +1,16 @@
-/* Copyright (c) 2013, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2013, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -67,7 +68,7 @@ class Gtid_table_access_context : public System_table_access {
   /**
     De-initialize the gtid_executed table access context as following:
       - Close the table
-      - Reenable binlog if needed
+      - Re-enable binlog if needed
       - Destroy the created THD if needed.
 
     @param thd         Thread requesting to close the table
@@ -204,7 +205,7 @@ class Gtid_table_persistor {
     @retval 1 Push a warning to client.
     @retval 2 Push an error to client.
   */
-  int warn_or_err_on_explicit_modification(THD *thd, TABLE_LIST *table) {
+  int warn_or_err_on_explicit_modification(THD *thd, Table_ref *table) {
     DBUG_TRACE;
 
     if (!thd->is_operating_gtid_table_implicitly &&
@@ -280,7 +281,7 @@ class Gtid_table_persistor {
   /**
     Fill a gtid interval into fields of the gtid_executed table.
 
-    @param  fields   Reference to table fileds.
+    @param  fields   Reference to table fields.
     @param  sid      The source id of the gtid interval.
     @param  gno_start The first GNO of the gtid interval.
     @param  gno_end  The last GNO of the gtid interval.

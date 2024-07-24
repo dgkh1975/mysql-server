@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,8 +27,8 @@
   A row may be stored in one or more linked blocks.
   The block size is between MI_MIN_BLOCK_LENGTH and MI_MAX_BLOCK_LENGTH.
   Each block is aligned on MI_DYN_ALIGN_SIZE.
-  The reson for the max block size is to not have too many different types
-  of blocks.  For the differnet block types, look at _mi_get_block_info()
+  The reason for the max block size is to not have too many different types
+  of blocks. For the different block types, look at _mi_get_block_info()
 */
 
 #include "my_config.h"
@@ -781,7 +782,7 @@ static int update_dynamic_record(MI_INFO *info, my_off_t filepos, uchar *record,
             Check if next block is a deleted block
             Above we have MI_MIN_BLOCK_LENGTH to avoid the problem where
             the next block is so small it can't be splited which could
-            casue problems
+            cause problems
           */
 
           MI_BLOCK_INFO del_block;
@@ -1042,8 +1043,8 @@ err:
 /* Returns -1 and my_errno =HA_ERR_RECORD_DELETED if reclength isn't */
 /* right. Returns reclength (>0) if ok */
 
-ulong _mi_rec_unpack(MI_INFO *info, uchar *to, const uchar *from,
-                     ulong found_length) {
+size_t _mi_rec_unpack(MI_INFO *info, uchar *to, const uchar *from,
+                      ulong found_length) {
   uint flag, bit, length, rec_length, min_pack_length;
   enum en_fieldtype type;
   uchar *to_end;
@@ -1144,7 +1145,7 @@ err:
   DBUG_PRINT("error", ("to_end: %p -> %p  from_end: %p -> %p", to, to_end, from,
                        from_end));
   DBUG_DUMP("from", (uchar *)info->rec_buff, info->s->base.min_pack_length);
-  return MY_FILE_ERROR;
+  return static_cast<ulong>(-1);
 } /* _mi_rec_unpack */
 
 /* Calc length of blob. Update info in blobs->length */

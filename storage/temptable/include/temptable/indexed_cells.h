@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -230,18 +231,18 @@ inline Storage::Element *Indexed_cells::row() const {
   /*
   switch (m_data_location) {
     case Data_location::MYSQL_BUF_INDEX_READ:
-      abort();
+      my_abort();
     case Data_location::MYSQL_BUF_WRITE_ROW:
       return ...;
     case Data_location::ROW:
       return ...;
   }
-  abort();  <-- this is executed when m_data_location == Data_location::ROW
+  my_abort();  <-- this is executed when m_data_location == Data_location::ROW
   and compiled with "Studio 12.5 Sun C++ 5.14 SunOS_sparc 2016/05/31" !!!
   So we use if-else instead of switch below. */
 
   if (m_data_location == Data_location::MYSQL_BUF_INDEX_READ) {
-    abort();
+    my_abort();
   } else if (m_data_location == Data_location::MYSQL_BUF_WRITE_ROW) {
     return const_cast<unsigned char *>(m_mysql_buf);
   } else if (m_data_location == Data_location::ROW) {
@@ -249,7 +250,7 @@ inline Storage::Element *Indexed_cells::row() const {
   }
 
   /* Not reached. */
-  abort();
+  my_abort();
 }
 
 inline void Indexed_cells::export_row_to_mysql(const Columns &columns,
@@ -258,7 +259,7 @@ inline void Indexed_cells::export_row_to_mysql(const Columns &columns,
   /*
   switch (m_data_location) {
     case Data_location::MYSQL_BUF_INDEX_READ:
-      abort();
+      my_abort();
     case Data_location::MYSQL_BUF_WRITE_ROW:
       ...
       return;
@@ -266,12 +267,12 @@ inline void Indexed_cells::export_row_to_mysql(const Columns &columns,
       ...
       return;
   }
-  abort();  <-- this is executed when m_data_location == Data_location::ROW
+  my_abort();  <-- this is executed when m_data_location == Data_location::ROW
   and compiled with "Studio 12.5 Sun C++ 5.14 SunOS_sparc 2016/05/31" !!!
   So we use if-else instead of switch below. */
 
   if (m_data_location == Data_location::MYSQL_BUF_INDEX_READ) {
-    abort();
+    my_abort();
   } else if (m_data_location == Data_location::MYSQL_BUF_WRITE_ROW) {
     memcpy(mysql_row, m_mysql_buf, mysql_row_length);
     return;
@@ -281,7 +282,7 @@ inline void Indexed_cells::export_row_to_mysql(const Columns &columns,
   }
 
   /* Not reached. */
-  abort();
+  my_abort();
 }
 
 inline size_t Indexed_cells::number_of_cells() const {

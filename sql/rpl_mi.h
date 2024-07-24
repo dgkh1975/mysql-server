@@ -1,15 +1,16 @@
-/* Copyright (c) 2006, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2006, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,7 +34,7 @@
 #include "my_inttypes.h"
 #include "my_io.h"
 #include "my_psi_config.h"
-#include "mysql/components/services/psi_mutex_bits.h"
+#include "mysql/components/services/bits/psi_mutex_bits.h"
 #include "mysql/psi/mysql_mutex.h"
 #include "mysql_com.h"
 #include "sql/binlog.h"
@@ -124,11 +125,11 @@ class Master_info : public Rpl_info {
   */
   char start_password[MAX_PASSWORD_LENGTH + 1];
   /**
-    Stores the autentication plugin specified when running START SLAVE.
+    Stores the authentication plugin specified when running START SLAVE.
   */
   char start_plugin_auth[FN_REFLEN + 1];
   /**
-    Stores the autentication plugin directory specified when running
+    Stores the authentication plugin directory specified when running
     START SLAVE.
   */
   char start_plugin_dir[FN_REFLEN + 1];
@@ -448,12 +449,21 @@ class Master_info : public Rpl_info {
   my_off_t master_log_pos;
 
  public:
-  inline const char *get_master_log_name() { return master_log_name; }
-  inline ulonglong get_master_log_pos() { return master_log_pos; }
+  inline const char *get_master_log_name() const { return master_log_name; }
+  inline const char *get_master_log_name_info() const {
+    if (m_is_receiver_position_info_invalid) return "INVALID";
+    return get_master_log_name();
+  }
+  inline ulonglong get_master_log_pos() const { return master_log_pos; }
+  inline ulonglong get_master_log_pos_info() const {
+    if (m_is_receiver_position_info_invalid) return 0;
+    return get_master_log_pos();
+  }
   inline void set_master_log_name(const char *log_file_name) {
     strmake(master_log_name, log_file_name, sizeof(master_log_name) - 1);
   }
   inline void set_master_log_pos(ulonglong log_pos) {
+    m_is_receiver_position_info_invalid = false;
     master_log_pos = log_pos;
   }
   inline const char *get_io_rpl_log_name() {
@@ -464,7 +474,7 @@ class Master_info : public Rpl_info {
   /**
      returns the column number of a channel in the TABLE repository.
      Mainly used during server startup to load the information required
-     from the slave repostiory tables. See rpl_info_factory.cc
+     from the slave repository tables. See rpl_info_factory.cc
   */
   static uint get_channel_field_num();
 
@@ -750,12 +760,67 @@ class Master_info : public Rpl_info {
 
   void get_flushed_relay_log_info(LOG_INFO *linfo);
 
+  /**
+    Marks the receiver position information (master_log_name, master_log_pos)
+    as being invalid or not.
+
+    @param invalid The value to set the status to invalid or valid
+  */
+  void set_receiver_position_info_invalid(bool invalid);
+
+  /**
+    Returns if receiver position information is valid or invalid
+
+    @return true if receiver position information is not reliable,
+            false otherwise.
+  */
+  bool is_receiver_position_info_invalid() const;
+
+  /**
+    Enable or disable the gtid_only mode
+
+    @param gtid_only_mode value to set gtid_only (enable/disable it)
+  */
+  void set_gtid_only_mode(bool gtid_only_mode);
+
+  /**
+    Returns if gtid_only is enabled or not
+
+    @return true if gtid_only mode is active for a channel,
+            false otherwise.
+  */
+  bool is_gtid_only_mode() const;
+
  private:
   /*
     Holds the relay log coordinates (file name and position) of the last master
     coordinates flushed into Master_info repository.
   */
   LOG_INFO flushed_relay_log_info;
+
+  /**
+    Is the replica working in GTID only mode, meaning it does not
+    persist position related information when executing or queueing
+    transactions.
+  */
+  bool m_gtid_only_mode;
+
+  /**
+    Are positions invalid. When true this means the values for
+    receiver position related information might be outdated.
+  */
+  bool m_is_receiver_position_info_invalid;
+
+ public:
+  /*
+    Hostname of the server where master_uuid was last read.
+  */
+  std::string m_uuid_from_host{};
+
+  /*
+    Port of the server where master_uuid was last read.
+  */
+  uint m_uuid_from_port{0};
 };
 
 #endif /* RPL_MI_H */

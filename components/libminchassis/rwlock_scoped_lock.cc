@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -43,12 +44,12 @@ minimal_chassis::rwlock_scoped_lock::rwlock_scoped_lock(mysql_rwlock_t *lock,
     if (!mysql_rwlock_wrlock_with_src(lock, file, line)) {
       m_lock = lock;
     } else
-      m_lock = NULL;
+      m_lock = nullptr;
   } else {
     if (!mysql_rwlock_rdlock_with_src(lock, file, line)) {
       m_lock = lock;
     } else
-      m_lock = NULL;
+      m_lock = nullptr;
   }
 }
 
@@ -60,13 +61,13 @@ minimal_chassis::rwlock_scoped_lock::rwlock_scoped_lock(mysql_rwlock_t *lock,
 minimal_chassis::rwlock_scoped_lock::rwlock_scoped_lock(
     minimal_chassis::rwlock_scoped_lock &&lock)
     : m_lock(lock.m_lock) {
-  lock.m_lock = NULL;
+  lock.m_lock = nullptr;
 }
 
 minimal_chassis::rwlock_scoped_lock::~rwlock_scoped_lock() {
   /* If lock is NULL, then lock was set to remain locked when going out of
     scope or was moved to other object. */
-  if (m_lock != NULL) {
+  if (m_lock != nullptr) {
     mysql_rwlock_unlock(m_lock);
   }
 }

@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -235,12 +236,20 @@ class Plugin_gcs_events_handler : public Gcs_communication_event_listener,
   int compare_member_option_compatibility() const;
 
   /**
-    Check if a member is not entering a group where an action is running
+    Check if a member is not entering a group where an action is running.
+    If action is running provide details of action.
 
-    @retval false     no group action is running
+    @param[out]  group_action_running_initiator    Group action configuration
+    initiator details
+    @param[out]  group_action_running_description  Group action configuration
+    description
+
+    @retval false  no group action is running
     @retval true   a group action is running
   */
-  bool is_group_running_a_configuration_change() const;
+  bool is_group_running_a_configuration_change(
+      std::string &group_action_running_initiator,
+      std::string &group_action_running_description) const;
 
   /**
     Check if the group is running a primary election

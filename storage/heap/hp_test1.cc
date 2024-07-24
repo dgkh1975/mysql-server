@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +40,7 @@ static int get_options(int argc, char *argv[]);
 static int flag = 0, verbose = 0, remove_ant = 0, flags[50];
 
 int main(int argc, char **argv) {
-  int i, j, error, deleted;
+  int i, j, error;
   HP_INFO *file;
   uchar record[128], key[32];
   const char *filename;
@@ -71,7 +72,6 @@ int main(int argc, char **argv) {
   keyinfo[0].seg[0].null_bit = 0;
   keyinfo[0].flag = HA_NOSAME;
 
-  deleted = 0;
   memset(flags, 0, sizeof(flags));
 
   printf("- Creating heap-file\n");
@@ -116,7 +116,6 @@ int main(int argc, char **argv) {
         printf("key: %s  delete: %d  my_errno: %d\n", (char *)key, error,
                my_errno());
       flags[j] = 0;
-      if (!error) deleted++;
     }
     if (heap_check_heap(file, false)) {
       puts("Heap keys crashed");

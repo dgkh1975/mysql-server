@@ -1,15 +1,16 @@
-/* Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -48,13 +49,9 @@ struct THR_LOCK;
 /** A row of PERFORMANCE_SCHEMA.FILE_SUMMARY_BY_INSTANCE. */
 struct row_file_summary_by_instance {
   /** Column FILE_NAME. */
-  const char *m_filename;
-  /** Length in bytes of @c m_filename. */
-  uint m_filename_length;
-
+  PFS_file_name m_file_name;
   /** Column EVENT_NAME. */
   PFS_event_name_row m_event_name;
-
   /** Column OBJECT_INSTANCE_BEGIN */
   const void *m_identity;
   /**
@@ -66,7 +63,7 @@ struct row_file_summary_by_instance {
 
 class PFS_index_file_summary_by_instance : public PFS_engine_index {
  public:
-  PFS_index_file_summary_by_instance(PFS_engine_key *key_1)
+  explicit PFS_index_file_summary_by_instance(PFS_engine_key *key_1)
       : PFS_engine_index(key_1) {}
 
   ~PFS_index_file_summary_by_instance() override = default;
@@ -126,7 +123,7 @@ class table_file_summary_by_instance : public PFS_engine_table {
   static int delete_all_rows();
   static ha_rows get_row_count();
 
-  void reset_position(void) override;
+  void reset_position() override;
 
   int rnd_next() override;
   int rnd_pos(const void *pos) override;

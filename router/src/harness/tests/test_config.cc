@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -687,6 +688,24 @@ message = Some kind of)";
   EXPECT_THAT(config_options, SizeIs(2));
 }
 
+TEST(TestConfig, ConfigInitialDefaultsOverwritten) {
+  const std::map<std::string, std::string> defaults{
+      {"a", "B"}, {"c", "D"}, {"e", "F"}};
+
+  const Config::ConfigOverwrites conf_overwrites{
+      {{"DEFAULT", ""}, {{"a", "X"}, {"c", "Y"}}}};
+
+  // create a configuration with some initial default, some of them overwritten
+  Config config(defaults, 0, conf_overwrites);
+
+  // 'a' and 'c' were overwritten
+  EXPECT_STREQ("X", config.get_default("a").c_str());
+  EXPECT_STREQ("Y", config.get_default("c").c_str());
+
+  // 'e' should have initial value
+  EXPECT_STREQ("F", config.get_default("e").c_str());
+}
+
 struct InvalidConfigParam {
   std::string test_name;
   std::string input;
@@ -746,11 +765,11 @@ class InvalidUint64OptionValueTest
 
 TEST_P(InvalidUint64OptionValueTest, ensure_fails) {
   try {
-    mysql_harness::option_as_uint<uint64_t>(GetParam().value, "invalid",
-                                            GetParam().min_value,
-                                            GetParam().max_value);
+    auto v = mysql_harness::option_as_uint<uint64_t>(
+        GetParam().value, "invalid", GetParam().min_value,
+        GetParam().max_value);
 
-    FAIL() << "expected to throw an exception, did not throw.";
+    FAIL() << "expected to throw an exception, did not throw. Got " << v;
   } catch (const std::exception &e) {
     EXPECT_EQ(std::string(e.what()), GetParam().expected_error);
   } catch (...) {
@@ -785,7 +804,12 @@ INSTANTIATE_TEST_SUITE_P(Spec, InvalidUint64OptionValueTest,
                                  "5", 6, 2000,
                                  "invalid needs value between 6 and "
                                  "2000 inclusive, was "
-                                 "'5'"}));
+                                 "'5'"},
+                             InvalidUintOptionValueParam<uint64_t>{
+                                 "-1", 0, std::numeric_limits<uint64_t>::max(),
+                                 "invalid needs value between 0 and "
+                                 "18446744073709551615 inclusive, was "
+                                 "'-1'"}));
 
 template <class T>
 struct ValidUintOptionValueParam {
@@ -819,7 +843,10 @@ INSTANTIATE_TEST_SUITE_P(
             "0", 0, std::numeric_limits<int64_t>::max(), 0},
         ValidUintOptionValueParam<uint64_t>{"9223372036854775807", 0,
                                             std::numeric_limits<int64_t>::max(),
-                                            9223372036854775807}));
+                                            9223372036854775807},
+        ValidUintOptionValueParam<uint64_t>{
+            "18446744073709551615", 0, std::numeric_limits<uint64_t>::max(),
+            UINT64_C(18446744073709551615)}));
 
 class InvalidUint8OptionValueTest : public ::testing::Test,
                                     public ::testing::WithParamInterface<
@@ -841,10 +868,23 @@ TEST_P(InvalidUint8OptionValueTest, ensure_fails) {
 }
 
 INSTANTIATE_TEST_SUITE_P(Spec, InvalidUint8OptionValueTest,
-                         ::testing::Values(InvalidUintOptionValueParam<uint8_t>{
-                             "2", 0, 1,
-                             "invalid needs value between 0 and "
-                             "1 inclusive, was '2'"}));
+                         ::testing::Values(
+                             InvalidUintOptionValueParam<uint8_t>{
+                                 "2", 0, 1,
+                                 "invalid needs value between 0 and "
+                                 "1 inclusive, was '2'"},
+                             InvalidUintOptionValueParam<uint8_t>{
+                                 "", 0, 1,
+                                 "invalid needs value between 0 and "
+                                 "1 inclusive, was ''"},
+                             InvalidUintOptionValueParam<uint8_t>{
+                                 "-1", 0, 255,
+                                 "invalid needs value between 0 and "
+                                 "255 inclusive, was '-1'"},
+                             InvalidUintOptionValueParam<uint8_t>{
+                                 "256", 0, 255,
+                                 "invalid needs value between 0 and "
+                                 "255 inclusive, was '256'"}));
 
 int main(int argc, char *argv[]) {
   g_here = Path(argv[0]).dirname();

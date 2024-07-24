@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -55,7 +56,7 @@ enum class TlsVersion { AUTO, SSL_3, TLS_1_0, TLS_1_1, TLS_1_2, TLS_1_3 };
 /**
  * Verification of Cerifiticates.
  *
- * NONE no certifcate is verified
+ * NONE no certificate is verified
  * PEER verify the cert of the peer
  */
 enum class TlsVerify { NONE, PEER };
@@ -63,6 +64,11 @@ enum class TlsVerify { NONE, PEER };
 class HARNESS_TLS_EXPORT TlsLibraryContext {
  public:
   TlsLibraryContext();
+  TlsLibraryContext(const TlsLibraryContext &) = delete;
+  TlsLibraryContext(TlsLibraryContext &&) = delete;
+  TlsLibraryContext &operator=(const TlsLibraryContext &) = delete;
+  TlsLibraryContext &operator=(TlsLibraryContext &&) = delete;
+  ~TlsLibraryContext();
 };
 
 /**
@@ -72,7 +78,6 @@ class HARNESS_TLS_EXPORT TlsLibraryContext {
  * - SSL_CTX_set_session_cache_mode()
  * - SSL_CTX_set_alpn_select_cb()
  * - SSL_CTX_set_tlsext_ticket_key_cb()
- * - SSL_CTX_set_session_id_context()
  * - SSL_CTX_set_tlsext_servername_callback() for SNI
  * - SSL_CTX_set_cert_verify_callback() vs. SSL_CTX_set_verify()
  *
@@ -99,17 +104,6 @@ class HARNESS_TLS_EXPORT TlsContext {
   static constexpr bool has_set_cipher_suites() {
     // 1.1.1 and later
     return OPENSSL_VERSION_NUMBER >= 0x1010100f;
-  }
-
-  /**
-   * if TLS context allows getting cipher-lists.
-   *
-   * @returns if cipher_list() is supported.
-   * @retval false cipher_list() is not supported
-   */
-  static constexpr bool has_get_cipher_list() {
-    // 1.1.0 and later
-    return OPENSSL_VERSION_NUMBER >= 0x1010000f;
   }
 
   /**
@@ -191,9 +185,6 @@ class HARNESS_TLS_EXPORT TlsContext {
 
   /**
    * get current cipher-list.
-   *
-   * @throws std::invalid_argument if API isn't supported
-   * @see has_get_cipher_list()
    */
   std::vector<std::string> cipher_list() const;
 
@@ -213,6 +204,11 @@ class HARNESS_TLS_EXPORT TlsContext {
    * get security_level.
    */
   int security_level() const;
+
+  /**
+   * get session reuse cache hits number
+   */
+  long session_cache_hits() const;
 
  protected:
   std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)> ssl_ctx_{nullptr,

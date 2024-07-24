@@ -1,15 +1,16 @@
-/* Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,7 +40,7 @@
 #include "my_psi_config.h"  // IWYU pragma: keep
 
 #include "my_sharedlib.h"
-#include "mysql/components/services/psi_statement_bits.h"
+#include "mysql/components/services/bits/psi_statement_bits.h"
 
 /** Entry point for the performance schema interface. */
 struct PSI_statement_bootstrap {
@@ -49,6 +50,8 @@ struct PSI_statement_bootstrap {
     an instance of the ABI for this version, or NULL.
     @sa PSI_STATEMENT_VERSION_1
     @sa PSI_STATEMENT_VERSION_2
+    @sa PSI_STATEMENT_VERSION_3
+    @sa PSI_STATEMENT_VERSION_4
     @sa PSI_CURRENT_STATEMENT_VERSION
   */
   void *(*get_interface)(int version);
@@ -71,10 +74,37 @@ struct PSI_statement_service_v1 {
   @since PSI_STATEMENT_VERSION_2
 */
 struct PSI_statement_service_v2 {
+  /* No binary compatibility with old PLUGIN */
+  void *this_interface_is_obsolete;
+};
+
+/**
+  Performance Schema Statement Interface, version 3.
+  @since PSI_STATEMENT_VERSION_3
+*/
+struct PSI_statement_service_v3 {
+  /* No binary compatibility with old PLUGIN */
+  void *this_interface_is_obsolete;
+};
+
+/**
+  Performance Schema Statement Interface, version 4.
+  @since PSI_STATEMENT_VERSION_4
+*/
+struct PSI_statement_service_v4 {
+  /* No binary compatibility with old PLUGIN */
+  void *this_interface_is_obsolete;
+};
+
+/**
+  Performance Schema Statement Interface, version 5.
+  @since PSI_STATEMENT_VERSION_5
+*/
+struct PSI_statement_service_v5 {
   /** @sa register_statement_v1_t. */
   register_statement_v1_t register_statement;
-  /** @sa get_thread_statement_locker_v1_t. */
-  get_thread_statement_locker_v1_t get_thread_statement_locker;
+  /** @sa get_thread_statement_locker_v5_t. */
+  get_thread_statement_locker_v5_t get_thread_statement_locker;
   /** @sa refine_statement_v1_t. */
   refine_statement_v1_t refine_statement;
   /** @sa start_statement_v1_t. */
@@ -115,6 +145,8 @@ struct PSI_statement_service_v2 {
   set_statement_no_index_used_t set_statement_no_index_used;
   /** @sa set_statement_no_good_index_used. */
   set_statement_no_good_index_used_t set_statement_no_good_index_used;
+  /** @sa set_statement_secondary_engine_v3_t. */
+  set_statement_secondary_engine_v3_t set_statement_secondary_engine;
   /** @sa end_statement_v1_t. */
   end_statement_v1_t end_statement;
 
@@ -128,6 +160,8 @@ struct PSI_statement_service_v2 {
   execute_prepared_stmt_v1_t execute_prepared_stmt;
   /** @sa set_prepared_stmt_text_v1_t. */
   set_prepared_stmt_text_v1_t set_prepared_stmt_text;
+  /** @sa set_prepared_stmt_secondary_engine_v3_t */
+  set_prepared_stmt_secondary_engine_v3_t set_prepared_stmt_secondary_engine;
 
   /** @sa digest_start_v1_t. */
   digest_start_v1_t digest_start;
@@ -144,9 +178,12 @@ struct PSI_statement_service_v2 {
   end_sp_v1_t end_sp;
   /** @sa drop_sp_v1_t. */
   drop_sp_v1_t drop_sp;
+
+  notify_statement_query_attributes_v5_t notify_statement_query_attributes;
+  statement_abort_telemetry_v5_t statement_abort_telemetry;
 };
 
-typedef struct PSI_statement_service_v2 PSI_statement_service_t;
+typedef struct PSI_statement_service_v5 PSI_statement_service_t;
 
 extern MYSQL_PLUGIN_IMPORT PSI_statement_service_t *psi_statement_service;
 

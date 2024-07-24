@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -19,12 +19,13 @@ This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -92,7 +93,7 @@ static void srv_enter_innodb_with_tickets(
     trx_t *trx) /*!< in/out: transaction that wants
                 to enter InnoDB */
 {
-  trx->declared_to_be_inside_innodb = TRUE;
+  trx->declared_to_be_inside_innodb = true;
   trx->n_tickets_to_enter_innodb = srv_n_free_tickets_to_enter;
 }
 
@@ -101,7 +102,7 @@ static void srv_enter_innodb_with_tickets(
  ON. When set, we want to wait in the queue for as little time as possible.
  However, very short waits will result in a lot of context switches and that
  is also not desirable. When threads need to sleep multiple times we increment
- os_thread_sleep_delay by one. When we see threads getting a slot without
+ srv_thread_sleep_delay by one. When we see threads getting a slot without
  waiting and there are no other threads waiting in the queue, we try and reduce
  the wait as much as we can. Currently we reduce it by half each time. If the
  thread only had to wait for one turn before it was able to enter InnoDB we
@@ -113,7 +114,7 @@ static dberr_t srv_conc_enter_innodb_with_atomics(
                 to enter InnoDB */
 {
   ulint n_sleeps = 0;
-  ibool notified_mysql = FALSE;
+  bool notified_mysql = false;
 
   ut_a(!trx->declared_to_be_inside_innodb);
 
@@ -168,7 +169,7 @@ static dberr_t srv_conc_enter_innodb_with_atomics(
 
       thd_wait_begin(trx->mysql_thd, THD_WAIT_USER_LOCK);
 
-      notified_mysql = TRUE;
+      notified_mysql = true;
     }
 
     DEBUG_SYNC_C("user_thread_waiting");
@@ -210,7 +211,7 @@ static void srv_conc_exit_innodb_with_atomics(
     trx_t *trx) /*!< in/out: transaction */
 {
   trx->n_tickets_to_enter_innodb = 0;
-  trx->declared_to_be_inside_innodb = FALSE;
+  trx->declared_to_be_inside_innodb = false;
   srv_conc.n_active.fetch_sub(1, std::memory_order_release);
 }
 
@@ -250,7 +251,7 @@ void srv_conc_force_enter_innodb(trx_t *trx) /*!< in: transaction object
   srv_conc.n_active.fetch_add(1, std::memory_order_acquire);
 
   trx->n_tickets_to_enter_innodb = 1;
-  trx->declared_to_be_inside_innodb = TRUE;
+  trx->declared_to_be_inside_innodb = true;
 }
 
 /** This must be called when a thread exits InnoDB in a lock wait or at the
@@ -260,7 +261,7 @@ void srv_conc_force_exit_innodb(trx_t *trx) /*!< in: transaction object
 {
   if ((trx->mysql_thd != nullptr &&
        thd_is_replication_slave_thread(trx->mysql_thd)) ||
-      trx->declared_to_be_inside_innodb == FALSE) {
+      trx->declared_to_be_inside_innodb == false) {
     return;
   }
 

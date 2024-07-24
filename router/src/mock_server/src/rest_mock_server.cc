@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -31,8 +32,6 @@
 #include <string>
 
 #ifdef RAPIDJSON_NO_SIZETYPEDEFINE
-// if we build within the server, it will set RAPIDJSON_NO_SIZETYPEDEFINE
-// globally and require to include my_rapidjson_size_t.h
 #include "my_rapidjson_size_t.h"
 #endif
 
@@ -44,12 +43,11 @@
 #include "mysql/harness/config_parser.h"
 #include "mysql/harness/logging/logging.h"
 #include "mysql/harness/plugin.h"
+#include "mysql/harness/plugin_config.h"
 
-#include "mysqlrouter/plugin_config.h"
-
-#include "common.h"  // ScopeGuard
 #include "mysqlrouter/http_server_component.h"
 #include "mysqlrouter/mock_server_component.h"
+#include "scope_guard.h"
 
 IMPORT_LOG_FUNCTIONS()
 
@@ -304,12 +302,12 @@ static void run(mysql_harness::PluginFuncEnv *env) {
 
   srv.add_route(kRestGlobalsUri,
                 std::make_unique<RestApiV1MockServerGlobals>());
-  mysql_harness::ScopeGuard global_route_guard(
+  Scope_guard global_route_guard(
       [&srv]() { srv.remove_route(kRestGlobalsUri); });
 
   srv.add_route(kRestConnectionsUri,
                 std::make_unique<RestApiV1MockServerConnections>());
-  mysql_harness::ScopeGuard connection_route_guard(
+  Scope_guard connection_route_guard(
       [&srv]() { srv.remove_route(kRestConnectionsUri); });
 
   mysql_harness::on_service_ready(env);
@@ -338,13 +336,17 @@ mysql_harness::Plugin DLLEXPORT harness_plugin_rest_mock_server = {
     "REST_MOCK_SERVER",                      // name
     VERSION_NUMBER(0, 0, 1),
     // requires
-    plugin_requires.size(), plugin_requires.data(),
+    plugin_requires.size(),
+    plugin_requires.data(),
     // conflicts
-    0, nullptr,
+    0,
+    nullptr,
     init,     // init
     nullptr,  // deinit
     run,      // run
     nullptr,  // stop
     true,     // declares_readiness
+    0,
+    nullptr,
 };
 }

@@ -1,16 +1,17 @@
 /*
- *  Copyright (c) 2010, 2021, Oracle and/or its affiliates.
+ *  Copyright (c) 2010, 2024, Oracle and/or its affiliates.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License, version 2.0,
  *  as published by the Free Software Foundation.
  *
- *  This program is also distributed with certain software (including
+ *  This program is designed to work with certain software (including
  *  but not limited to OpenSSL) that is licensed under separate terms,
  *  as designated in a particular file or component or in included license
  *  documentation.  The authors of MySQL hereby grant you an additional
  *  permission to link the program and your derivative works with the
- *  separately licensed software that they have included with MySQL.
+ *  separately licensed software that they have either included with
+ *  the program or referenced in the documentation.
  *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -69,9 +70,6 @@ class DbImpl implements com.mysql.clusterj.core.store.Db {
 
     /** The ndb error detail buffer */
     private ByteBuffer errorBuffer;
-
-    /** The coordinated transaction identifier buffer */
-    private ByteBuffer coordinatedTransactionIdBuffer;
 
     /** The partition key scratch buffer */
     private ByteBuffer partitionKeyScratchBuffer;
@@ -134,8 +132,6 @@ class DbImpl implements com.mysql.clusterj.core.store.Db {
                 this.clusterConnection.byteBufferPoolForDBImplError.borrowBuffer();
         this.partitionKeyScratchBuffer =
                 this.clusterConnection.byteBufferPoolForPartitionKey.borrowBuffer();
-        this.coordinatedTransactionIdBuffer =
-                this.clusterConnection.byteBufferPoolForCoordinatedTransactionId.borrowBuffer();
         this.bufferManager = new BufferManager(this.clusterConnection.byteBufferPool);
         int returnCode = ndb.init(maxTransactions);
         handleError(returnCode, ndb);
@@ -182,7 +178,6 @@ class DbImpl implements com.mysql.clusterj.core.store.Db {
         }
         this.clusterConnection.byteBufferPoolForDBImplError.returnBuffer(this.errorBuffer);
         this.clusterConnection.byteBufferPoolForPartitionKey.returnBuffer(this.partitionKeyScratchBuffer);
-        this.clusterConnection.byteBufferPoolForCoordinatedTransactionId.returnBuffer(this.coordinatedTransactionIdBuffer);
         this.bufferManager.release();
         clusterConnection.close(this);
     }
@@ -195,9 +190,9 @@ class DbImpl implements com.mysql.clusterj.core.store.Db {
         return ndbDictionary;
     }
 
-    public ClusterTransaction startTransaction(String joinTransactionId) {
+    public ClusterTransaction startTransaction() {
         assertNotClosed("DbImpl.startTransaction()");
-        clusterTransaction = new ClusterTransactionImpl(clusterConnection, this, ndbDictionary, joinTransactionId);
+        clusterTransaction = new ClusterTransactionImpl(clusterConnection, this, ndbDictionary);
         return clusterTransaction;
     }
 
@@ -257,20 +252,6 @@ class DbImpl implements com.mysql.clusterj.core.store.Db {
         TableConst table = ndbDictionary.getTable(tableName);
         handleError(table, ndbDictionary);
         Key_part_ptrArray key_part_ptrArray = null;
-        if (keyPartsSize == 1) {
-            // extract the ByteBuffer and length from the keyPart
-            KeyPart keyPart = keyParts.get(0);
-            ByteBuffer buffer = keyPart.buffer;
-            int length = keyPart.length;
-            ndbTransaction = ndb.startTransaction(table, buffer, length);
-            if (ndbTransaction == null) {
-                logger.warn(local.message("ERR_Transaction_Start_Failed",
-                        tableName, buffer.position(), buffer.limit(), buffer.capacity(), length));
-            }
-            bufferManager.returnPartitionKeyPartBuffer(length, buffer);
-            handleError (ndbTransaction, ndb);
-            return ndbTransaction;
-        }
         key_part_ptrArray = Key_part_ptrArray.create(keyPartsSize + 1);
         try {
             // the key part pointer array has one entry for each key part
@@ -320,32 +301,6 @@ class DbImpl implements com.mysql.clusterj.core.store.Db {
         }
         handleError (result, ndb);
         return result;
-    }
-
-    /** Return the coordinated transaction id buffer. 
-     * The buffer is allocated here because there is only one buffer 
-     * ever needed and it is only needed in one place, after the
-     * transaction is enlisted.
-     * @return the coordinated transaction id buffer
-     */
-    public ByteBuffer getCoordinatedTransactionIdBuffer() {
-        return coordinatedTransactionIdBuffer;
-    }
-
-    /** Join a transaction already in progress. The transaction might be
-     * on the same or a different node from this node. The usual case is
-     * for the transaction to be joined is on a different node.
-     * @param coordinatedTransactionId
-     * (from ClusterTransaction.getCoordinatedTransactionId())
-     * @return a transaction joined to the existing transaction
-     */
-    public NdbTransaction joinTransaction(String coordinatedTransactionId) {
-        if (logger.isDetailEnabled()) logger.detail("CoordinatedTransactionId: "
-                + coordinatedTransactionId);
-//        NdbTransaction result = ndb.joinTransaction(coordinatedTransactionId);
-//        handleError(result, ndb);
-//        return result;
-        throw new ClusterJFatalInternalException("Not Implemented");
     }
 
     /** Get the buffer manager for this DbImpl. All operations that need byte buffers

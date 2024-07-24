@@ -1,16 +1,17 @@
 /*
- * Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+ * Copyright (c) 2017, 2024, Oracle and/or its affiliates.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2.0,
  * as published by the Free Software Foundation.
  *
- * This program is also distributed with certain software (including
+ * This program is designed to work with certain software (including
  * but not limited to OpenSSL) that is licensed under separate terms,
  * as designated in a particular file or component or in included license
  * documentation.  The authors of MySQL hereby grant you an additional
  * permission to link the program and your derivative works with the
- * separately licensed software that they have included with MySQL.
+ * separately licensed software that they have either included with
+ * the program or referenced in the documentation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -65,7 +66,7 @@ TEST_F(Xcl_session_impl_tests_execute_connected, execute_sql_fails) {
   XError out_error;
   EXPECT_CALL(*m_mock_protocol,
               execute_stmt_raw(Cmp_msg("stmt: \"SELECT 1;\""), _))
-      .WillOnce(Invoke([](const StmtExecute &stmt MY_ATTRIBUTE((unused)),
+      .WillOnce(Invoke([](const StmtExecute &stmt [[maybe_unused]],
                           XError *out_r) -> XQuery_result_ptr {
         *out_r = XError{expected_error_code, ""};
         return {};
@@ -93,7 +94,7 @@ TEST_F(Xcl_session_impl_tests_execute_connected, execute_stmt_fails) {
       *m_mock_protocol,
       execute_stmt_raw(
           Cmp_msg("stmt: \"SELECT 1;\" namespace: \"our-namespace\""), _))
-      .WillOnce(Invoke([](const StmtExecute &stmt MY_ATTRIBUTE((unused)),
+      .WillOnce(Invoke([](const StmtExecute &stmt [[maybe_unused]],
                           XError *out_r) -> XQuery_result_ptr {
         *out_r = XError{expected_error_code, ""};
         return {};
@@ -117,12 +118,11 @@ TEST_F(Xcl_session_impl_tests_execute_connected, execute_stmt_no_args) {
       *m_mock_protocol,
       execute_stmt_raw(
           Cmp_msg("stmt: \"SELECT 1;\" namespace: \"our-namespace\""), _))
-      .WillOnce(
-          Invoke([&dummy_result](const StmtExecute &stmt MY_ATTRIBUTE((unused)),
-                                 XError *out_r) -> XQuery_result_ptr {
-            *out_r = {};
-            return dummy_result.release();
-          }));
+      .WillOnce(Invoke([&dummy_result](const StmtExecute &stmt [[maybe_unused]],
+                                       XError *out_r) -> XQuery_result_ptr {
+        *out_r = {};
+        return dummy_result.release();
+      }));
 
   auto query_result =
       m_sut->execute_stmt("our-namespace", expected_sql, {}, &out_error);
@@ -146,12 +146,11 @@ TEST_F(Xcl_session_impl_tests_execute_connected, execute_stmt_args_one_scalar) {
                                        "   type: V_SINT "
                                        "   v_signed_int: 1002} }"),
                                _))
-      .WillOnce(
-          Invoke([&dummy_result](const StmtExecute &stmt MY_ATTRIBUTE((unused)),
-                                 XError *out_r) -> XQuery_result_ptr {
-            *out_r = {};
-            return dummy_result.release();
-          }));
+      .WillOnce(Invoke([&dummy_result](const StmtExecute &stmt [[maybe_unused]],
+                                       XError *out_r) -> XQuery_result_ptr {
+        *out_r = {};
+        return dummy_result.release();
+      }));
 
   auto query_result = m_sut->execute_stmt(
       "s", expected_sql, {Argument_value(argument_value)}, &out_error);
@@ -210,12 +209,11 @@ TEST_F(Xcl_session_impl_tests_execute_connected,
                                        "args { type:SCALAR scalar {"
                                        "   type: V_NULL } }"),
                                _))
-      .WillOnce(
-          Invoke([&dummy_result](const StmtExecute &stmt MY_ATTRIBUTE((unused)),
-                                 XError *out_r) -> XQuery_result_ptr {
-            *out_r = {};
-            return dummy_result.release();
-          }));
+      .WillOnce(Invoke([&dummy_result](const StmtExecute &stmt [[maybe_unused]],
+                                       XError *out_r) -> XQuery_result_ptr {
+        *out_r = {};
+        return dummy_result.release();
+      }));
 
   auto query_result = m_sut->execute_stmt(
       "s", expected_sql,
@@ -276,12 +274,11 @@ TEST_F(Xcl_session_impl_tests_execute_connected,
                                        "       } } } "
                                        "} }"),
                                _))
-      .WillOnce(
-          Invoke([&dummy_result](const StmtExecute &stmt MY_ATTRIBUTE((unused)),
-                                 XError *out_r) -> XQuery_result_ptr {
-            *out_r = {};
-            return dummy_result.release();
-          }));
+      .WillOnce(Invoke([&dummy_result](const StmtExecute &stmt [[maybe_unused]],
+                                       XError *out_r) -> XQuery_result_ptr {
+        *out_r = {};
+        return dummy_result.release();
+      }));
 
   Argument_value::Object obj;
   obj.emplace("key1", argument_value_int);
@@ -329,12 +326,11 @@ TEST_F(Xcl_session_impl_tests_execute_connected,
                                        "       } } "
                                        "} }"),
                                _))
-      .WillOnce(
-          Invoke([&dummy_result](const StmtExecute &stmt MY_ATTRIBUTE((unused)),
-                                 XError *out_r) -> XQuery_result_ptr {
-            *out_r = {};
-            return dummy_result.release();
-          }));
+      .WillOnce(Invoke([&dummy_result](const StmtExecute &stmt [[maybe_unused]],
+                                       XError *out_r) -> XQuery_result_ptr {
+        *out_r = {};
+        return dummy_result.release();
+      }));
 
   auto query_result = m_sut->execute_stmt(
       "s", expected_sql,

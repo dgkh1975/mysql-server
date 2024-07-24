@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,8 +31,6 @@
 #include <ostream>
 #include <type_traits>
 
-#include "mysql/harness/stdx/type_traits.h"
-
 // operator<< for std::expected
 //
 // the functions are kept in a separate header as it
@@ -46,7 +45,7 @@ struct is_to_stream_writable : std::false_type {};
 
 template <typename S, typename T>
 struct is_to_stream_writable<
-    S, T, stdx::void_t<decltype(std::declval<S &>() << std::declval<T>())>>
+    S, T, std::void_t<decltype(std::declval<S &>() << std::declval<T>())>>
     : std::true_type {};
 
 }  // namespace impl
@@ -82,30 +81,6 @@ inline std::enable_if_t<impl::is_to_stream_writable<std::ostream, E>::value,
 operator<<(std::ostream &os, const stdx::expected<void, E> &res) {
   if (!res) os << res.error();
 
-  return os;
-}
-
-/**
- * write stdx::expected<T, void> to std::ostream.
- *
- * only takes part in overload-resolution if T supports 'os << t'
- */
-template <class T>
-inline std::enable_if_t<impl::is_to_stream_writable<std::ostream, T>::value,
-                        std::ostream &>
-operator<<(std::ostream &os, const stdx::expected<T, void> &res) {
-  if (res) os << res.value();
-
-  return os;
-}
-
-/**
- * write stdx::expected<void, void> to std::ostream.
- *
- * is a no-op, as there is nothing to write
- */
-inline std::ostream &operator<<(std::ostream &os,
-                                const stdx::expected<void, void> & /* res */) {
   return os;
 }
 

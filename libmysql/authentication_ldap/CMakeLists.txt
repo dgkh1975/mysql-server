@@ -1,15 +1,16 @@
-# Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -54,7 +55,12 @@ ENDIF()
 
 DISABLE_MISSING_PROFILE_WARNING()
 
-IF(KERBEROS_FOUND)
+IF(SASL_WITHOUT_KERBEROS)
+  MESSAGE(WARNING "Bad custom SASL library")
+  MESSAGE(STATUS
+    "Building authentication_ldap_sasl_client WITHOUT Kerberos")
+  UNSET(LDAP_KERBEROS_LIBS)
+ELSEIF(KERBEROS_FOUND AND (NOT WIN32))
   MESSAGE(STATUS
     "Building authentication_ldap_sasl_client with Kerberos")
   IF(KERBEROS_INCLUDE_DIR)
@@ -65,9 +71,11 @@ IF(KERBEROS_FOUND)
   # Kerberos user name.
   # Adding mysys only when build has Kerberos support
   SET(MY_SYS "mysys")
+  SET(LDAP_KERBEROS_LIBS ${KERBEROS_LIBRARIES})
 ELSE()
   MESSAGE(STATUS
     "Building authentication_ldap_sasl_client WITHOUT Kerberos")
+  UNSET(LDAP_KERBEROS_LIBS)
 ENDIF()
 
 MYSQL_ADD_PLUGIN(authentication_ldap_sasl_client
@@ -77,9 +85,7 @@ MYSQL_ADD_PLUGIN(authentication_ldap_sasl_client
   log_client.cc
   LINK_LIBRARIES
   ${SASL_LIBRARY}
-  # Uncomment to verify that all symbols are found.
-  # ${LINK_FLAG_NO_UNDEFINED}
-  ${KERBEROS_LIBRARIES}
+  ${LDAP_KERBEROS_LIBS}
   ${SSL_LIBRARIES}
   ${LIBDL}
   ${MY_SYS}
@@ -92,7 +98,7 @@ IF(NOT TARGET authentication_ldap_sasl_client)
   RETURN()
 ENDIF()
 
-IF(KERBEROS_FOUND)
+IF(KERBEROS_FOUND AND (NOT WIN32))
   SET(PLUGIN_VERSION_FILE
     ${CMAKE_CURRENT_SOURCE_DIR}/authentication_ldap_sasl_client.ver)
   # Hide all symbols in mysys, to avoid ODR violations.

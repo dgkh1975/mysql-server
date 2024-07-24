@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -60,7 +61,7 @@ class Primary_election_primary_process : public Group_event_observer {
   */
   int launch_primary_election_process(
       enum_primary_election_mode election_mode, std::string &primary_to_elect,
-      std::vector<Group_member_info *> *group_members_info);
+      Group_member_info_list *group_members_info);
 
   /**
     Is the election process running?
@@ -106,9 +107,10 @@ class Primary_election_primary_process : public Group_event_observer {
                         bool is_leaving, bool *skip_election,
                         enum_primary_election_mode *election_mode,
                         std::string &suggested_primary) override;
-  int after_primary_election(std::string primary_uuid, bool primary_changed,
-                             enum_primary_election_mode election_mode,
-                             int error) override;
+  int after_primary_election(
+      std::string primary_uuid,
+      enum_primary_election_primary_change_status primary_change_status,
+      enum_primary_election_mode election_mode, int error) override;
   int before_message_handling(const Plugin_gcs_message &message,
                               const std::string &message_origin,
                               bool *skip_message) override;

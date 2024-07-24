@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,7 +30,7 @@
 
 class Alter_info;
 class THD;
-struct TABLE_LIST;
+class Table_ref;
 
 /**
   A base class for CREATE/ALTER TABLE commands and friends.
@@ -61,7 +62,7 @@ inline Sql_cmd_ddl_table::~Sql_cmd_ddl_table() = default;
 class Sql_cmd_create_table final : public Sql_cmd_ddl_table {
  public:
   Sql_cmd_create_table(Alter_info *alter_info,
-                       TABLE_LIST *query_expression_tables)
+                       Table_ref *query_expression_tables)
       : Sql_cmd_ddl_table(alter_info),
         query_expression_tables(query_expression_tables) {}
 
@@ -75,7 +76,7 @@ class Sql_cmd_create_table final : public Sql_cmd_ddl_table {
   bool prepare(THD *thd) override;
 
  private:
-  TABLE_LIST *query_expression_tables;
+  Table_ref *query_expression_tables;
 };
 
 class Sql_cmd_create_or_drop_index_base : public Sql_cmd_ddl_table {
@@ -120,7 +121,7 @@ class Sql_cmd_cache_index final : public Sql_cmd_ddl_table {
   bool execute(THD *thd) override;
 
  private:
-  bool assign_to_keycache(THD *thd, TABLE_LIST *tables);
+  bool assign_to_keycache(THD *thd, Table_ref *tables);
 
  private:
   const LEX_CSTRING m_key_cache_name;
@@ -137,7 +138,7 @@ class Sql_cmd_load_index final : public Sql_cmd_ddl_table {
   bool execute(THD *thd) override;
 
  private:
-  bool preload_keys(THD *thd, TABLE_LIST *tables);
+  bool preload_keys(THD *thd, Table_ref *tables);
 };
 
 #endif /* SQL_CMD_CREATE_TABLE_INCLUDED */

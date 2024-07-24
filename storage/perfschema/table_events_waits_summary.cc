@@ -1,15 +1,16 @@
-/* Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -195,7 +196,7 @@ PFS_engine_table *table_events_waits_summary_by_instance::create(
   return new table_events_waits_summary_by_instance();
 }
 
-int table_events_waits_summary_by_instance::delete_all_rows(void) {
+int table_events_waits_summary_by_instance::delete_all_rows() {
   reset_events_waits_by_instance();
   return 0;
 }
@@ -350,7 +351,7 @@ int table_events_waits_summary_by_instance::read_row_values(TABLE *table,
     if (read_all || bitmap_is_set(table->read_set, f->field_index())) {
       switch (f->field_index()) {
         case 0: /* NAME */
-          set_field_varchar_utf8(f, m_row.m_name, m_row.m_name_length);
+          set_field_varchar_utf8mb4(f, m_row.m_name, m_row.m_name_length);
           break;
         case 1: /* OBJECT_INSTANCE */
           set_field_ulonglong(f, m_row.m_object_instance_addr);

@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -244,43 +245,10 @@ bool String::copy(const char *str, size_t arg_length, const CHARSET_INFO *cs) {
 }
 
 /*
-  Checks that the source string can be just copied to the destination string
-  without conversion.
-
-  SYNPOSIS
-
-  needs_conversion()
-  arg_length		Length of string to copy.
-  from_cs		Character set to copy from
-  to_cs			Character set to copy to
-  uint32 *offset	Returns number of unaligned characters.
-
-  RETURN
-   0  No conversion needed
-   1  Either character set conversion or adding leading  zeros
-      (e.g. for UCS-2) must be done
-
-  NOTE
-  to_cs may be NULL for "no conversion" if the system variable
-  character_set_results is NULL.
-*/
-
-bool String::needs_conversion(size_t arg_length, const CHARSET_INFO *from_cs,
-                              const CHARSET_INFO *to_cs, size_t *offset) {
-  *offset = 0;
-  if (!to_cs || (to_cs == &my_charset_bin) || (to_cs == from_cs) ||
-      my_charset_same(from_cs, to_cs) ||
-      ((from_cs == &my_charset_bin) &&
-       (!(*offset = (arg_length % to_cs->mbminlen)))))
-    return false;
-  return true;
-}
-
-/*
   Checks that the source string can just be copied to the destination string
   without conversion.
   Unlike needs_conversion it will require conversion on incoming binary data
-  to ensure the data are verified for vailidity first.
+  to ensure the data are verified for validity first.
 
   @param arg_length   Length of string to copy.
   @param from_cs      Character set to copy from
@@ -474,19 +442,13 @@ bool String::append(const char *s, size_t arg_length) {
   }
 
   /*
-    For an ASCII compatinble string we can just append.
+    For an ASCII compatible string we can just append.
   */
   if (mem_realloc_exp(m_length + arg_length)) return true;
   memcpy(m_ptr + m_length, s, arg_length);
   m_length += arg_length;
   return false;
 }
-
-/*
-  Append a 0-terminated ASCII string
-*/
-
-bool String::append(const char *s) { return append(s, (uint)strlen(s)); }
 
 /**
   Append an unsigned longlong to the string.
@@ -800,7 +762,7 @@ String *copy_if_not_alloced(String *to, String *from, size_t from_length) {
   SYNOPSIS
     well_formed_copy_nchars()
     to			     Store result here
-    to_length                Maxinum length of "to" string
+    to_length                Maximum length of "to" string
     to_cs		     Character set of "to" string
     from		     Copy from here
     from_length		     Length of from string
@@ -808,8 +770,8 @@ String *copy_if_not_alloced(String *to, String *from, size_t from_length) {
     nchars                   Copy not more that nchars characters
     well_formed_error_pos    Return position when "from" is not well formed
                              or NULL otherwise.
-    cannot_convert_error_pos Return position where a not convertable
-                             character met, or NULL otherwise.
+    cannot_convert_error_pos Return position where a not convertible
+                             character was found, or NULL otherwise.
     from_end_pos             Return position where scanning of "from"
                              string stopped.
   NOTES
@@ -861,9 +823,8 @@ size_t well_formed_copy_nchars(const CHARSET_INFO *to_cs, char *to,
           For example:
             INSERT INTO t1 (utf32_column) VALUES (0x110000);
           We'll pad the value to 0x00110000, which is a wrong UTF32 sequence!
-          The valid characters range is limited to 0x00000000..0x0010FFFF.
-
           Make sure we didn't pad to an incorrect character.
+          See my_well_formed_len_utf32().
         */
         if (to_cs->cset->well_formed_len(to_cs, to, to + to_cs->mbminlen, 1,
                                          &well_formed_error) !=

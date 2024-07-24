@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,19 +24,18 @@
 */
 
 #include <ndb_global.h>
-#include "Properties.hpp"
 #include <NdbOut.hpp>
 #include <algorithm>
 #include <iostream>
 #include <util/NdbTap.hpp>
+#include "Properties.hpp"
 
-TAPTEST(Properties)
-{
+TAPTEST(Properties) {
   ndb_init();
 
   Properties outer_p;
   Properties nested_p;
-  const Properties* p;
+  const Properties *p;
 
   nested_p.put("1", 1);
   nested_p.put("2", 2);
@@ -47,18 +47,17 @@ TAPTEST(Properties)
   outer_p.put("testNested", &nested_p);
   outer_p.put("random2", 2323);
   outer_p.remove("random1");
-  OK(outer_p.contains("random1") == false)
+  OK(outer_p.contains("random1") == false);
 
-  OK (outer_p.get("testNested", &p))
+  OK(outer_p.get("testNested", &p));
 
   // check if the iterator has the elements inserted
   Uint32 count = 0;
   Uint32 elem_inserted = 5;
 
   Properties::Iterator it(p);
-  const char * name;
-  for (name = it.first(); name != NULL; name = it.next())
-  {
+  const char *name;
+  for (name = it.first(); name != nullptr; name = it.next()) {
     count++;
   }
 
@@ -67,27 +66,27 @@ TAPTEST(Properties)
   // check if all values inserted can be fetched
   Uint32 ret = -1;
 
-  OK(p->get("1", &ret))
-  OK(ret == 1)
+  OK(p->get("1", &ret));
+  OK(ret == 1);
 
-  OK(p->get("2", &ret))
-  OK(ret == 2)
+  OK(p->get("2", &ret));
+  OK(ret == 2);
 
-  OK(p->get("3_1", &ret))
-  OK(ret == 3)
+  OK(p->get("3_1", &ret));
+  OK(ret == 3);
   PropertiesType type = PropertiesType_Undefined;
-  OK(p->getTypeOf("3", 1, &type))
-  OK(type == PropertiesType_Uint64)
+  OK(p->getTypeOf("3", 1, &type));
+  OK(type == PropertiesType_Uint64);
 
-  const char* sret;
+  const char *sret;
   p->get("four", &sret);
-  OK(!strcmp(sret, "fourValue"))
+  OK(!strcmp(sret, "fourValue"));
 
-  OK(p->get("5", &ret))
-  OK(ret == 5)
+  OK(p->get("5", &ret));
+  OK(ret == 5);
 
   outer_p.clear();
-  OK(outer_p.contains("testNested") == false)
+  OK(outer_p.contains("testNested") == false);
   ndb_end(0);
   return 1;
 }

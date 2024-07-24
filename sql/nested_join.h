@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,7 +34,7 @@
 class Item;
 class Item_field;
 struct POSITION;
-struct TABLE_LIST;
+class Table_ref;
 
 /*
   Used to identify NESTED_JOIN structures within a join (applicable to
@@ -76,12 +77,12 @@ struct Semijoin_mat_optimize {
 */
 struct NESTED_JOIN {
   NESTED_JOIN()
-      : join_list(*THR_MALLOC),
+      : m_tables(*THR_MALLOC),
         sj_outer_exprs(*THR_MALLOC),
         sj_inner_exprs(*THR_MALLOC) {}
 
-  mem_root_deque<TABLE_LIST *>
-      join_list;                /* list of elements in the nested join */
+  /// list of tables referenced in the nested join
+  mem_root_deque<Table_ref *> m_tables;
   table_map used_tables{0};     /* bitmap of tables in the nested join */
   table_map not_null_tables{0}; /* tables that rejects nulls           */
   /**

@@ -1,15 +1,16 @@
-/* Copyright (c) 2004, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2004, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -278,7 +279,7 @@ static const char *parse_quoted_escaped_string(const char *ptr, const char *end,
 
   @param[in,out] ptr          pointer to parameter
   @param[in] end              end of the configuration
-  @param[in] line             pointer to the line begining
+  @param[in] line             pointer to the line beginning
   @param[in] base             base address for parameter writing (structure
     like TABLE)
   @param[in] parameter        description
@@ -304,7 +305,7 @@ bool get_file_options_ulllist(const char *&ptr, const char *end,
       case '\n':
         goto end_of_nlist;
       case ' ':
-        // we cant go over buffer bounds, because we have \0 at the end
+        // we can't go over buffer bounds, because we have \0 at the end
         ptr++;
         break;
       default:
@@ -448,7 +449,7 @@ bool File_parser::parse(uchar *base, MEM_ROOT *mem_root,
                 case '\n':
                   goto end_of_list;
                 case ' ':
-                  // we cant go over buffer bounds, because we have \0 at the
+                  // we can't go over buffer bounds, because we have \0 at the
                   // end
                   ptr++;
                   break;
@@ -517,9 +518,10 @@ bool File_parser::parse(uchar *base, MEM_ROOT *mem_root,
     true  Error
 */
 
-bool File_parser_dummy_hook::process_unknown_string(
-    const char *&unknown_key MY_ATTRIBUTE((unused)), uchar *, MEM_ROOT *,
-    const char *) {
+bool File_parser_dummy_hook::process_unknown_string(const char *&unknown_key
+                                                    [[maybe_unused]],
+                                                    uchar *, MEM_ROOT *,
+                                                    const char *) {
   DBUG_TRACE;
   DBUG_PRINT("info", ("Unknown key: '%60s'", unknown_key));
   return false;

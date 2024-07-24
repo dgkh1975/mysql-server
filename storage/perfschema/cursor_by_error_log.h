@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -203,14 +204,15 @@ class PFS_ringbuffer_index {
     @retval   nullptr  no valid record could be obtained (end of buffer etc.)
     @retval !=nullptr  pointer to an entry in the ring-buffer
   */
-  log_sink_pfs_event *scan_next(void) {
+  log_sink_pfs_event *scan_next() {
     log_sink_pfs_event *current_event;
 
     // Is there a valid current event that we can load into this object?
-    if ((current_event = get_event()) !=
-        nullptr) {  // save current event if any
+    current_event = get_event();
+    if (current_event != nullptr) {  // save current event if any
       // try to advance index to next event
-      if ((m_event = log_sink_pfs_event_next(current_event)) != nullptr) {
+      m_event = log_sink_pfs_event_next(current_event);
+      if (m_event != nullptr) {
         // success. update this index object.
         m_timestamp = m_event->m_timestamp;
         m_index++;
@@ -239,9 +241,9 @@ typedef PFS_ringbuffer_index pos_t;
 /** Generic index for error_log table. Used by cursor class for open index. */
 class PFS_index_error_log : public PFS_engine_index {
  public:
-  PFS_index_error_log(PFS_engine_key *key) : PFS_engine_index(key) {}
+  explicit PFS_index_error_log(PFS_engine_key *key) : PFS_engine_index(key) {}
 
-  ~PFS_index_error_log() = default;
+  ~PFS_index_error_log() override = default;
 
   virtual bool match(log_sink_pfs_event *row) = 0;
 };
@@ -251,15 +253,15 @@ class cursor_by_error_log : public PFS_engine_table {
  public:
   static ha_rows get_row_count();
 
-  virtual void reset_position(void) override;
+  void reset_position() override;
 
-  virtual int rnd_next() override;
-  virtual int rnd_pos(const void *pos) override;
+  int rnd_next() override;
+  int rnd_pos(const void *pos) override;
 
-  virtual int index_next() override;
+  int index_next() override;
 
  protected:
-  cursor_by_error_log(const PFS_engine_table_share *share);
+  explicit cursor_by_error_log(const PFS_engine_table_share *share);
 
  public:
   ~cursor_by_error_log() override = default;

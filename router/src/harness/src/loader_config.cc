@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,26 +23,18 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include "mysql/harness/loader_config.h"
-#include "mysql/harness/filesystem.h"
-#include "mysql/harness/logging/logging.h"
 
-////////////////////////////////////////
-// Package include files
-#include "utilities.h"
-
-////////////////////////////////////////
-// Standard include files
 #include <algorithm>
+#include <cassert>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 
-// <cassert> places assert() in global namespace on Ubuntu14.04, but might
-// place it in std:: on other platforms
-#include <assert.h>
+#include "mysql/harness/filesystem.h"
+#include "mysql/harness/logging/logging.h"
+#include "utilities.h"  // find_range_first
 
 using mysql_harness::utility::find_range_first;
-using std::ostringstream;
 
 namespace mysql_harness {
 
@@ -83,6 +76,22 @@ void LoaderConfig::fill_and_check() {
       throw bad_section(buffer.str());
     }
   }
+
+  std::string unknown_config_option_str = "warning";
+  if (has_default("unknown_config_option")) {
+    unknown_config_option_str = get_default("unknown_config_option");
+    std::transform(unknown_config_option_str.begin(),
+                   unknown_config_option_str.end(),
+                   unknown_config_option_str.begin(), ::tolower);
+    if (unknown_config_option_str != "warning" &&
+        unknown_config_option_str != "error") {
+      throw bad_option_value(
+          "Invalid value for DEFAULT.unknown_config_option: '" +
+          get_default("unknown_config_option") +
+          "'. Allowed are: 'error' or 'warning'");
+    }
+  }
+  this->error_on_unsupported_option = unknown_config_option_str == "error";
 }
 
 void LoaderConfig::read(const Path &path) {

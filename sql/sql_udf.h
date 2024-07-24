@@ -1,18 +1,19 @@
 #ifndef SQL_UDF_INCLUDED
 #define SQL_UDF_INCLUDED
 
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -90,6 +91,8 @@ class udf_handler {
   uchar is_null{0};
   /// True when handler has been initialized and use count incremented
   bool m_initialized{false};
+  /// True when init function has been called
+  bool m_init_func_called{false};
   Item **args;
   Udf_args_extension m_args_extension; /**< A struct that holds the extension
                                           arguments for each UDF argument */
@@ -140,7 +143,7 @@ void udf_unload_udfs();
 void udf_deinit_globals();
 udf_func *find_udf(const char *name, size_t len = 0, bool mark_used = false);
 void free_udf(udf_func *udf);
-bool mysql_create_function(THD *thd, udf_func *udf);
+bool mysql_create_function(THD *thd, udf_func *udf, bool if_not_exists);
 bool mysql_drop_function(THD *thd, const LEX_STRING *name);
 ulong udf_hash_size(void);
 void udf_hash_rlock(void);

@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -57,16 +58,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
   refers to it by name in log_error_services).
 */
 #define LOG_BUILTINS_SINK "log_sink_internal"
-
-/**
-  Name of buffered log writer. This sink is used internally during
-  start-up until we know where to write and how to filter, and have
-  all the components to do so. While we don't let the DBA add this
-  sink to the logging pipeline once we're out of start-up, we have
-  a name for this to be able to correctly tag its record in the
-  service-cache.
-*/
-#define LOG_BUILTINS_BUFFER "log_sink_buffer"
 
 /**
   Default services pipeline for log_builtins_error_stack().

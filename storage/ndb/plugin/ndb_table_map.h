@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,6 +30,8 @@
 #include "my_bitmap.h"
 
 #include "storage/ndb/include/ndbapi/NdbApi.hpp"
+
+struct TABLE;
 
 /** Ndb_table_map
  *
@@ -50,7 +53,7 @@
  */
 class Ndb_table_map {
  public:
-  Ndb_table_map(struct TABLE *, const NdbDictionary::Table *ndb_table = 0);
+  Ndb_table_map(const TABLE *, const NdbDictionary::Table *ndb_table = nullptr);
   ~Ndb_table_map();
 
   /* Get the NDB column number for a MySQL field.
@@ -100,32 +103,29 @@ class Ndb_table_map {
   unsigned char *get_column_mask(const MY_BITMAP *mysql_field_map);
 
   /*
-   Adapter function for checking wheter a TABLE*
+   Adapter function for checking whether a TABLE*
    has virtual generated columns.
    Function existed in 5.7 as table->has_virtual_gcol()
   */
-  static bool has_virtual_gcol(const struct TABLE *table);
+  static bool has_virtual_gcol(const TABLE *table);
 
   /*
     Adapter function for returning the number of
     stored fields in the TABLE*(i.e those who are
     not virtual).
   */
-  static uint num_stored_fields(const struct TABLE *table);
+  static uint num_stored_fields(const TABLE *table);
 
-  /*
-    Check if the table has physical blob columns(i.e actually stored in
-    the engine)
-   */
-  static bool have_physical_blobs(const struct TABLE *table);
+  /* Get number of stored fields in the TABLE */
+  uint get_num_stored_fields() const { return m_stored_fields; }
 
 #ifndef NDEBUG
-  static void print_record(const struct TABLE *table, const uchar *record);
-  static void print_table(const char *info, const struct TABLE *table);
+  static void print_record(const TABLE *table, const uchar *record);
+  static void print_table(const char *info, const TABLE *table);
 #endif
 
  private:
-  const NdbDictionary::Table *m_ndb_table;
+  const NdbDictionary::Table *const m_ndb_table;
   MY_BITMAP m_moved_fields;
   MY_BITMAP m_rewrite_set;
   int *m_map_by_field;

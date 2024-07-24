@@ -390,3 +390,163 @@ DEALLOCATE PREPARE ps;
 DEALLOCATE PREPARE pse;
 
 DROP TABLE p;
+
+SET optimizer_switch = DEFAULT;
+
+--echo #
+--echo # Bug#33066458: TEST_IF_SKIP_SORT_ORDER: ASSERTION `SELECT_LIMIT > 0' FAILED.
+--echo #
+
+CREATE TABLE t (x INTEGER PRIMARY KEY, y INTEGER);
+INSERT INTO t VALUES (1, 2), (2, 3), (3, 4);
+SELECT * FROM t ORDER BY x LIMIT 18446744073709551614;
+DROP TABLE t;
+
+--echo #
+--echo # Bug#34291261: The result of query plan is different between 5.7 and 8.0
+--echo #
+
+CREATE TABLE test (
+a bigint NOT NULL AUTO_INCREMENT,
+b int not null,
+c date NOT NULL,
+d int NOT NULL,
+PRIMARY KEY (a),
+KEY ix_ordered_date (c,a)
+);
+
+DELIMITER $$;
+CREATE PROCEDURE insertProc(input_date varchar(10))
+BEGIN
+    DECLARE i INT DEFAULT 1;
+    WHILE (i <= 1000)
+    DO
+        INSERT INTO test VALUE (0, 0, input_date, 0);
+        SET i = i + 1;
+    END WHILE;
+END$$
+DELIMITER ;$$
+
+CALL insertProc('2022-06-09');
+CALL insertProc('2022-06-10');
+CALL insertProc('2022-06-13');
+analyze table test;
+
+EXPLAIN SELECT * FROM test  WHERE c = '2022-06-13' AND a > 222 ORDER BY c, a LIMIT 10;
+
+DROP PROCEDURE insertProc;
+DROP TABLE test;
+
+--echo #
+--echo # Bug#34306497 - Low limit heuristic used unnecessarily with descending scans
+--echo #
+
+CREATE TABLE t1 (f1 INTEGER, f2 INTEGER, PRIMARY KEY (f1), KEY(f2, f1));
+
+INSERT INTO t1 (
+WITH RECURSIVE
+a(i) AS (SELECT 0 UNION ALL SELECT i+1 FROM a WHERE i < 9 ),
+b(i) AS (SELECT x.i + y.i * 10 + z.i * 100 FROM a x, a y, a z)
+SELECT b.i, b.i %2 FROM b ORDER BY i);
+
+ANALYZE TABLE t1;
+
+let query =
+SELECT * FROM t1 WHERE f2 = 1 AND f1 <= 100 ORDER BY f1 DESC LIMIT 1;
+
+eval EXPLAIN $query;
+eval $query;
+
+CREATE TABLE t2 (
+ f1 INTEGER,
+ f2 INTEGER,
+ f3 INTEGER,
+ f4 INTEGER,
+ f5 INTEGER,
+PRIMARY KEY (f1), KEY(f2,f3,f4,f5,f1));
+
+INSERT INTO t2 (
+WITH RECURSIVE a (i) AS (SELECT 0 UNION ALL SELECT i+1 FROM a WHERE i < 9 ),
+b (i) AS (SELECT x.i + y.i * 10 + z.i * 100 FROM a x, a y, a z)
+SELECT b.i, b.i%2, b.i%3, b.i%4, b.i%5 FROM b ORDER BY i);
+
+ANALYZE TABLE t2;
+
+let query =
+SELECT * FROM t2
+WHERE f3 = 1 AND f2 = 1 AND f4 = 3 AND f5 IN(2,3) ORDER BY f4 DESC LIMIT 1;
+eval EXPLAIN $query;
+--skip_if_hypergraph  # Different plan (elided ORDER BY) gives different result.
+eval $query;
+
+let query =
+SELECT * FROM t2
+WHERE f2 = 1 AND f3 = 2 AND f4 = 3 AND f5 IN(2,3) ORDER BY f3,f4 DESC LIMIT 1;
+eval EXPLAIN $query;
+eval $query;
+
+let query =
+SELECT * FROM t2
+WHERE f2 = 1 AND f3 > 1 AND f4 = 3 AND f5 IN(2,3) ORDER BY f2,f3 DESC LIMIT 1;
+eval EXPLAIN $query;
+eval $query;
+
+let query =
+SELECT * FROM t2
+WHERE f2 = 1 AND f3 > 1 AND f4 = 3 ORDER BY f2,f3,f5 DESC LIMIT 1;
+eval EXPLAIN $query;
+eval $query;
+
+let query =
+SELECT * FROM t2
+WHERE f2 = 1 AND f3 > 1 AND f4 = 3 ORDER BY f2 DESC ,f3 DESC ,f5 DESC LIMIT 1;
+eval EXPLAIN $query;
+eval $query;
+
+DROP TABLE t1,t2;
+
+--echo #
+--echo # Bug#35930969 MDS offloads to HW based on Incorrect Costings
+--echo #              from Optimizer
+--echo #
+CREATE TABLE t1(id INT AUTO_INCREMENT,
+                c1 VARCHAR(10), c2 VARCHAR(10), c3 VARCHAR(10),
+                PRIMARY KEY(id)) SECONDARY_ENGINE MOCK;
+INSERT INTO t1 (c1, c2, c3) values ('132456','456789','789123'),
+                                  ('132456','456789','789123'),
+                                  ('132456','456789','789123'),
+                                  ('132456','456789','789123'),
+                                  ('132456','456789','789123');
+INSERT INTO t1(c1,c2,c3) SELECT t1.c1, t1.c2, t1.c3
+  from t1, t1 as t11, t1 as t12, t1 as t13, t1 as t14;
+ANALYZE TABLE t1;
+
+let query =SELECT * FROM t1 ORDER BY id LIMIT 10;
+--skip_if_hypergraph  # Depends on the query plan.
+eval EXPLAIN FORMAT=Tree $query;
+eval $query;
+--skip_if_hypergraph  # Depends on the query plan.
+SHOW SESSION STATUS LIKE '%cost%';
+
+let query =SELECT * FROM t1 FORCE INDEX(PRIMARY) ORDER BY id LIMIT 10;
+--skip_if_hypergraph  # Depends on the query plan.
+eval EXPLAIN FORMAT=Tree $query;
+eval $query;
+--skip_if_hypergraph  # Depends on the query plan.
+SHOW SESSION STATUS LIKE '%cost%';
+
+let query =SELECT * FROM t1 use index() ORDER BY id LIMIT 10;
+--skip_if_hypergraph  # Depends on the query plan.
+eval EXPLAIN FORMAT=Tree $query;
+eval $query;
+--skip_if_hypergraph  # Depends on the query plan.
+SHOW SESSION STATUS LIKE '%cost%';
+
+let query =SELECT * FROM t1 WHERE c1 != 'asd' ORDER BY id LIMIT 10;
+--skip_if_hypergraph  # Depends on the query plan.
+eval EXPLAIN FORMAT=Tree $query;
+eval $query;
+--skip_if_hypergraph  # Depends on the query plan.
+SHOW SESSION STATUS LIKE '%cost%';
+
+DROP TABLE t1;

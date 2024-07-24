@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,6 +27,7 @@
 #include <vector>
 #include "plugin/group_replication/libmysqlgcs/include/mysql/gcs/gcs_group_identifier.h"
 #include "plugin/group_replication/libmysqlgcs/include/mysql/gcs/gcs_types.h"
+#include "plugin/group_replication/libmysqlgcs/src/bindings/xcom/xcom/network/include/network_provider.h"
 #include "plugin/group_replication/libmysqlgcs/xdr_gen/xcom_vp.h"
 
 #define XCOM_PREFIX "[XCOM] "
@@ -111,10 +113,12 @@ inline bool is_number(const std::string &s) {
 }
 
 /**
- Parses the string "host:port" and checks if it is correct.
-
- @param server_and_port the server hostname and port in the form hostname:port.
- @return true if it is a valid URL, false otherwise.
+ * @brief Parses the string "host:port" and checks if it is correct.
+ *
+ * @param server_and_port the server hostname and port in the form
+ * hostname:port.
+ *
+ * @return true if it is a valid URL, false otherwise.
  */
 bool is_valid_hostname(const std::string &server_and_port);
 
@@ -134,8 +138,13 @@ void fix_parameters_syntax(Gcs_interface_parameters &params);
 /**
  Checks that parameters are syntactically valid.
 
- @param params The parameters to validate syntactically.
+ @param params        The parameters to validate syntactically.
+ @param netns_manager A reference to a Network Namespace Manager.
+                      This is needed because of the allowlist configuration and
+                      local address validation.
+
  @returns false if there is a syntax error, true otherwise.
  */
-bool is_parameters_syntax_correct(const Gcs_interface_parameters &params);
+bool is_parameters_syntax_correct(const Gcs_interface_parameters &params,
+                                  Network_namespace_manager *netns_manager);
 #endif /* GCS_XCOM_UTILS_INCLUDED */

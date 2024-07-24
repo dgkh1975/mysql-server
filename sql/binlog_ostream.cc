@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -63,7 +64,7 @@ bool IO_CACHE_binlog_cache_storage::write(const unsigned char *buffer,
     Enable/disable binlog cache temporary file encryption according to the
     setting of global binlog_encryption if both binlog cache temporary
     file encryption and the setting of global binlog_encryption are not
-    consistent on the first writting of binlog cache after changing the
+    consistent on the first writing of binlog cache after changing the
     setting of global binlog_encryption.
   */
   if (unlikely((m_io_cache.m_encryptor == nullptr ||
@@ -91,7 +92,7 @@ bool IO_CACHE_binlog_cache_storage::write(const unsigned char *buffer,
 
 bool IO_CACHE_binlog_cache_storage::truncate(my_off_t offset) {
   /*
-     It is not really necessary to flush the data will be trucnated into
+     It is not really necessary to flush the data will be truncated into
      temporary file before truncating . And it may cause write failure. So set
      clear_cache to true if all data in cache will be truncated.
      It avoids flush data to the internal temporary file.
@@ -155,7 +156,7 @@ bool IO_CACHE_binlog_cache_storage::begin(unsigned char **buffer,
   DBUG_EXECUTE_IF("ensure_binlog_cache_temporary_file_is_encrypted", {
     /*
       Assert that the temporary file of binlog cache is encrypted before
-      writting the content of binlog cache into binlog file.
+      writing the content of binlog cache into binlog file.
     */
     assert(binlog_cache_temporary_file_is_encrypted);
   };);

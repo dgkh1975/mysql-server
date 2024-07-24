@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,10 +34,10 @@
 /**
   Mem_root_allocator is a C++ STL memory allocator based on MEM_ROOT.
 
-  No deallocation is done by this allocator. Calling init_sql_alloc()
-  and free_root() on the supplied MEM_ROOT is the responsibility of
-  the caller. Do *not* call free_root() until the destructor of any
-  objects using this allocator has completed. This includes iterators.
+  No deallocation is done by this allocator. Calling the constructor
+  and destructor on the supplied MEM_ROOT is the responsibility of
+  the caller. Do *not* call Clear() or ~MEM_ROOT until the destructor
+  of any objects using this allocator has completed. This includes iterators.
 
   Example of use:
   vector<int, Mem_root_allocator<int> > v((Mem_root_allocator<int>(&mem_root)));
@@ -91,13 +92,12 @@ class Mem_root_allocator {
       : m_memroot(other.memroot()) {}
 
   template <class U>
-  Mem_root_allocator &operator=(
-      const Mem_root_allocator<U> &other MY_ATTRIBUTE((unused))) {
+  Mem_root_allocator &operator=(const Mem_root_allocator<U> &other
+                                [[maybe_unused]]) {
     assert(m_memroot == other.memroot());  // Don't swap memroot.
   }
 
-  pointer allocate(size_type n,
-                   const_pointer hint MY_ATTRIBUTE((unused)) = nullptr) {
+  pointer allocate(size_type n, const_pointer hint [[maybe_unused]] = nullptr) {
     if (n == 0) return nullptr;
     if (n > max_size()) throw std::bad_alloc();
 

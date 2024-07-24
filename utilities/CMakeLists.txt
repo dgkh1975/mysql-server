@@ -1,15 +1,16 @@
-# Copyright (c) 2006, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2006, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,6 +23,7 @@
 
 ADD_WSHADOW_WARNING()
 DISABLE_MISSING_PROFILE_WARNING()
+MSVC_CPPCHECK_DISABLE()
 
 IF(NOT CMAKE_CROSSCOMPILING)
   MYSQL_ADD_EXECUTABLE(comp_err
@@ -44,7 +46,7 @@ ADD_CUSTOM_COMMAND(OUTPUT ${PROJECT_BINARY_DIR}/include/mysqlclient_ername.h
   --out_file=${PROJECT_BINARY_DIR}/include/mysqlclient_ername.h
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/comp_client_err.cc)
 
-ADD_CUSTOM_TARGET(GenClientError ALL
+MY_ADD_CUSTOM_TARGET(GenClientError ALL
   DEPENDS ${PROJECT_BINARY_DIR}/include/mysqlclient_ername.h)
 
 FILE(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/${INSTALL_MYSQLSHAREDIR})
@@ -80,7 +82,7 @@ ADD_CUSTOM_COMMAND(OUTPUT
   ${CMAKE_CURRENT_SOURCE_DIR}/comp_err.cc)
 
 
-ADD_CUSTOM_TARGET(GenError ALL
+MY_ADD_CUSTOM_TARGET(GenError ALL
   DEPENDS
   ${PROJECT_BINARY_DIR}/include/mysqld_error.h
   ${PROJECT_BINARY_DIR}/include/mysqld_ername.h
@@ -123,18 +125,18 @@ MYSQL_ADD_EXECUTABLE(perror
   DEPENDENCIES GenError
   LINK_LIBRARIES mysys
   )
-IF(BUILD_BUNDLED_LZ4)
+IF(WITH_LZ4 STREQUAL "bundled")
   MYSQL_ADD_EXECUTABLE(lz4_decompress
     lz4_decompress.cc
     COMPONENT Server
-    LINK_LIBRARIES ${LZ4_LIBRARY} mysys
+    LINK_LIBRARIES ext::lz4 mysys
     )
 ENDIF()
 
 MYSQL_ADD_EXECUTABLE(zlib_decompress
   zlib_decompress.cc
   COMPONENT Server
-  LINK_LIBRARIES ${ZLIB_LIBRARY} mysys
+  LINK_LIBRARIES ext::zlib mysys
   )
 
 # All targets below belong to COMPONENT Server and depend on InnoDB.
@@ -156,7 +158,7 @@ MYSQL_ADD_EXECUTABLE(innochecksum
   innochecksum.cc
   COMPONENT Server
   DEPENDENCIES GenError
-  LINK_LIBRARIES mysys innodb_zipdecompress ${LZ4_LIBRARY}
+  LINK_LIBRARIES mysys innodb_zipdecompress ext::lz4 extra::rapidjson
   )
 TARGET_COMPILE_DEFINITIONS(innochecksum PRIVATE UNIV_NO_ERR_MSGS UNIV_LIBRARY)
 IF(MY_COMPILER_IS_GNU_OR_CLANG)
@@ -175,9 +177,9 @@ MYSQL_ADD_EXECUTABLE(ibd2sdi
   ibd2sdi.cc
   COMPONENT Server
   DEPENDENCIES GenError
-  LINK_LIBRARIES mysys innodb_zipdecompress ${LZ4_LIBRARY}
+  LINK_LIBRARIES mysys innodb_zipdecompress ext::lz4 extra::rapidjson
   )
-TARGET_COMPILE_DEFINITIONS(ibd2sdi PRIVATE UNIV_NO_ERR_MSGS UNIV_LIBRARY)
+TARGET_COMPILE_DEFINITIONS(ibd2sdi PRIVATE UNIV_NO_ERR_MSGS UNIV_LIBRARY DISABLE_PSI_MEMORY)
 IF(MY_COMPILER_IS_GNU_OR_CLANG)
   ADD_COMPILE_FLAGS(ibd2sdi.cc
     COMPILE_FLAGS "-Wno-unused-parameter -Wno-cast-qual")

@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -48,9 +49,15 @@ class HTTP_AUTH_BACKEND_LIB_EXPORT HttpAuthBackendComponent {
   static HttpAuthBackendComponent &get_instance();
 
   /**
-   * initialize component from backends.
+   * register an authentication backend.
    */
-  void init(std::shared_ptr<value_type> backends);
+  void add_backend(const std::string &name,
+                   std::shared_ptr<HttpAuthBackend> backend);
+
+  /**
+   * unregister an authentication backend.
+   */
+  void remove_backend(const std::string &name);
 
   /**
    * authenticate user against auth-backend.
@@ -67,8 +74,8 @@ class HTTP_AUTH_BACKEND_LIB_EXPORT HttpAuthBackendComponent {
   HttpAuthBackendComponent(HttpAuthBackendComponent const &) = delete;
   void operator=(HttpAuthBackendComponent const &) = delete;
 
-  std::mutex mu;  // request handler mutex
-  std::weak_ptr<value_type> auth_backends_;
+  std::mutex backends_m_;
+  value_type auth_backends_;
 
   HttpAuthBackendComponent() = default;
 };

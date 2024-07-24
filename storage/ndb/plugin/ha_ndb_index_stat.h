@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,6 +34,7 @@ struct NDB_SHARE;
 class Ndb_cluster_connection;
 struct SHOW_VAR;
 struct SYS_VAR;
+struct Ndb_index_stat_proc;
 
 class Ndb_index_stat_thread : public Ndb_component {
   // Someone is waiting for stats
@@ -55,7 +57,7 @@ class Ndb_index_stat_thread : public Ndb_component {
   void wakeup();
 
   /* are we setup */
-  static bool is_setup_complete();
+  bool is_setup_complete();
 
  private:
   int do_init() override;
@@ -64,13 +66,13 @@ class Ndb_index_stat_thread : public Ndb_component {
   // Wakeup for stop
   void do_wakeup() override;
 
-  int check_or_create_systables(struct Ndb_index_stat_proc &pr);
-  int check_or_create_sysevents(struct Ndb_index_stat_proc &pr);
-  void drop_ndb(struct Ndb_index_stat_proc &pr);
-  int start_listener(struct Ndb_index_stat_proc &pr);
-  int create_ndb(struct Ndb_index_stat_proc &pr,
-                 Ndb_cluster_connection *connection);
-  void stop_listener(struct Ndb_index_stat_proc &pr);
+  int check_systables(const Ndb_index_stat_proc &pr) const;
+  int check_sysevents(const Ndb_index_stat_proc &pr) const;
+  void drop_ndb(Ndb_index_stat_proc *const pr) const;
+  int start_listener(const Ndb_index_stat_proc &pr) const;
+  int create_ndb(Ndb_index_stat_proc *const pr,
+                 Ndb_cluster_connection *const connection) const;
+  void stop_listener(const Ndb_index_stat_proc &pr) const;
 };
 
 /* free entries from share or at end */

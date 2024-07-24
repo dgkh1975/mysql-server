@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    Without limiting anything contained in the foregoing, this file,
    which is part of C Driver for MySQL (Connector/C), is also subject to the
@@ -65,8 +66,8 @@ int my_access(const char *path, int amode) {
   BOOL result;
 
   result = GetFileAttributesEx(path, GetFileExInfoStandard, &fileinfo);
-  if (!result ||
-      (fileinfo.dwFileAttributes & FILE_ATTRIBUTE_READONLY) && (amode & W_OK)) {
+  if (!result || ((fileinfo.dwFileAttributes & FILE_ATTRIBUTE_READONLY) &&
+                  (amode & W_OK))) {
     errno = EACCES;
     set_my_errno(EACCES);
     return -1;
@@ -192,9 +193,9 @@ static bool does_drive_exists(char drive_letter) {
 
   @return true if the file name is allowed, false otherwise.
 */
-bool is_filename_allowed(const char *name MY_ATTRIBUTE((unused)),
-                         size_t length MY_ATTRIBUTE((unused)),
-                         bool allow_current_dir MY_ATTRIBUTE((unused))) {
+bool is_filename_allowed(const char *name [[maybe_unused]],
+                         size_t length [[maybe_unused]],
+                         bool allow_current_dir [[maybe_unused]]) {
   /*
     For Windows, check if the file name contains : character.
     Start from end of path and search if the file name contains :
@@ -221,7 +222,7 @@ bool is_filename_allowed(const char *name MY_ATTRIBUTE((unused)),
 #if defined(_WIN32)
 
 /*
-  Check if a path will access a reserverd file name that may cause problems
+  Check if a path will access a reserved file name that may cause problems
 
   SYNOPSIS
     check_if_legal_filename

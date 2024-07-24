@@ -1,15 +1,16 @@
-/* Copyright (c) 2010, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2010, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -84,19 +85,19 @@
 */
 #define mysql_end_stage inline_mysql_end_stage
 
-static inline void inline_mysql_stage_register(
-    const char *category MY_ATTRIBUTE((unused)),
-    PSI_stage_info **info MY_ATTRIBUTE((unused)),
-    int count MY_ATTRIBUTE((unused))) {
+static inline void inline_mysql_stage_register(const char *category
+                                               [[maybe_unused]],
+                                               PSI_stage_info **info
+                                               [[maybe_unused]],
+                                               int count [[maybe_unused]]) {
 #ifdef HAVE_PSI_STAGE_INTERFACE
   PSI_STAGE_CALL(register_stage)(category, info, count);
 #endif
 }
 
 static inline PSI_stage_progress *inline_mysql_set_stage(
-    PSI_stage_key key MY_ATTRIBUTE((unused)),
-    const char *src_file MY_ATTRIBUTE((unused)),
-    int src_line MY_ATTRIBUTE((unused))) {
+    PSI_stage_key key [[maybe_unused]], const char *src_file [[maybe_unused]],
+    int src_line [[maybe_unused]]) {
 #ifdef HAVE_PSI_STAGE_INTERFACE
   return PSI_STAGE_CALL(start_stage)(key, src_file, src_line);
 #else

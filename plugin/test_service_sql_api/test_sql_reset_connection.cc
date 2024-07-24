@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -42,7 +43,7 @@
 #include "mysql_com.h"
 #include "template_utils.h"
 
-#define STRING_BUFFER 256
+static constexpr int STRING_BUFFER = 256 * 2;
 
 static File outfile;
 
@@ -145,9 +146,8 @@ static int sql_start_result_metadata(void *ctx, uint num_cols, uint,
   auto pctx = (struct st_plugin_ctx *)ctx;
   DBUG_TRACE;
   DBUG_PRINT("info", ("resultcs->number: %d", resultcs->number));
-  DBUG_PRINT("info",
-             ("resultcs->csname: %s", replace_utf8_utf8mb3(resultcs->csname)));
-  DBUG_PRINT("info", ("resultcs->name: %s", resultcs->name));
+  DBUG_PRINT("info", ("resultcs->csname: %s", resultcs->csname));
+  DBUG_PRINT("info", ("resultcs->m_coll_name: %s", resultcs->m_coll_name));
   pctx->num_cols = num_cols;
   pctx->resultcs = resultcs;
   pctx->current_col = 0;
@@ -502,7 +502,7 @@ static void query_execute(MYSQL_SESSION session, st_plugin_ctx *pctx,
   cmd.com_query.query = query.c_str();
   cmd.com_query.length = query.size();
   if (command_service_run_command(session, COM_QUERY, &cmd,
-                                  &my_charset_utf8_general_ci, &sql_cbs,
+                                  &my_charset_utf8mb3_general_ci, &sql_cbs,
                                   CS_TEXT_REPRESENTATION, pctx)) {
     LogPluginErr(ERROR_LEVEL, ER_LOG_PRINTF_MSG, "fail query execution - %d:%s",
                  pctx->sql_errno, pctx->err_msg);
@@ -566,7 +566,7 @@ static void ensure_api_not_null(const char *function, void *result) {
 static void reset_connection(MYSQL_SESSION st_session, st_plugin_ctx *pctx) {
   COM_DATA cmd;
   ENSURE_API_OK(command_service_run_command(
-      st_session, COM_RESET_CONNECTION, &cmd, &my_charset_utf8_general_ci,
+      st_session, COM_RESET_CONNECTION, &cmd, &my_charset_utf8mb3_general_ci,
       &sql_cbs, CS_TEXT_REPRESENTATION, pctx));
 }
 
@@ -706,7 +706,7 @@ static int test_sql_service_plugin_init(void *p) {
   return 0;
 }
 
-static int test_sql_service_plugin_deinit(void *p MY_ATTRIBUTE((unused))) {
+static int test_sql_service_plugin_deinit(void *p [[maybe_unused]]) {
   DBUG_TRACE;
   LogPluginErr(INFORMATION_LEVEL, ER_LOG_PRINTF_MSG, "Uninstallation.");
 

@@ -1,15 +1,16 @@
-/*  Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/*  Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License, version 2.0,
     as published by the Free Software Foundation.
 
-    This program is also distributed with certain software (including
+    This program is designed to work with certain software (including
     but not limited to OpenSSL) that is licensed under separate terms,
     as designated in a particular file or component or in included license
     documentation.  The authors of MySQL hereby grant you an additional
     permission to link the program and your derivative works with the
-    separately licensed software that they have included with MySQL.
+    separately licensed software that they have either included with
+    the program or referenced in the documentation.
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -38,28 +39,27 @@
 
 #include "my_compiler.h"
 
-static int mysql_no_login(MYSQL_PLUGIN_VIO *vio MY_ATTRIBUTE((unused)),
-                          MYSQL_SERVER_AUTH_INFO *info MY_ATTRIBUTE((unused))) {
+static int mysql_no_login(MYSQL_PLUGIN_VIO *vio [[maybe_unused]],
+                          MYSQL_SERVER_AUTH_INFO *info [[maybe_unused]]) {
   return CR_ERROR;
 }
 
-static int generate_auth_string_hash(
-    char *outbuf MY_ATTRIBUTE((unused)), unsigned int *buflen,
-    const char *inbuf MY_ATTRIBUTE((unused)),
-    unsigned int inbuflen MY_ATTRIBUTE((unused))) {
+static int generate_auth_string_hash(char *outbuf [[maybe_unused]],
+                                     unsigned int *buflen,
+                                     const char *inbuf [[maybe_unused]],
+                                     unsigned int inbuflen [[maybe_unused]]) {
   *buflen = 0;
   return 0;
 }
 
-static int validate_auth_string_hash(char *const inbuf MY_ATTRIBUTE((unused)),
-                                     unsigned int buflen
-                                         MY_ATTRIBUTE((unused))) {
+static int validate_auth_string_hash(char *const inbuf [[maybe_unused]],
+                                     unsigned int buflen [[maybe_unused]]) {
   return 0;
 }
 
-static int set_salt(const char *password MY_ATTRIBUTE((unused)),
-                    unsigned int password_len MY_ATTRIBUTE((unused)),
-                    unsigned char *salt MY_ATTRIBUTE((unused)),
+static int set_salt(const char *password [[maybe_unused]],
+                    unsigned int password_len [[maybe_unused]],
+                    unsigned char *salt [[maybe_unused]],
                     unsigned char *salt_len) {
   *salt_len = 0;
   return 0;

@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -91,11 +92,21 @@ enum class Stage_code : unsigned int {
   ST_SPLIT_V2 = 3,
 
   /*
+   This type represents the compression stage v2.
+   */
+  ST_LZ4_V3 = 4,
+
+  /*
+     This type represents the split stage v2.
+   */
+  ST_SPLIT_V3 = 5,
+
+  /*
    No valid state codes can appear after this one. If a stage code is to
    be added, this value needs to be incremented and the lowest type code
    available be assigned to the new stage.
    */
-  ST_MAX_STAGES = 4
+  ST_MAX_STAGES = 6
 };
 
 /**

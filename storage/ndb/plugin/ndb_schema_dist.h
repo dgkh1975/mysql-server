@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -77,6 +78,7 @@ enum Schema_op_result_code {
   NODE_TIMEOUT = 9003,       // Node timeout during
   COORD_ABORT = 9004,        // Coordinator aborted
   CLIENT_ABORT = 9005,       // Client aborted
+  CLIENT_TIMEOUT = 9006,     // Client timeout
   CLIENT_KILLED = 9007,      // Client killed
   SCHEMA_OP_FAILURE = 9008,  // Failure not related to protocol but the actual
                              // schema operation to be distributed
@@ -96,6 +98,7 @@ bool is_ready(void *requestor);
 }  // namespace Ndb_schema_dist
 
 class Ndb;
+class NDB_SCHEMA_OBJECT;
 
 /**
   @brief Ndb_schema_dist_client, class represents a Client
@@ -128,6 +131,7 @@ class Ndb_schema_dist_client {
   class THD *const m_thd;
   class Thd_ndb *const m_thd_ndb;
   struct NDB_SHARE *m_share{nullptr};
+  struct NDB_SHARE *m_result_share{nullptr};
   const std::string m_share_reference;
   class Prepared_keys {
     using Key = std::pair<std::string, std::string>;
@@ -141,17 +145,19 @@ class Ndb_schema_dist_client {
   bool m_holding_acl_mutex;
 
   // List of schema operation results, populated when schema operation has
-  // completed sucessfully.
+  // completed
   struct Schema_op_result {
     uint32 nodeid;
     uint32 result;
     std::string message;
   };
   std::vector<Schema_op_result> m_schema_op_results;
+  // Save results from schema operation for later
+  void save_schema_op_results(const NDB_SCHEMA_OBJECT *ndb_schema_object);
+  // Push save results as warnings and clear results
+  void push_and_clear_schema_op_results();
 
   static bool m_ddl_blocked;
-
-  void push_and_clear_schema_op_results();
 
   bool log_schema_op_impl(Ndb *ndb, const char *query, int query_length,
                           const char *db, const char *table_name,
@@ -160,7 +166,7 @@ class Ndb_schema_dist_client {
 
   /**
      @brief Write row to ndb_schema to initiate the schema operation
-     @return true on sucess and false on failure
+     @return true on success and false on failure
    */
   bool write_schema_op_to_NDB(Ndb *ndb, const char *query, int query_length,
                               const char *db, const char *name, uint32 id,
@@ -192,6 +198,11 @@ class Ndb_schema_dist_client {
      @brief Acquire the ACL change mutex
    */
   void acquire_acl_lock();
+
+  /**
+     @brief Check if local schema distribution mechanism available
+   */
+  bool check_local_schema_dist_available() const;
 
  public:
   Ndb_schema_dist_client() = delete;

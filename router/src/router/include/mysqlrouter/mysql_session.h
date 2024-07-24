@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,6 +26,8 @@
 #ifndef _ROUTER_MYSQL_SESSION_H_
 #define _ROUTER_MYSQL_SESSION_H_
 
+#include "mysqlrouter/router_export.h"
+
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -35,14 +38,12 @@
 
 #include "mysql/harness/stdx/expected.h"
 #include "mysqlrouter/log_filter.h"
-#ifdef FRIEND_TEST
-class MockMySQLSession;
-#endif
 
 namespace mysqlrouter {
 
 class MysqlError {
  public:
+  MysqlError() = default;
   MysqlError(unsigned int code, std::string message, std::string sql_state)
       : code_{code},
         message_{std::move(message)},
@@ -55,7 +56,7 @@ class MysqlError {
   unsigned int value() const { return code_; }
 
  private:
-  unsigned int code_;
+  unsigned int code_{0};
   std::string message_;
   std::string sql_state_;
 };
@@ -149,10 +150,10 @@ class Option<Opt, std::nullptr_t> {
 
 // mysql_options() may be used with MYSQL * == nullptr to get global values.
 
-class MySQLSession {
+class ROUTER_LIB_EXPORT MySQLSession {
  public:
-  static const int kDefaultConnectTimeout = 15;
-  static const int kDefaultReadTimeout = 30;
+  static constexpr int kDefaultConnectTimeout = 5;
+  static constexpr int kDefaultReadTimeout = 30;
   typedef std::vector<const char *> Row;
   typedef std::function<bool(const Row &)> RowProcessor;
   typedef std::function<void(unsigned, MYSQL_FIELD *)> FieldValidator;
@@ -163,36 +164,6 @@ class MySQLSession {
   static const char kSslModeRequired[];
   static const char kSslModeVerifyCa[];
   static const char kSslModeVerifyIdentity[];
-
-  // this struct contains all parameters which would be needed if you wanted to
-  // create a new connection with same parameters (server address, options,
-  // etc)
-  struct ConnectionParameters {
-    struct SslOptions {
-      mysql_ssl_mode ssl_mode;
-      std::string tls_version;
-      std::string ssl_cipher;
-      std::string ca;
-      std::string capath;
-      std::string crl;
-      std::string crlpath;
-    } ssl_opts;
-    struct SslCert {
-      std::string cert;
-      std::string key;
-    } ssl_cert;
-    struct ConnOptions {
-      std::string host;
-      unsigned int port;
-      std::string username;
-      std::string password;
-      std::string unix_socket;
-      std::string default_schema;
-      int connect_timeout;
-      int read_timeout;
-    } conn_opts;
-  };
-
   //
   // mysql_option's
   //
@@ -325,16 +296,25 @@ class MySQLSession {
     Row row_;
   };
 
-  struct LoggingStrategy {
-    virtual void log(const std::string &msg) = 0;
+  struct ROUTER_LIB_EXPORT LoggingStrategy {
+    LoggingStrategy() = default;
+
+    LoggingStrategy(const LoggingStrategy &) = default;
+    LoggingStrategy(LoggingStrategy &&) = default;
+
+    LoggingStrategy &operator=(const LoggingStrategy &) = default;
+    LoggingStrategy &operator=(LoggingStrategy &&) = default;
+
     virtual ~LoggingStrategy() = default;
+
+    virtual void log(const std::string &msg) = 0;
   };
 
-  struct LoggingStrategyNone : public LoggingStrategy {
+  struct ROUTER_LIB_EXPORT LoggingStrategyNone : public LoggingStrategy {
     virtual void log(const std::string & /*msg*/) override {}
   };
 
-  struct LoggingStrategyDebugLogger : public LoggingStrategy {
+  struct ROUTER_LIB_EXPORT LoggingStrategyDebugLogger : public LoggingStrategy {
     virtual void log(const std::string &msg) override;
   };
 
@@ -353,6 +333,20 @@ class MySQLSession {
                                const std::string &ca, const std::string &capath,
                                const std::string &crl,
                                const std::string &crlpath);
+
+  mysql_ssl_mode ssl_mode() const;
+  std::string tls_version() const;
+  std::string ssl_cipher() const;
+  std::string ssl_ca() const;
+  std::string ssl_capath() const;
+  std::string ssl_crl() const;
+  std::string ssl_crlpath() const;
+
+  std::string ssl_cert() const;
+  std::string ssl_key() const;
+
+  int connect_timeout() const;
+  int read_timeout() const;
 
   // throws Error
   virtual void set_ssl_cert(const std::string &cert, const std::string &key);
@@ -397,12 +391,12 @@ class MySQLSession {
    * @retval false if option is not known.
    */
   template <class GettableMysqlOption>
-  stdx::expected<void, void> get_option(GettableMysqlOption &opt) {
+  bool get_option(GettableMysqlOption &opt) const {
     if (0 != mysql_get_option(connection_, opt.option(), opt.data())) {
-      return stdx::make_unexpected();
+      return false;
     }
 
-    return {};
+    return true;
   }
 
   virtual void connect(const std::string &host, unsigned int port,
@@ -414,44 +408,34 @@ class MySQLSession {
   virtual void disconnect();
 
   /**
-   * This is an alternative way to initialise a new connection.  It calls
-   * connect() and several other methods under the hood.  Along with its
-   * counterpart `get_connection_parameters()`, it's useful for spawning
-   * new connections using an existing connection as a template.
-   *
-   * @param conn_params Connection parameters
-   *
-   * @see get_connection_parameters()
+   * Connect using the same settings and parameters that were used for the last
+   * other.connect() using provided credentials.
    */
-  virtual void connect_and_set_opts(const ConnectionParameters &conn_params);
-
-  /**
-   * Returns connection parameters which could be used as a template for
-   * spawning new connections.
-   *
-   * @see connect_and_set_opts()
-   *
-   * @returns parameters used to create current connection
-   */
-  virtual ConnectionParameters get_connection_parameters() {
-    return conn_params_;
-  }
+  virtual void connect(const MySQLSession &other, const std::string &username,
+                       const std::string &password);
 
   virtual void execute(
       const std::string &query);  // throws Error, std::logic_error
   virtual void query(
       const std::string &query, const RowProcessor &processor,
-      const FieldValidator &validator =
-          null_field_validator);  // throws Error, std::logic_error
+      const FieldValidator &validator);  // throws Error, std::logic_error
   virtual std::unique_ptr<MySQLSession::ResultRow> query_one(
       const std::string &query,
-      const FieldValidator &validator = null_field_validator);  // throws Error
+      const FieldValidator &validator);  // throws Error
+                                         //
+  void query(const std::string &stmt, const RowProcessor &processor) {
+    return query(stmt, processor, [](unsigned, MYSQL_FIELD *) {});
+  }
+
+  std::unique_ptr<MySQLSession::ResultRow> query_one(const std::string &stmt) {
+    return query_one(stmt, [](unsigned, MYSQL_FIELD *) {});
+  }
 
   virtual uint64_t last_insert_id() noexcept;
 
   virtual unsigned warning_count() noexcept;
 
-  virtual std::string quote(const std::string &s, char qchar = '\'') noexcept;
+  virtual std::string quote(const std::string &s, char qchar = '\'') const;
 
   virtual bool is_connected() noexcept { return connection_ && connected_; }
   const std::string &get_address() noexcept { return connection_address_; }
@@ -462,12 +446,17 @@ class MySQLSession {
   virtual const char *ssl_cipher();
 
  protected:
-  static const std::function<void(unsigned, MYSQL_FIELD *)>
-      null_field_validator;
   std::unique_ptr<LoggingStrategy> logging_strategy_;
 
  private:
-  ConnectionParameters conn_params_;
+  // stores selected parameters that were passed to the last successful call to
+  // connect()
+  struct {
+    std::string host;
+    unsigned int port{};
+    std::string unix_socket;
+    std::string default_schema;
+  } connect_params_;
 
   MYSQL *connection_;
   bool connected_;
@@ -475,10 +464,6 @@ class MySQLSession {
   SQLLogFilter log_filter_;
 
   virtual MYSQL *raw_mysql() noexcept { return connection_; }
-
-#ifdef FRIEND_TEST
-  friend class ::MockMySQLSession;
-#endif
 
   class MYSQL_RES_Deleter {
    public:
@@ -498,7 +483,7 @@ class MySQLSession {
    *
    * @param q stmt to execute
    *
-   * @returns resultset on sucess, MysqlError on error
+   * @returns resultset on success, MysqlError on error
    */
   stdx::expected<mysql_result_type, MysqlError> real_query(
       const std::string &q);

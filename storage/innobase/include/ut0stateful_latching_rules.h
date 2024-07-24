@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2021, Oracle and/or its affiliates. All Rights Reserved.
+Copyright (c) 2021, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -38,7 +39,7 @@ changing. */
 
 namespace ut {
 /** This is a generic mechanism for verifying correctness of latching rules for
-state transitions and quering for state of a system. It was created for io_fix
+state transitions and querying for state of a system. It was created for io_fix
 field of buf_page_t, but can be configured via template instantiation for other
 usages as long as they fit into the following model:
 
@@ -63,7 +64,7 @@ BUF_IO_WRITE only while holding latches #0, #1 and #2. But the rule could be
 more complex, for example "you either must hold 1 and 2, or just 0" - as long as
 you can express it as an alternative of conjunctions (without negation) it's OK.
 
-In other words, we model the situation as a graph, with sates as nodes, and
+In other words, we model the situation as a graph, with states as nodes, and
 edges being possible transitions, where each edge is labeled with a subset of
 latches (and there might be zero or more edges between any pair of states).
 
@@ -277,7 +278,7 @@ class Stateful_latching_rules {
     const bool can_leave_B = can_leave(owned_latches, B);
 
     if (can_leave_A || can_leave_B) {
-      ib::fatal the_err{};
+      ib::fatal the_err{UT_LOCATION_HERE};
       the_err << "We can leave "
               << (can_leave_A && can_leave_B ? "both A and B"
                                              : (can_leave_A ? "A" : "B"))
@@ -314,7 +315,7 @@ class Stateful_latching_rules {
         })) {
       return;
     }
-    ib::fatal the_err{};
+    ib::fatal the_err{UT_LOCATION_HERE};
     the_err << "Disallowed transition FROM " << from << " TO " << to
             << " WITH ";
     print(the_err, owned_latches);

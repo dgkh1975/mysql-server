@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -184,10 +185,10 @@ err:
     case 3:
       while (files) (void)mi_close(m_info->open_tables[--files].table);
       my_free(m_info);
-      /* Fall through */
+      [[fallthrough]];
     case 2:
       end_io_cache(&file);
-      /* Fall through */
+      [[fallthrough]];
     case 1:
       (void)mysql_file_close(fd, MYF(0));
   }
@@ -324,10 +325,10 @@ err:
   switch (errpos) {
     case 3:
       my_free(m_info);
-      /* Fall through */
+      [[fallthrough]];
     case 2:
       end_io_cache(&file_cache);
-      /* Fall through */
+      [[fallthrough]];
     case 1:
       (void)mysql_file_close(fd, MYF(0));
   }
@@ -484,7 +485,7 @@ err:
   @param[in]    m_info          MERGE parent table structure
 
   @note Detach must not touch the children in any way.
-    They may have been closed at ths point already.
+    They may have been closed at this point already.
     All references to the children should be removed.
 
   @return status

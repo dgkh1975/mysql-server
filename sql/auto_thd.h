@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -55,11 +56,11 @@ class Auto_THD : public Internal_error_handler {
 
     @return This function always return false.
   */
-  bool handle_condition(class THD *thd MY_ATTRIBUTE((unused)),
-                        uint sql_errno MY_ATTRIBUTE((unused)),
-                        const char *sqlstate MY_ATTRIBUTE((unused)),
+  bool handle_condition(class THD *thd [[maybe_unused]],
+                        uint sql_errno [[maybe_unused]],
+                        const char *sqlstate [[maybe_unused]],
                         Sql_condition::enum_severity_level *level
-                            MY_ATTRIBUTE((unused)),
+                        [[maybe_unused]],
                         const char *msg) override;
 
   /** Thd associated with the object. */

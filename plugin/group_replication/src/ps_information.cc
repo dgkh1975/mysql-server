@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -31,7 +32,6 @@ using std::string;
 
 bool get_group_members_info(
     uint index, const GROUP_REPLICATION_GROUP_MEMBERS_CALLBACKS &callbacks,
-    Group_member_info_manager_interface *group_member_manager,
     char *channel_name) {
   if (channel_name != nullptr) {
     callbacks.set_channel_name(callbacks.context, *channel_name,
@@ -42,7 +42,7 @@ bool get_group_members_info(
    This case means that the plugin has never been initialized...
    and one would not be able to extract information
    */
-  if (group_member_manager == nullptr) {
+  if (group_member_mgr == nullptr) {
     const char *member_state = Group_member_info::get_member_status_string(
         Group_member_info::MEMBER_OFFLINE);
     callbacks.set_member_state(callbacks.context, *member_state,
@@ -50,7 +50,7 @@ bool get_group_members_info(
     return false;
   }
 
-  size_t number_of_members = group_member_manager->get_number_of_members();
+  size_t number_of_members = group_member_mgr->get_number_of_members();
   if (index >= number_of_members) {
     /* purecov: begin inspected */
     if (index != 0) {
@@ -60,7 +60,8 @@ bool get_group_members_info(
     /* purecov: end */
   }
 
-  Group_member_info *member_info = nullptr;
+  Group_member_info member_info;
+  bool member_info_not_found = true;
   /*
     If the local member is already OFFLINE but still has the previous
     membership because is waiting for the leave view, do not report
@@ -69,38 +70,39 @@ bool get_group_members_info(
   if (local_member_info != nullptr &&
       local_member_info->get_recovery_status() ==
           Group_member_info::MEMBER_OFFLINE) {
-    member_info = group_member_manager->get_group_member_info(
-        local_member_info->get_uuid());
+    member_info_not_found = group_member_mgr->get_group_member_info(
+        local_member_info->get_uuid(), member_info);
   } else {
-    member_info = group_member_manager->get_group_member_info_by_index(index);
+    member_info_not_found =
+        group_member_mgr->get_group_member_info_by_index(index, member_info);
   }
 
-  if (member_info == nullptr)  // The requested member is not managed...
+  if (member_info_not_found)  // The requested member is not managed...
   {
     return true; /* purecov: inspected */
   }
 
   // Get info from view.
-  std::string uuid(member_info->get_uuid());
+  std::string uuid(member_info.get_uuid());
   callbacks.set_member_id(callbacks.context, *uuid.c_str(), uuid.length());
 
-  std::string hostname(member_info->get_hostname());
+  std::string hostname(member_info.get_hostname());
   callbacks.set_member_host(callbacks.context, *hostname.c_str(),
                             hostname.length());
 
-  callbacks.set_member_port(callbacks.context, member_info->get_port());
+  callbacks.set_member_port(callbacks.context, member_info.get_port());
 
   const char *member_state;
-  const char *member_role = member_info->get_member_role_string();
+  const char *member_role = member_info.get_member_role_string();
   std::string member_version =
-      (member_info->get_recovery_status() != Group_member_info::MEMBER_OFFLINE)
-          ? member_info->get_member_version().get_version_string()
+      (member_info.get_recovery_status() != Group_member_info::MEMBER_OFFLINE)
+          ? member_info.get_member_version().get_version_string()
           : "";
 
   // override the state if we think it is unreachable
-  if (!member_info->is_unreachable())
+  if (!member_info.is_unreachable())
     member_state = Group_member_info::get_member_status_string(
-        member_info->get_recovery_status());
+        member_info.get_recovery_status());
   else
     member_state = Group_member_info::get_member_status_string(
         Group_member_info::MEMBER_UNREACHABLE);
@@ -114,15 +116,29 @@ bool get_group_members_info(
   callbacks.set_member_version(callbacks.context, *member_version.c_str(),
                                member_version.length());
 
-  delete member_info;
+  enum_transport_protocol incoming_connection_protocol_value = INVALID_PROTOCOL;
+  if (gcs_module == nullptr || (local_member_info->get_recovery_status() ==
+                                Group_member_info::MEMBER_OFFLINE)) {
+    // use the value that is present in the variable
+    incoming_connection_protocol_value =
+        static_cast<enum_transport_protocol>(get_communication_stack_var());
+  } else {
+    incoming_connection_protocol_value =
+        gcs_module->get_current_incoming_connections_protocol();
+  }
+
+  const char *incoming_connection_protocol =
+      Communication_stack_to_string::to_string(
+          incoming_connection_protocol_value);
+  callbacks.set_member_incoming_communication_protocol(
+      callbacks.context, *incoming_connection_protocol,
+      strlen(incoming_connection_protocol));
 
   return false;
 }
 
 bool get_group_member_stats(
     uint index, const GROUP_REPLICATION_GROUP_MEMBER_STATS_CALLBACKS &callbacks,
-    Group_member_info_manager_interface *group_member_manager,
-    Applier_module *applier_module, Gcs_operations *gcs_module,
     char *channel_name) {
   if (channel_name != nullptr) {
     callbacks.set_channel_name(callbacks.context, *channel_name,
@@ -133,11 +149,12 @@ bool get_group_member_stats(
    This case means that the plugin has never been initialized...
    and one would not be able to extract information
    */
-  if (group_member_manager == nullptr) {
+  if (group_member_mgr == nullptr) {
     return false;
   }
 
-  Group_member_info *member_info = nullptr;
+  Group_member_info member_info;
+  bool member_info_not_found = true;
   /*
     If the local member is already OFFLINE but still has the previous
     membership because is waiting for the leave view, do not report
@@ -146,19 +163,26 @@ bool get_group_member_stats(
   if (local_member_info != nullptr &&
       local_member_info->get_recovery_status() ==
           Group_member_info::MEMBER_OFFLINE) {
-    member_info = group_member_manager->get_group_member_info(
-        local_member_info->get_uuid());
+    member_info_not_found = group_member_mgr->get_group_member_info(
+        local_member_info->get_uuid(), member_info);
   } else {
-    member_info = group_member_manager->get_group_member_info_by_index(index);
+    member_info_not_found =
+        group_member_mgr->get_group_member_info_by_index(index, member_info);
   }
 
-  if (member_info == nullptr)  // The requested member is not managed...
+  if (member_info_not_found)  // The requested member is not managed...
   {
     return true; /* purecov: inspected */
   }
 
-  std::string uuid(member_info->get_uuid());
+  std::string uuid(member_info.get_uuid());
   callbacks.set_member_id(callbacks.context, *uuid.c_str(), uuid.length());
+
+  if (nullptr == local_member_info ||
+      local_member_info->get_recovery_status() ==
+          Group_member_info::MEMBER_OFFLINE) {
+    return false;
+  }
 
   // Retrieve view information
   Gcs_view *view = gcs_module->get_current_view();
@@ -176,15 +200,39 @@ bool get_group_member_stats(
         "wait_for signal.resume_get_group_member_stats";
     assert(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
   });
-  // Check if the group replication has started and a valid certifier exists
-  MUTEX_LOCK(lock, get_plugin_running_lock());
+
+  Checkable_rwlock::Guard g(*get_plugin_running_lock(),
+                            Checkable_rwlock::READ_LOCK);
+
+  DBUG_EXECUTE_IF(
+      "group_replication_get_group_member_stats_plugin_running_lock_acquired", {
+        const char act[] =
+            "now signal "
+            "signal.reached_get_group_member_stats_plugin_running_lock_"
+            "acquired "
+            "wait_for "
+            "signal.resume_get_group_member_stats_plugin_running_lock_acquired";
+        assert(!debug_sync_set_action(current_thd, STRING_WITH_LEN(act)));
+      });
+
+  /*
+    Protect the access to `applier_module` against concurrent auto-rejoin
+    attempts which may destroy `applier_module` while is it being used to
+    fetch the pipeline stats.
+  */
+  MUTEX_LOCK(lock, get_plugin_applier_module_initialize_terminate_lock());
+
+  /*
+    Check if the group replication is running and a valid certifier exists,
+    while plugin_running_lock is acquired.
+  */
   Pipeline_member_stats *pipeline_stats = nullptr;
   if (!get_plugin_is_stopping() && applier_module != nullptr &&
       (pipeline_stats =
            ((local_member_info && !local_member_info->get_uuid().compare(uuid))
                 ? applier_module->get_local_pipeline_stats()
                 : applier_module->get_flow_control_module()->get_pipeline_stats(
-                      member_info->get_gcs_member_id().get_member_id()))) !=
+                      member_info.get_gcs_member_id().get_member_id()))) !=
           nullptr) {
     std::string last_conflict_free_transaction;
     pipeline_stats->get_transaction_last_conflict_free(
@@ -227,8 +275,6 @@ bool get_group_member_stats(
     /* clean-up */
     delete pipeline_stats;
   }
-
-  delete member_info;
 
   return false;
 }

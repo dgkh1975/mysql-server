@@ -1,15 +1,16 @@
--- Copyright (c) 2009, 2021, Oracle and/or its affiliates.
+-- Copyright (c) 2009, 2024, Oracle and/or its affiliates.
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License, version 2.0,
 -- as published by the Free Software Foundation.
 --
--- This program is also distributed with certain software (including
+-- This program is designed to work with certain software (including
 -- but not limited to OpenSSL) that is licensed under separate terms,
 -- as designated in a particular file or component or in included license
 -- documentation.  The authors of MySQL hereby grant you an additional
 -- permission to link the program and your derivative works with the
--- separately licensed software that they have included with MySQL.
+-- separately licensed software that they have either included with
+-- the program or referenced in the documentation.
 --
 -- This program is distributed in the hope that it will be useful,
 -- but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -137,6 +138,20 @@ create table varbinarytypes (
 
 ) ENGINE=ndbcluster DEFAULT CHARSET=latin1;
 
+drop table if exists dynamicstringpks;
+create table dynamicstringpks (
+  key1 VARCHAR(85) collate utf8_unicode_ci NOT NULL,
+  key2 VARCHAR(85) collate utf8_unicode_ci NOT NULL,
+  key3 VARCHAR(85) collate utf8_unicode_ci NOT NULL,
+  key4 INT NOT NULL,
+  key5 VARCHAR(85) collate utf8_unicode_ci NOT NULL,
+  key6 INT NOT NULL,
+  key7 VARCHAR(85) collate utf8_unicode_ci NOT NULL,
+  number INT NOT NULL,
+  name VARCHAR(10) NOT NULL,
+  PRIMARY KEY (key1, key2, key3, key4, key5, key6, key7)
+) ENGINE=ndbcluster DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
 drop table if exists binarypk;
 create table binarypk (
  id binary(255) primary key not null,
@@ -183,13 +198,13 @@ create table charsetutf8 (
  mediumcolumn varchar(500),
  largecolumn text(10000)
 
-) ENGINE=ndbcluster DEFAULT CHARSET=utf8;
+) ENGINE=ndbcluster DEFAULT CHARSET=utf8mb3;
 
 drop table if exists charsetswedishutf8;
 create table charsetswedishutf8 (
  id int not null primary key,
  swedishcolumn char(4) COLLATE latin1_swedish_ci,
- utfcolumn char(4) COLLATE utf8_general_ci
+ utfcolumn char(4) COLLATE utf8mb3_general_ci
  
 ) ENGINE=ndbcluster;
  

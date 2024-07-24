@@ -1,15 +1,16 @@
-# Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,6 +24,7 @@
 # Test session API
 
 DISABLE_MISSING_PROFILE_WARNING()
+MSVC_CPPCHECK_DISABLE()
 
 MYSQL_ADD_PLUGIN(test_session_in_thd
   test_session_in_thd.cc
@@ -60,14 +62,8 @@ MYSQL_ADD_PLUGIN(test_session_attach
   MODULE_ONLY
   MODULE_OUTPUT_NAME "libtest_session_attach"
   TEST_ONLY
+  WIN_DEF_FILE "${CMAKE_CURRENT_SOURCE_DIR}/test_session_attach.def"
   )
-
-# MYSQL_ADD_PLUGIN may have decided not to build it.
-IF(WIN32 AND TARGET test_session_attach)
-  MY_TARGET_LINK_OPTIONS(test_session_attach
-    "/DEF:${CMAKE_CURRENT_SOURCE_DIR}/test_session_attach.def"
-    )
-ENDIF()
 
 # Test SQL API
 MYSQL_ADD_PLUGIN(test_sql_complex

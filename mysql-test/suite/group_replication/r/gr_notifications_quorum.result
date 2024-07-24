@@ -1,7 +1,7 @@
 include/group_replication.inc [rpl_server_count=3]
 Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
-Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Note	####	Storing MySQL user name or password information in the connection metadata repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START REPLICA; see the 'START REPLICA Syntax' in the MySQL Manual for more information.
 [connection server1]
 [connection server1]
 # Adding debug point 'register_gms_listener_example' to @@GLOBAL.debug
@@ -36,6 +36,7 @@ CREATE TABLE t1 (c1 INT NOT NULL PRIMARY KEY) ENGINE=InnoDB;
 include/rpl_sync.inc
 [connection server_3]
 [connection server3]
+# Kill and restart
 [connection server_3]
 [connection server1]
 include/rpl_gr_wait_for_number_of_members.inc
@@ -50,6 +51,7 @@ include/assert.inc [Assert that there are 2 notifications logged]
 ##########################################################
 [connection server_2]
 [connection server2]
+# Kill and restart
 [connection server_2]
 [connection server1]
 include/gr_wait_for_member_state.inc
@@ -81,6 +83,7 @@ include/start_and_bootstrap_group_replication.inc
 include/start_group_replication.inc
 [connection server_2]
 [connection server2]
+# Kill and restart
 [connection server_2]
 [connection server1]
 include/gr_wait_for_member_state.inc

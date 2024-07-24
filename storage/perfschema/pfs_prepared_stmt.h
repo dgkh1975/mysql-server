@@ -1,15 +1,16 @@
-/* Copyright (c) 2013, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2013, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -32,6 +33,7 @@
 
 #include "include/mysql/psi/mysql_ps.h"
 #include "my_inttypes.h"
+#include "storage/perfschema/pfs_name.h"
 #include "storage/perfschema/pfs_program.h"
 #include "storage/perfschema/pfs_stat.h"
 
@@ -62,18 +64,19 @@ struct PFS_ALIGNED PFS_prepared_stmt : public PFS_instr {
   enum_object_type m_owner_object_type;
 
   /** Column OBJECT_OWNER_SCHEMA. */
-  char m_owner_object_schema[COL_OBJECT_SCHEMA_SIZE];
-  uint m_owner_object_schema_length;
+  PFS_schema_name m_owner_object_schema;
 
   /** Column OBJECT_OWNER_NAME. */
-  char m_owner_object_name[COL_OBJECT_NAME_SIZE];
-  uint m_owner_object_name_length;
+  PFS_object_name m_owner_object_name;
 
   /** COLUMN TIMER_PREPARE. Prepared statement prepare stat. */
   PFS_single_stat m_prepare_stat;
 
   /** COLUMN COUNT_REPREPARE. Prepared statement re-prepare stat. */
   PFS_single_stat m_reprepare_stat;
+
+  /** COLUMN EXECUTION_ENGINE. */
+  bool m_secondary;
 
   /** Prepared statement execution stat. */
   PFS_statement_stat m_execute_stat;
@@ -83,7 +86,7 @@ struct PFS_ALIGNED PFS_prepared_stmt : public PFS_instr {
 };
 
 int init_prepared_stmt(const PFS_global_param *param);
-void cleanup_prepared_stmt(void);
+void cleanup_prepared_stmt();
 
 void reset_prepared_stmt_instances();
 

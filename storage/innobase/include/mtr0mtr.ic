@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 1995, 2021, Oracle and/or its affiliates.
+Copyright (c) 1995, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -41,21 +42,6 @@ void mtr_t::memo_push(void *object, mtr_memo_type_t type) {
   ut_ad(type <= MTR_MEMO_SX_LOCK);
   ut_ad(m_impl.m_magic_n == MTR_MAGIC_N);
   ut_ad(ut_is_2pow(type));
-
-  /* If this mtr has x-fixed a clean page then we set
-  the made_dirty flag. This tells us if we need
-  insert the dirtied page to the flush list in mtr_commit. */
-
-  if ((type == MTR_MEMO_PAGE_X_FIX || type == MTR_MEMO_PAGE_SX_FIX) &&
-      !m_impl.m_made_dirty) {
-    m_impl.m_made_dirty =
-        is_block_dirtied(reinterpret_cast<const buf_block_t *>(object));
-  } else if (type == MTR_MEMO_BUF_FIX && !m_impl.m_made_dirty) {
-    if (reinterpret_cast<const buf_block_t *>(object)
-            ->made_dirty_with_no_latch) {
-      m_impl.m_made_dirty = true;
-    }
-  }
 
   mtr_memo_slot_t *slot;
 
@@ -110,11 +96,7 @@ void mtr_t::sx_latch_at_savepoint(ulint savepoint, buf_block_t *block) {
   /* == RW_NO_LATCH */
   ut_a(slot->type == MTR_MEMO_BUF_FIX);
 
-  rw_lock_sx_lock(&block->lock);
-
-  if (!m_impl.m_made_dirty) {
-    m_impl.m_made_dirty = is_block_dirtied(block);
-  }
+  rw_lock_sx_lock(&block->lock, UT_LOCATION_HERE);
 
   slot->type = MTR_MEMO_PAGE_SX_FIX;
 }
@@ -139,11 +121,7 @@ void mtr_t::x_latch_at_savepoint(ulint savepoint, buf_block_t *block) {
   /* == RW_NO_LATCH */
   ut_a(slot->type == MTR_MEMO_BUF_FIX);
 
-  rw_lock_x_lock(&block->lock);
-
-  if (!m_impl.m_made_dirty) {
-    m_impl.m_made_dirty = is_block_dirtied(block);
-  }
+  rw_lock_x_lock(&block->lock, UT_LOCATION_HERE);
 
   slot->type = MTR_MEMO_PAGE_X_FIX;
 }
@@ -170,7 +148,7 @@ void mtr_t::release_block_at_savepoint(ulint savepoint, buf_block_t *block) {
 
 /**
 Gets the logging mode of a mini-transaction.
-@return	logging mode: MTR_LOG_NONE, ... */
+@return logging mode: MTR_LOG_NONE, ... */
 
 mtr_log_t mtr_t::get_log_mode() const {
   ut_ad(m_impl.m_log_mode >= MTR_LOG_ALL);
@@ -183,8 +161,8 @@ mtr_log_t mtr_t::get_log_mode() const {
 /**
 Locks a lock in s-mode. */
 
-void mtr_t::s_lock(rw_lock_t *lock, const char *file, ulint line) {
-  rw_lock_s_lock_inline(lock, 0, file, line);
+void mtr_t::s_lock(rw_lock_t *lock, ut::Location location) {
+  rw_lock_s_lock_gen(lock, 0, location);
 
   memo_push(lock, MTR_MEMO_S_LOCK);
 }
@@ -192,8 +170,8 @@ void mtr_t::s_lock(rw_lock_t *lock, const char *file, ulint line) {
 /**
 Locks a lock in x-mode. */
 
-void mtr_t::x_lock(rw_lock_t *lock, const char *file, ulint line) {
-  rw_lock_x_lock_inline(lock, 0, file, line);
+void mtr_t::x_lock(rw_lock_t *lock, ut::Location location) {
+  rw_lock_x_lock_gen(lock, 0, location);
 
   memo_push(lock, MTR_MEMO_X_LOCK);
 }
@@ -201,8 +179,8 @@ void mtr_t::x_lock(rw_lock_t *lock, const char *file, ulint line) {
 /**
 Locks a lock in sx-mode. */
 
-void mtr_t::sx_lock(rw_lock_t *lock, const char *file, ulint line) {
-  rw_lock_sx_lock_inline(lock, 0, file, line);
+void mtr_t::sx_lock(rw_lock_t *lock, ut::Location location) {
+  rw_lock_sx_lock_gen(lock, 0, location);
 
   memo_push(lock, MTR_MEMO_SX_LOCK);
 }
@@ -210,7 +188,7 @@ void mtr_t::sx_lock(rw_lock_t *lock, const char *file, ulint line) {
 
 /**
 Reads 1 - 4 bytes from a file page buffered in the buffer pool.
-@return	value read */
+@return value read */
 
 uint32_t mtr_t::read_ulint(const byte *ptr, mlog_id_t type) const {
   ut_ad(is_active());

@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -101,7 +102,7 @@ Cell Indexed_cells::cell(size_t i, const Index &index) const {
     case Data_location::ROW:
       return ...;
   }
-  abort();  <-- this is executed when m_data_location == Data_location::ROW
+  my_abort();  <-- this is executed when m_data_location == Data_location::ROW
   and compiled with "Studio 12.5 Sun C++ 5.14 SunOS_sparc 2016/05/31" !!!
   So we use if-else instead of switch below. */
   if (m_data_location == Data_location::MYSQL_BUF_INDEX_READ) {
@@ -115,7 +116,7 @@ Cell Indexed_cells::cell(size_t i, const Index &index) const {
   }
 
   /* Not reached. */
-  abort();
+  my_abort();
   return Cell{false, 0, nullptr};
 }
 
@@ -217,7 +218,7 @@ Cell Indexed_cells::cell_from_mysql_buf_index_read(size_t i,
       break;
     default:
       /* Don't know how to handle this. */
-      abort();
+      my_abort();
   }
 
   const unsigned char *data = p + user_data_offset_in_cell;

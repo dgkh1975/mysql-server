@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -166,9 +167,13 @@ inline size_t Cell_calculator::hash(const Cell &cell) const {
   }
 
   auto data_length = cell.data_length();
-  if (data_length == 0) {
-    return 0;
-  }
+  /*
+   * If the collation of field to calculate hash is with PAD_SPACE attribute,
+   * empty string '' and space ' ' will be calculated as different hash values,
+   * because we handle empty string '' directly (return 0), and calculate hash
+   * with cs for space ' '. But actually, for collations with PAD_SPACE
+   * attribute empty string '' should be equal with space ' '. Do not return
+   * hash value 0 if data_length == 0. */
 
   auto data = cell.data();
 
@@ -199,7 +204,7 @@ inline size_t Cell_calculator::hash(const Cell &cell) const {
         std::min(static_cast<size_t>(data_length),
                  my_charpos(m_cs, data, data + data_length, m_char_length));
   } else {
-    abort();
+    my_abort();
   }
 
   /* If the field is space padded but collation do not want to use
@@ -264,7 +269,7 @@ inline int Cell_calculator::compare(const Cell &lhs, const Cell &rhs) const {
         static_cast<size_t>(rhs_data_length),
         my_charpos(m_cs, rhs_data, rhs_data + rhs_data_length, m_char_length));
   } else {
-    abort();
+    my_abort();
   }
 
   /* If the field is space padded but collation do not want to use

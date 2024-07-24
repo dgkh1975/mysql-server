@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -40,10 +41,6 @@
 #include "sql/sql_lex_hash.h"
 #include "sql_chars.h"
 
-// This must be last, due to bison 2.3 on OsX
-#ifndef YYSTYPE_IS_DECLARED
-#define YYSTYPE_IS_DECLARED 1
-#endif  // YYSTYPE_IS_DECLARED
 #include "sql/sql_hints.yy.h"
 
 class PT_hint_list;
@@ -153,8 +150,10 @@ class Hint_scanner {
 
             ptr++;  // skip closing quote
 
-            if (thd->charset_is_system_charset && double_separators == 0)
+            if (thd->charset_is_system_charset && double_separators == 0) {
+              yytext = thd->strmake(yytext, yyleng);  // null-terminate it.
               return ret;
+            }
 
             LEX_STRING s;
             if (!thd->charset_is_system_charset) {
@@ -363,7 +362,7 @@ class Hint_scanner {
     @param byte         A byte to compare with the byte we skip.
                         Unused in non-debug builds.
   */
-  void skip_byte(char byte MY_ATTRIBUTE((unused))) {
+  void skip_byte(char byte [[maybe_unused]]) {
     assert(peek_byte() == byte);
     skip_byte();
   }
@@ -374,7 +373,7 @@ class Hint_scanner {
     @param str          A string of characters to compare with the next byte.
                         Unused in non-debug builds.
   */
-  void skip_byte(const char *str MY_ATTRIBUTE((unused))) {
+  void skip_byte(const char *str [[maybe_unused]]) {
     assert(strchr(str, peek_byte()));
     skip_byte();
   }

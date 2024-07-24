@@ -1,15 +1,16 @@
-# Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,15 +31,15 @@ ENDIF()
 # ld.lld: error:
 # /usr/lib64/clang/7.0.1/lib/linux/libclang_rt.fuzzer-x86_64.a
 # (FuzzerLoop.cpp.o): unsupported SHT_GROUP format
-IF(USE_LD_LLD AND C_LD_LLD_RESULT AND CXX_LD_LLD_RESULT)
-  STRING(REPLACE "-fuse-ld=lld" ""
-    CMAKE_C_LINK_FLAGS ${CMAKE_C_LINK_FLAGS})
-  STRING(REPLACE "-fuse-ld=lld" ""
-    CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS})
-  STRING(REPLACE "-Wl,--gdb-index" ""
-    CMAKE_C_LINK_FLAGS ${CMAKE_C_LINK_FLAGS})
-  STRING(REPLACE "-Wl,--gdb-index" ""
-    CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS})
+IF(USING_LD_LLD)
+  FOREACH(flag
+      CMAKE_EXE_LINKER_FLAGS
+      CMAKE_MODULE_LINKER_FLAGS
+      CMAKE_SHARED_LINKER_FLAGS
+      )
+    STRING(REPLACE "-fuse-ld=lld" "" ${flag} "${${flag}}")
+    STRING(REPLACE "-Wl,--gdb-index" "" ${flag} "${${flag}}")
+  ENDFOREACH()
 ENDIF()
 
 # check if clang knows about the coverage and trace-pc-guard
@@ -186,9 +187,8 @@ FUNCTION(LIBFUZZER_ADD_TEST TARGET)
       )
   ENDIF()
 
-  # use cmake -E env to set the LLVM_PROFILE_FILE in a portable way
-  ADD_TEST(${TARGET}
-            ${TARGET}
+  ADD_TEST(NAME ${TARGET}
+    COMMAND ${TARGET}
             -max_total_time=${ARG_MAX_TOTAL_TIME} -timeout=${ARG_TIMEOUT}
             -artifact_prefix=${BINARY_ARTIFACT_DIR}/
             ${BINARY_CORPUS_DIR}

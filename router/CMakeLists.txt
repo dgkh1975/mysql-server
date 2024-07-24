@@ -1,15 +1,16 @@
-# Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -36,6 +37,7 @@ CMAKE_POLICY(SET CMP0048 NEW)
 # only interpret if() arguments as variables or keywords when unquoted
 CMAKE_POLICY(SET CMP0054 NEW)
 PROJECT("MySQLRouter" VERSION ${PROJECT_VERSION_TEXT} LANGUAGES C CXX)
+MSVC_CPPCHECK_DISABLE()
 
 # In CMake 3.12 and above, the
 #
@@ -55,14 +57,6 @@ IF(SOLARIS)
   # shared objects that build with -fPIC
   ADD_DEFINITIONS(-DRAPIDJSON_48BITPOINTER_OPTIMIZATION=0)
 
-  # Sun Studio 12.6 creates a bogus code when -x02 is used
-  # that crashes whenever std::condition_variable::wait_for() is used
-  IF(SOLARIS_INTEL AND MY_COMPILER_IS_SUNPRO)
-    STRING_APPEND(CMAKE_CXX_FLAGS_RELWITHDEBINFO " -xO1")
-    STRING_APPEND(CMAKE_CXX_FLAGS_RELEASE " -xO1")
-    STRING_APPEND(CMAKE_CXX_FLAGS_MINSIZEREL " -xO1")
-  ENDIF()
-
   # MD5_Init() and others are deprecated.
   IF(MY_COMPILER_IS_GNU_OR_CLANG)
     ADD_COMPILE_OPTIONS("-Wno-deprecated-declarations")
@@ -73,21 +67,16 @@ ENDIF()
 # version definition index 0 for symbol __gcov_var is out of bounds
 IF(ENABLE_GCOV)
   STRING(REPLACE "-fuse-ld=lld" ""
-    CMAKE_C_LINK_FLAGS ${CMAKE_C_LINK_FLAGS})
+    CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS}")
   STRING(REPLACE "-fuse-ld=lld" ""
-    CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS})
+    CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS}")
   STRING(REPLACE "-Wl,--gdb-index" ""
-    CMAKE_C_LINK_FLAGS ${CMAKE_C_LINK_FLAGS})
+    CMAKE_C_LINK_FLAGS "${CMAKE_C_LINK_FLAGS}")
   STRING(REPLACE "-Wl,--gdb-index" ""
-    CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS})
+    CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS}")
 ENDIF()
 
 DISABLE_MISSING_PROFILE_WARNING()
-
-IF(WIN32)
-  # Activate necessary dllexport/dllimport declarations.
-  ADD_DEFINITIONS(-DPROTOBUF_USE_DLLS)
-ENDIF()
 
 IF(WIN32)
   # 'identifier' : class 'type' needs to have dll-interface to be used

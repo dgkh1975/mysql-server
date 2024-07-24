@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 1997, 2021, Oracle and/or its affiliates.
+Copyright (c) 1997, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -43,7 +44,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 class MVCC {
  public:
   /** Constructor
-  @param size		Number of views to pre-allocate */
+  @param size           Number of views to pre-allocate */
   explicit MVCC(ulint size);
 
   /** Destructor.
@@ -51,21 +52,21 @@ class MVCC {
   ~MVCC();
 
   /** Allocate and create a view.
-  @param view	View owned by this class created for the caller. Must be
+  @param view   View owned by this class created for the caller. Must be
   freed by calling view_close()
-  @param trx	Transaction instance of caller */
+  @param trx    Transaction instance of caller */
   void view_open(ReadView *&view, trx_t *trx);
 
   /**
   Close a view created by the above function.
-  @param view		view allocated by trx_open.
-  @param own_mutex	true if caller owns trx_sys_t::mutex */
+  @param view           view allocated by trx_open.
+  @param own_mutex      true if caller owns trx_sys_t::mutex */
   void view_close(ReadView *&view, bool own_mutex);
 
   /**
   Release a view that is inactive but not closed. Caller must own
   the trx_sys_t::mutex.
-  @param view		View to release */
+  @param view           View to release */
   void view_release(ReadView *&view);
 
   /** Clones the oldest view and stores it in view. No need to
@@ -73,7 +74,7 @@ class MVCC {
   It will also move the closed views from the m_views list to the
   m_free list. This function is called by Purge to determine whether it should
   purge the delete marked record or not.
-  @param view		Preallocated view, owned by the caller */
+  @param view           Preallocated view, owned by the caller */
   void clone_oldest_view(ReadView *view);
 
   /**
@@ -89,7 +90,7 @@ class MVCC {
   }
 
   /**
-  Set the view creator transaction id. Note: This shouldbe set only
+  Set the view creator transaction id. Note: This should be set only
   for views created by RW transactions.
   @param view   Set the creator trx id for this view
   @param id     Transaction id to set */

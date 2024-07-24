@@ -1,18 +1,19 @@
 /*****************************************************************************
 
 
-Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -83,22 +84,21 @@ dberr_t Arch_Dblwr_Ctx::init(const char *dblwr_path,
                              uint64_t dblwr_file_size) {
   m_file_size = dblwr_file_size;
 
-  m_buf = static_cast<byte *>(UT_NEW_ARRAY_NOKEY(byte, m_file_size));
+  m_buf = static_cast<byte *>(
+      ut::zalloc_withkey(UT_NEW_THIS_FILE_PSI_KEY, m_file_size));
 
   if (m_buf == nullptr) {
     return DB_OUT_OF_MEMORY;
   }
 
-  memset(m_buf, 0, m_file_size);
-
-  auto err = m_file_ctx.init(ARCH_DIR, dblwr_path, dblwr_base_file,
-                             dblwr_num_files, m_file_size);
+  auto err =
+      m_file_ctx.init(ARCH_DIR, dblwr_path, dblwr_base_file, dblwr_num_files);
 
   return err;
 }
 
 dberr_t Arch_Dblwr_Ctx::read_file() {
-  auto err = m_file_ctx.open(true, LSN_MAX, 0, 0);
+  auto err = m_file_ctx.open(true, LSN_MAX, 0, 0, m_file_size);
 
   if (err != DB_SUCCESS) {
     return err;
@@ -166,7 +166,7 @@ void Arch_Dblwr_Ctx::validate_and_fill_blocks(size_t num_files) {
         break;
 
       default:
-        ut_ad(false);
+        ut_d(ut_error);
     }
 
     dblwr_block.m_block = dblwr_block_offset;
@@ -287,7 +287,8 @@ dberr_t Arch_Group::Recovery::replace_pages_from_dblwr(
 
   auto &file_ctx = m_group->m_file_ctx;
 
-  err = file_ctx.open(false, m_group->m_begin_lsn, num_files - 1, 0);
+  err = file_ctx.open(false, m_group->m_begin_lsn, num_files - 1, 0,
+                      m_group->get_file_size());
 
   if (err != DB_SUCCESS) {
     return err;
@@ -327,7 +328,8 @@ dberr_t Arch_Group::Recovery::cleanup_if_required(Arch_Recv_Group_Info &info) {
   ut_ad(file_ctx.is_closed());
 
   /* Open the last file in the group. */
-  auto err = file_ctx.open(true, m_group->m_begin_lsn, index, 0);
+  auto err = file_ctx.open(true, m_group->m_begin_lsn, index, 0,
+                           m_group->get_file_size());
 
   if (err != DB_SUCCESS) {
     return err;
@@ -335,7 +337,11 @@ dberr_t Arch_Group::Recovery::cleanup_if_required(Arch_Recv_Group_Info &info) {
 
   Arch_scope_guard file_ctx_guard([&file_ctx] { file_ctx.close(); });
 
-  if (file_ctx.get_phy_size() != 0 && info.m_durable) {
+  /* We check whether the archive file has anything else apart from the header
+   * that was written to it during creation phase and treat it as an empty file
+   * if it only has the header. */
+
+  if (file_ctx.get_phy_size() > m_group->m_header_len && info.m_durable) {
     return DB_SUCCESS;
   }
 
@@ -380,25 +386,23 @@ dberr_t Arch_Group::Recovery::cleanup_if_required(Arch_Recv_Group_Info &info) {
   }
 
   /* Need to reinitialize the file context as num_files has changed. */
-  err = file_ctx.init(
-      ARCH_DIR, ARCH_PAGE_DIR, ARCH_PAGE_FILE, info.m_num_files,
-      static_cast<uint64_t>(ARCH_PAGE_BLK_SIZE) * ARCH_PAGE_FILE_CAPACITY);
+  err =
+      file_ctx.init(ARCH_DIR, ARCH_PAGE_DIR, ARCH_PAGE_FILE, info.m_num_files);
 
   return err;
 }
 
 dberr_t Arch_Page_Sys::Recovery::recover() {
   dberr_t err = DB_SUCCESS;
-  uint num_active = 0;
+  uint num_active [[maybe_unused]] = 0;
 
   for (auto info = m_dir_group_info_map.begin();
        info != m_dir_group_info_map.end(); ++info) {
     auto &group_info = info->second;
 
-    auto group =
-        UT_NEW(Arch_Group(group_info.m_start_lsn, ARCH_PAGE_FILE_HDR_SIZE,
-                          m_page_sys->get_mutex()),
-               mem_key_archive);
+    Arch_Group *group = ut::new_withkey<Arch_Group>(
+        ut::make_psi_memory_key(mem_key_archive), group_info.m_start_lsn,
+        ARCH_PAGE_FILE_HDR_SIZE, m_page_sys->get_mutex());
 
     if (group == nullptr) {
       return DB_OUT_OF_MEMORY;
@@ -407,12 +411,12 @@ dberr_t Arch_Page_Sys::Recovery::recover() {
     err = group->recover(group_info, &m_dblwr_ctx);
 
     if (err != DB_SUCCESS) {
-      UT_DELETE(group);
+      ut::delete_(group);
       break;
     }
 
     if (group_info.m_num_files == 0) {
-      UT_DELETE(group);
+      ut::delete_(group);
       continue;
     }
 
@@ -470,9 +474,11 @@ dberr_t Arch_Group::recover(Arch_Recv_Group_Info &group_info,
                             Arch_Dblwr_Ctx *dblwr_ctx) {
   Recovery group_recv(this);
 
-  auto err = init_file_ctx(
-      ARCH_DIR, ARCH_PAGE_DIR, ARCH_PAGE_FILE, group_info.m_num_files,
-      static_cast<uint64_t>(ARCH_PAGE_BLK_SIZE) * ARCH_PAGE_FILE_CAPACITY);
+  const auto file_size =
+      static_cast<uint64_t>(ARCH_PAGE_BLK_SIZE) * ARCH_PAGE_FILE_CAPACITY;
+
+  auto err = init_file_ctx(ARCH_DIR, ARCH_PAGE_DIR, ARCH_PAGE_FILE,
+                           group_info.m_num_files, file_size, 0);
 
   if (err != DB_SUCCESS) {
     return err;
@@ -582,9 +588,11 @@ dberr_t Arch_Group::Recovery::parse(Arch_Recv_Group_Info &info) {
     Arch_scope_guard file_ctx_guard([&file_ctx] { file_ctx.close(); });
 
     if (file_index == start_index) {
-      err = file_ctx.open(true, m_group->m_begin_lsn, start_index, 0);
+      err = file_ctx.open(true, m_group->m_begin_lsn, start_index, 0,
+                          m_group->get_file_size());
     } else {
-      err = file_ctx.open_next(m_group->m_begin_lsn, 0);
+      err =
+          file_ctx.open_next(m_group->m_begin_lsn, 0, m_group->get_file_size());
     }
 
     if (err != DB_SUCCESS) {
@@ -675,7 +683,7 @@ dberr_t Arch_File_Ctx::Recovery::parse_reset_points(
     /* This means there was no reset for this file and hence the
     reset block was not flushed. */
 
-    ut_ad(Arch_Block::is_zeroes(buf));
+    ut_ad(ut::is_zeros(buf, ARCH_PAGE_BLK_SIZE));
     info.m_reset_pos.init();
     info.m_reset_pos.m_block_num = file_index;
     return err;

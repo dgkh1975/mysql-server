@@ -1,15 +1,16 @@
-/* Copyright (c) 2004, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2004, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    Without limiting anything contained in the foregoing, this file,
    which is part of C Driver for MySQL (Connector/C), is also subject to the
@@ -225,20 +226,26 @@ static inline dec1 mod_by_pow10(dec1 x, int p) {
 
 #define sanity(d) assert((d)->len > 0)
 
-#define FIX_INTG_FRAC_ERROR(len, intg1, frac1, error) \
-  do {                                                \
-    if (unlikely(intg1 + frac1 > (len))) {            \
-      if (unlikely(intg1 > (len))) {                  \
-        intg1 = (len);                                \
-        frac1 = 0;                                    \
-        error = E_DEC_OVERFLOW;                       \
-      } else {                                        \
-        frac1 = (len)-intg1;                          \
-        error = E_DEC_TRUNCATED;                      \
-      }                                               \
-    } else                                            \
-      error = E_DEC_OK;                               \
-  } while (0)
+namespace {
+/**
+  Verifies input arguments len, intg1 and frac1, and sets error output
+  argument to indicate over/under-flow or OK.
+ */
+inline void fix_intg_frac_error(const int &len, int *intg1, int *frac1,
+                                int *error) {
+  if (*intg1 + *frac1 > len) {
+    if (*intg1 > len) {
+      *intg1 = len;
+      *frac1 = 0;
+      *error = E_DEC_OVERFLOW;
+    } else {
+      *frac1 = len - *intg1;
+      *error = E_DEC_TRUNCATED;
+    }
+  } else
+    *error = E_DEC_OK;
+}
+}  // namespace
 
 #define ADD(to, from1, from2, carry) /* assume carry <= 1 */ \
   do {                                                       \
@@ -298,34 +305,44 @@ static inline int count_leading_zeroes(int i, dec1 val) {
     /* @note Intentional fallthrough in all case labels */
     case 9:
       if (val >= 1000000000) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 8:
       if (val >= 100000000) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 7:
       if (val >= 10000000) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 6:
       if (val >= 1000000) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 5:
       if (val >= 100000) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 4:
       if (val >= 10000) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 3:
       if (val >= 1000) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 2:
       if (val >= 100) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 1:
       if (val >= 10) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 0:
       if (val >= 1) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     default: {
       assert(false);
     }
@@ -354,34 +371,44 @@ static inline int count_trailing_zeroes(int i, dec1 val) {
     /* @note Intentional fallthrough in all case labels */
     case 0:
       if ((uval % 1) != 0) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 1:
       if ((uval % 10) != 0) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 2:
       if ((uval % 100) != 0) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 3:
       if ((uval % 1000) != 0) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 4:
       if ((uval % 10000) != 0) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 5:
       if ((uval % 100000) != 0) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 6:
       if ((uval % 1000000) != 0) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 7:
       if ((uval % 10000000) != 0) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 8:
       if ((uval % 100000000) != 0) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     case 9:
       if ((uval % 1000000000) != 0) break;
-      ++ret;  // Fall through.
+      ++ret;
+      [[fallthrough]];
     default: {
       assert(false);
     }
@@ -619,7 +646,7 @@ static void digits_bounds(const decimal_t *from, int *start_result,
   dec1 *end = from->buf + ROUND_UP(from->intg) + ROUND_UP(from->frac);
   dec1 *buf_end = end - 1;
 
-  /* find non-zero digit from number begining */
+  /* find non-zero digit from number beginning */
   while (buf_beg < end && *buf_beg == 0) buf_beg++;
 
   if (buf_beg >= end) {
@@ -628,7 +655,7 @@ static void digits_bounds(const decimal_t *from, int *start_result,
     return;
   }
 
-  /* find non-zero decimal digit from number begining */
+  /* find non-zero decimal digit from number beginning */
   if (buf_beg == from->buf && from->intg) {
     start = DIG_PER_DEC1 - (i = ((from->intg - 1) % DIG_PER_DEC1 + 1));
     i--;
@@ -723,7 +750,7 @@ static void do_mini_right_shift(decimal_t *dec, int shift, int beg, int last) {
     In fact it is multipling on 10^shift.
   RETURN
     E_DEC_OK          OK
-    E_DEC_OVERFLOW    operation lead to overflow, number is untoched
+    E_DEC_OVERFLOW    operation leads to overflow, number is untouched
     E_DEC_TRUNCATED   number was rounded to fit into buffer
 */
 
@@ -861,7 +888,7 @@ int decimal_shift(decimal_t *dec, int shift) {
   /*
     If there are gaps then fill ren with 0.
 
-    Only one of following 'for' loops will work becouse beg <= end
+    Only one of following 'for' loops will work because beg <= end
   */
   beg = ROUND_UP(beg + 1) - 1;
   end = ROUND_UP(end) - 1;
@@ -909,6 +936,9 @@ int string2decimal(const char *from, decimal_t *to, const char **end) {
   while (s < end_of_string && my_isspace(&my_charset_latin1, *s)) s++;
   if (s == end_of_string) goto fatal_error;
 
+  // Skip leading zeros.
+  while (s < (end_of_string - 1) && s[0] == '0' && s[1] == '0') s++;
+
   if ((to->sign = (*s == '-')))
     s++;
   else if (*s == '+')
@@ -935,13 +965,13 @@ int string2decimal(const char *from, decimal_t *to, const char **end) {
 
   intg1 = ROUND_UP(intg);
   frac1 = ROUND_UP(frac);
-  FIX_INTG_FRAC_ERROR(to->len, intg1, frac1, error);
+  fix_intg_frac_error(to->len, &intg1, &frac1, &error);
   if (unlikely(error)) {
     frac = frac1 * DIG_PER_DEC1;
     if (error == E_DEC_OVERFLOW) intg = intg1 * DIG_PER_DEC1;
   }
 
-  /* Error is guranteed to be set here */
+  /* Error is guaranteed to be set here */
   to->intg = intg;
   to->frac = frac;
 
@@ -1009,7 +1039,7 @@ fatal_error:
   @param         new_frac the new fraction
   @param[in,out] d        the decimal target
 
-  new_frac is exected to be larger or equal than cd->frac and
+  new_frac is expected to >= than cd->frac and
   new fraction is expected to fit in d.
 */
 void widen_fraction(int new_frac, decimal_t *d) {
@@ -1473,7 +1503,7 @@ int bin2decimal(const uchar *from, decimal_t *to, int precision, int scale,
   d_copy[0] ^= 0x80;
   from = d_copy;
 
-  FIX_INTG_FRAC_ERROR(to->len, intg1, frac1, error);
+  fix_intg_frac_error(to->len, &intg1, &frac1, &error);
   if (unlikely(error)) {
     if (intg1 < intg0 + (intg0x > 0)) {
       from += dig2bytes[intg0x] + sizeof(dec1) * (intg0 - intg1);
@@ -1827,7 +1857,7 @@ static int do_add(const decimal_t *from1, const decimal_t *from2,
     to->buf[0] = 0; /* safety */
   }
 
-  FIX_INTG_FRAC_ERROR(to->len, intg0, frac0, error);
+  fix_intg_frac_error(to->len, &intg0, &frac0, &error);
   if (unlikely(error == E_DEC_OVERFLOW)) {
     max_decimal(to->len * DIG_PER_DEC1, 0, to);
     return error;
@@ -1886,9 +1916,10 @@ static int do_sub(const decimal_t *from1, const decimal_t *from2,
   int intg1 = ROUND_UP(from1->intg), intg2 = ROUND_UP(from2->intg),
       frac1 = ROUND_UP(from1->frac), frac2 = ROUND_UP(from2->frac);
   int frac0 = std::max(frac1, frac2), error;
-  dec1 *buf1, *buf2, *buf0, *stop1, *stop2, *start1, *start2, carry = 0;
+  dec1 *buf1, *buf2, *buf0, *stop1, *stop2, *start1, *start2;
+  bool carry = false;
 
-  /* let carry:=1 if from2 > from1 */
+  /* let carry:=true if from2 > from1 */
   start1 = buf1 = from1->buf;
   stop1 = buf1 + intg1;
   start2 = buf2 = from2->buf;
@@ -1904,7 +1935,7 @@ static int do_sub(const decimal_t *from1, const decimal_t *from2,
     intg2 = (int)(stop2 - buf2);
   }
   if (intg2 > intg1)
-    carry = 1;
+    carry = true;
   else if (intg2 == intg1) {
     dec1 *end1 = stop1 + (frac1 - 1);
     dec1 *end2 = stop2 + (frac2 - 1);
@@ -1917,10 +1948,10 @@ static int do_sub(const decimal_t *from1, const decimal_t *from2,
       if (buf2 <= end2)
         carry = *buf2 > *buf1;
       else
-        carry = 0;
+        carry = false;
     } else {
       if (buf2 <= end2)
-        carry = 1;
+        carry = true;
       else /* short-circuit everything: from1 == from2 */
       {
         if (to == nullptr) /* decimal_cmp() */
@@ -1947,7 +1978,7 @@ static int do_sub(const decimal_t *from1, const decimal_t *from2,
     to->sign = 1 - to->sign;
   }
 
-  FIX_INTG_FRAC_ERROR(to->len, intg1, frac0, error);
+  fix_intg_frac_error(to->len, &intg1, &frac0, &error);
   buf0 = to->buf + intg1 + frac0;
 
   to->frac = std::max(from1->frac, from2->frac);
@@ -1958,7 +1989,7 @@ static int do_sub(const decimal_t *from1, const decimal_t *from2,
     frac2 = std::min(frac2, frac0);
     intg2 = std::min(intg2, intg1);
   }
-  carry = 0;
+  carry = false;
 
   /* part 1 - max(frac) ... min (frac) */
   if (frac1 > frac2) {
@@ -2077,7 +2108,7 @@ int decimal_mul(const decimal_t *from_1, const decimal_t *from_2,
 
   iii = intg0; /* save 'ideal' values */
   jjj = frac0;
-  FIX_INTG_FRAC_ERROR(to->len, intg0, frac0, error); /* bound size */
+  fix_intg_frac_error(to->len, &intg0, &frac0, &error); /* bound size */
   to->sign = from1->sign != from2->sign;
   to->frac = from1->frac + from2->frac; /* store size in digits */
   to->frac = std::min(to->frac, DECIMAL_NOT_SPECIFIED);
@@ -2267,7 +2298,7 @@ static int do_div_mod(const decimal_t *from1, const decimal_t *from2,
          prec = intg+frac
     */
     frac0 = ROUND_UP(frac1 + frac2 + scale_incr);
-    FIX_INTG_FRAC_ERROR(to->len, intg0, frac0, error);
+    fix_intg_frac_error(to->len, &intg0, &frac0, &error);
     to->sign = from1->sign != from2->sign;
     to->intg = intg0 * DIG_PER_DEC1;
     to->frac = frac0 * DIG_PER_DEC1;

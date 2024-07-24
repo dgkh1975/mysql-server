@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,6 +26,8 @@
 #ifndef MYSQL_ROUTING_DESTINATION_TLS_CONTEXT_INCLUDED
 #define MYSQL_ROUTING_DESTINATION_TLS_CONTEXT_INCLUDED
 
+#include "mysqlrouter/routing_export.h"
+
 #include <map>
 #include <mutex>
 #include <string>
@@ -35,7 +38,7 @@
 /**
  * TlsClientContext per destination.
  */
-class DestinationTlsContext {
+class ROUTING_EXPORT DestinationTlsContext {
  public:
   /**
    * set SslVerify.
@@ -92,9 +95,11 @@ class DestinationTlsContext {
    * If a TlsClientContext for the destination exists, a pointer to it is
    * returned.
    *
-   * @param dest_id identified of a destination
+   * @param dest_id  unique identifier of a destination
+   * @param hostname name of the destination host
    */
-  TlsClientContext *get(const std::string &dest_id);
+  TlsClientContext *get(const std::string &dest_id,
+                        const std::string &hostname);
 
  private:
   SslVerify ssl_verify_{SslVerify::kDisabled};

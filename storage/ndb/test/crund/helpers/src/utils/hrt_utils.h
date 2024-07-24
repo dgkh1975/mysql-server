@@ -1,17 +1,18 @@
 /*
-   Copyright (c) 2010, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2010, 2024, Oracle and/or its affiliates.
     Use is subject to license terms.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -37,7 +38,7 @@ extern "C" {
 /*
  * High-Resolution Time Measurement Utilities
  *
- * This module provides fuctions for measuring the system's real time
+ * This module provides functions for measuring the system's real time
  * and the current process's cpu time.
  *
  * In the Unix universe, various system functions exist of different
@@ -57,7 +58,7 @@ extern "C" {
  * - a default method of measuring real and cpu times by selecting
  *   the function with highest resolution available, and
  * - functions to calculate the amount of time between measurements
- *   at microsecond resolution (but not neccessarily accuracy).
+ *   at microsecond resolution (but not necessarily accuracy).
  *
  * The choice of the measurement function is controlled by the macros
  *   HRT_REALTIME_METHOD for real time and
@@ -103,13 +104,12 @@ extern "C" {
  *     #endif
  *     ...
  */
-#include <unistd.h>
 #include <stdlib.h>
-#include <time.h>
-#include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/time.h>
 #include <sys/times.h>
-
+#include <time.h>
+#include <unistd.h>
 
 /*
  * Method definitions for measuring real and cpu times.
@@ -119,7 +119,7 @@ extern "C" {
  * Use: clock_gettime()		[SUSv2, POSIX.1-2001, #include <time.h>
  *                               _POSIX_C_SOURCE >= 199309L]
  * Real time and, possibly, CPU time in nanosecond resolution (but not
- * neccessarily accuracy).  Optional support for clock types:
+ * necessarily accuracy).  Optional support for clock types:
  *   CLOCK_REALTIME             (systemwide realtime clock)
  *   CLOCK_MONOTONIC            (realtime clock, cannot be set)
  *   CLOCK_PROCESS_CPUTIME_ID   (per-process timer)
@@ -131,7 +131,7 @@ extern "C" {
 
 /**
  * Use: getrusage()	[SVr4, 4.3BSD, POSIX.1-2001, #include <sys/time.h>]
- * CPU time in microsecond resolution (but not neccessarily accuracy).
+ * CPU time in microsecond resolution (but not necessarily accuracy).
  * Inclusion of child's and grandchild's time reported as unreliable.
  */
 #define HRT_USE_GETRUSAGE 2
@@ -139,7 +139,7 @@ extern "C" {
 /**
  * Use: gettimeofday()	[SVr4, 4.3BSD, POSIX.1-2001, #include <sys/time.h>
  *    			 POSIX.1-2008 marks gettimeofday() as obsolete]
- * Real time in microsecond resolution (but not neccessarily accuracy).
+ * Real time in microsecond resolution (but not necessarily accuracy).
  * On some architectures, can be done completely in userspace using the
  * vdso/vsyscall method avoiding the syscall overhead.
  */
@@ -169,7 +169,7 @@ extern "C" {
 
 /**
  * Use: clock()		[C89, C99, POSIX.1-2001, #include <time.h>]
- * CPU time in microseconds resolution (but not neccessarily accuracy).
+ * CPU time in microseconds resolution (but not necessarily accuracy).
  * Returns the CPU time as a clock_t value or -1 if not available.
  * To get the number of seconds used, divide by CLOCKS_PER_SEC; POSIX
  * requires CLOCKS_PER_SEC=1000000 independent of the actual resolution.
@@ -180,39 +180,38 @@ extern "C" {
  */
 #define HRT_USE_ANSI_CLOCK 6
 
-
 /*
  * Default method selection of measuring real and cpu times.
  */
 
 #ifdef HRT_REALTIME_METHOD
-#  if !(HRT_REALTIME_METHOD==HRT_USE_CLOCK_GETTIME     \
-        || HRT_REALTIME_METHOD==HRT_USE_GETTIMEOFDAY   \
-        || HRT_REALTIME_METHOD==HRT_USE_TIMES          \
-        || HRT_REALTIME_METHOD==HRT_USE_ANSI_TIME)
-#    error "unsupported HRT_REALTIME_METHOD: " HRT_REALTIME_METHOD
-#  endif
+#if !(HRT_REALTIME_METHOD == HRT_USE_CLOCK_GETTIME || \
+      HRT_REALTIME_METHOD == HRT_USE_GETTIMEOFDAY ||  \
+      HRT_REALTIME_METHOD == HRT_USE_TIMES ||         \
+      HRT_REALTIME_METHOD == HRT_USE_ANSI_TIME)
+#error "unsupported HRT_REALTIME_METHOD: " HRT_REALTIME_METHOD
+#endif
 #else
-#  if (defined(_POSIX_TIMERS) && (_POSIX_TIMERS+0 >= 0))
-#    define HRT_REALTIME_METHOD HRT_USE_CLOCK_GETTIME
-#  else
-#    define HRT_REALTIME_METHOD HRT_USE_GETTIMEOFDAY
-#  endif
+#if (defined(_POSIX_TIMERS) && (_POSIX_TIMERS + 0 >= 0))
+#define HRT_REALTIME_METHOD HRT_USE_CLOCK_GETTIME
+#else
+#define HRT_REALTIME_METHOD HRT_USE_GETTIMEOFDAY
+#endif
 #endif
 #ifdef HRT_CPUTIME_METHOD
-#  if !(HRT_CPUTIME_METHOD==HRT_USE_CLOCK_GETTIME      \
-        || HRT_CPUTIME_METHOD==HRT_USE_GETRUSAGE          \
-        || HRT_CPUTIME_METHOD==HRT_USE_TIMES           \
-        || HRT_CPUTIME_METHOD==HRT_USE_ANSI_CLOCK)
-#    error "unsupported HRT_CPUTIME_METHOD: " HRT_CPUTIME_METHOD
-#  endif
+#if !(HRT_CPUTIME_METHOD == HRT_USE_CLOCK_GETTIME || \
+      HRT_CPUTIME_METHOD == HRT_USE_GETRUSAGE ||     \
+      HRT_CPUTIME_METHOD == HRT_USE_TIMES ||         \
+      HRT_CPUTIME_METHOD == HRT_USE_ANSI_CLOCK)
+#error "unsupported HRT_CPUTIME_METHOD: " HRT_CPUTIME_METHOD
+#endif
 #else
-#  if (defined(_POSIX_TIMERS) && (_POSIX_TIMERS+0 >= 0)         \
-       && defined(_POSIX_CPUTIME) && (_POSIX_CPUTIME+0 >= 0))
-#    define HRT_CPUTIME_METHOD HRT_USE_CLOCK_GETTIME
-#  else
-#    define HRT_CPUTIME_METHOD HRT_USE_GETRUSAGE
-#  endif
+#if (defined(_POSIX_TIMERS) && (_POSIX_TIMERS + 0 >= 0) && \
+     defined(_POSIX_CPUTIME) && (_POSIX_CPUTIME + 0 >= 0))
+#define HRT_CPUTIME_METHOD HRT_USE_CLOCK_GETTIME
+#else
+#define HRT_CPUTIME_METHOD HRT_USE_GETRUSAGE
+#endif
 #endif
 
 /*
@@ -223,14 +222,14 @@ extern "C" {
  * A snapshot of the system's real time count.
  */
 typedef struct {
-#if (HRT_REALTIME_METHOD==HRT_USE_CLOCK_GETTIME)
-    struct timespec time;
-#elif (HRT_REALTIME_METHOD==HRT_USE_GETTIMEOFDAY)
-    struct timeval time;
-#elif (HRT_REALTIME_METHOD==HRT_USE_TIMES)
-    clock_t time;
-#elif (HRT_REALTIME_METHOD==HRT_USE_ANSI_TIME)
-    time_t time;
+#if (HRT_REALTIME_METHOD == HRT_USE_CLOCK_GETTIME)
+  struct timespec time;
+#elif (HRT_REALTIME_METHOD == HRT_USE_GETTIMEOFDAY)
+  struct timeval time;
+#elif (HRT_REALTIME_METHOD == HRT_USE_TIMES)
+  clock_t time;
+#elif (HRT_REALTIME_METHOD == HRT_USE_ANSI_TIME)
+  time_t time;
 #endif
 } hrt_rtstamp;
 
@@ -238,14 +237,14 @@ typedef struct {
  * A snapshot of this process's cpu time count.
  */
 typedef struct {
-#if (HRT_CPUTIME_METHOD==HRT_USE_CLOCK_GETTIME)
-    struct timespec time;
-#elif (HRT_CPUTIME_METHOD==HRT_USE_GETRUSAGE)
-    struct rusage time;
-#elif (HRT_CPUTIME_METHOD==HRT_USE_TIMES)
-    struct tms time;
-#elif (HRT_CPUTIME_METHOD==HRT_USE_ANSI_CLOCK)
-    clock_t time;
+#if (HRT_CPUTIME_METHOD == HRT_USE_CLOCK_GETTIME)
+  struct timespec time;
+#elif (HRT_CPUTIME_METHOD == HRT_USE_GETRUSAGE)
+  struct rusage time;
+#elif (HRT_CPUTIME_METHOD == HRT_USE_TIMES)
+  struct tms time;
+#elif (HRT_CPUTIME_METHOD == HRT_USE_ANSI_CLOCK)
+  clock_t time;
 #endif
 } hrt_ctstamp;
 
@@ -253,8 +252,8 @@ typedef struct {
  * A snapshot of the system's real and this process's cpu time count.
  */
 typedef struct hrt_tstamp {
-    hrt_rtstamp rtstamp;
-    hrt_ctstamp ctstamp;
+  hrt_rtstamp rtstamp;
+  hrt_ctstamp ctstamp;
 } hrt_tstamp;
 
 /*
@@ -267,8 +266,7 @@ typedef struct hrt_tstamp {
  * Returns zero if and only if the operation succeeded; otherwise,
  * a system- and method-specific error code is returned.
  */
-extern int
-hrt_rtnow(hrt_rtstamp* x);
+extern int hrt_rtnow(hrt_rtstamp *x);
 
 /**
  * Stores a snapshot of the process's cpu time count.
@@ -276,8 +274,7 @@ hrt_rtnow(hrt_rtstamp* x);
  * Returns zero if and only if the operation succeeded; otherwise,
  * a system- and method-specific error code is returned.
  */
-extern int
-hrt_ctnow(hrt_ctstamp* x);
+extern int hrt_ctnow(hrt_ctstamp *x);
 
 /**
  * Stores a snapshot of the system's real and this process's cpu time count.
@@ -285,22 +282,19 @@ hrt_ctnow(hrt_ctstamp* x);
  * Returns zero if and only if the operation succeeded; otherwise,
  * a system- and method-specific error code is returned.
  */
-extern int
-hrt_tnow(hrt_tstamp* x);
+extern int hrt_tnow(hrt_tstamp *x);
 
 /**
- * Returns the time amount between two real timestamps in microseonds
+ * Returns the time amount between two real timestamps in microseconds
  * (i.e., y - x).
  */
-extern double
-hrt_rtmicros(const hrt_rtstamp* y, const hrt_rtstamp* x);
+extern double hrt_rtmicros(const hrt_rtstamp *y, const hrt_rtstamp *x);
 
 /**
- * Returns the time amount between two cpu timestamps in microseonds
+ * Returns the time amount between two cpu timestamps in microseconds
  * (i.e., y - x).
  */
-extern double
-hrt_ctmicros(const hrt_ctstamp* y, const hrt_ctstamp* x);
+extern double hrt_ctmicros(const hrt_ctstamp *y, const hrt_ctstamp *x);
 
 /*
  * Functions for Debugging.
@@ -309,20 +303,17 @@ hrt_ctmicros(const hrt_ctstamp* y, const hrt_ctstamp* x);
 /**
  * Nulls a snapshot of the system's real time count.
  */
-extern void
-hrt_rtnull(hrt_rtstamp* x);
+extern void hrt_rtnull(hrt_rtstamp *x);
 
 /**
  * Nulls a snapshot of the process's cpu time count.
  */
-extern void
-hrt_ctnull(hrt_ctstamp* x);
+extern void hrt_ctnull(hrt_ctstamp *x);
 
 /**
  * Nulls a snapshot of the system's real and this process's cpu time count.
  */
-extern void
-hrt_tnull(hrt_tstamp* x);
+extern void hrt_tnull(hrt_tstamp *x);
 
 #ifdef __cplusplus
 }

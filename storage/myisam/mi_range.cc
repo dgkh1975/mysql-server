@@ -1,17 +1,18 @@
 /*
-   Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,7 +25,7 @@
 
 /*
   Gives a approximated number of how many records there is between two keys.
-  Used when optimizing querries.
+  Used when optimizing queries.
  */
 
 #include <sys/types.h>
@@ -156,7 +157,7 @@ static ha_rows _mi_record_pos(MI_INFO *info, const uchar *key,
     operations with a comment like "Not real duplicates", whatever this
     means. From the condition above we can see that 'skip_end_space' is
     always false for these operations. The result is that trailing space
-    counts in key comparison and hence, emtpy strings ('', string length
+    counts in key comparison and hence, empty strings ('', string length
     zero, but not NULL) compare less that strings starting with control
     characters and these in turn compare less than strings starting with
     blanks.
@@ -170,7 +171,7 @@ static ha_rows _mi_record_pos(MI_INFO *info, const uchar *key,
 
     This is the reason that we add the SEARCH_UPDATE flag here. It makes
     the key estimation compare in the same way like key write operations
-    do. Olny so we will find the keys where they have been inserted.
+    do. Only so we will find the keys where they have been inserted.
 
     Adding the flag unconditionally does not hurt as it is used in the
     above mentioned condition only. So it can safely be used together

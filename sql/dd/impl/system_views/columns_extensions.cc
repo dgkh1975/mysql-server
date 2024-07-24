@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -58,7 +59,7 @@ Columns_extensions::Columns_extensions(const dd::String_type &n) {
   m_target_def.add_field(FIELD_TABLE_NAME, "TABLE_NAME",
                          "tbl.name" + m_target_def.fs_name_collation());
   m_target_def.add_field(FIELD_COLUMN_NAME, "COLUMN_NAME",
-                         "col.name COLLATE utf8_tolower_ci");
+                         "col.name COLLATE utf8mb3_tolower_ci");
 
   // SELECT extension fields
   m_target_def.add_field(FIELD_ENGINE_ATTRIBUTE, "ENGINE_ATTRIBUTE",
@@ -83,7 +84,7 @@ Columns_extensions::Columns_extensions(const dd::String_type &n) {
       "col.name)");
   m_target_def.add_where(
       "AND IS_VISIBLE_DD_OBJECT(tbl.hidden, col.hidden NOT IN ('Visible', "
-      "'User'))");
+      "'User'), col.options)");
 }
 
 const dd::String_type &Columns_extensions::view_name() { return s_view_name; }

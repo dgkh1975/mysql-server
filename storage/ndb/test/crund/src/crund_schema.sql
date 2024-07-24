@@ -1,15 +1,16 @@
--- Copyright (c) 2010, 2021, Oracle and/or its affiliates.
+-- Copyright (c) 2010, 2024, Oracle and/or its affiliates.
 --
 -- This program is free software; you can redistribute it and/or modify
 -- it under the terms of the GNU General Public License, version 2.0,
 -- as published by the Free Software Foundation.
 --
--- This program is also distributed with certain software (including
+-- This program is designed to work with certain software (including
 -- but not limited to OpenSSL) that is licensed under separate terms,
 -- as designated in a particular file or component or in included license
 -- documentation.  The authors of MySQL hereby grant you an additional
 -- permission to link the program and your derivative works with the
--- separately licensed software that they have included with MySQL.
+-- separately licensed software that they have either included with
+-- the program or referenced in the documentation.
 --
 -- This program is distributed in the hope that it will be useful,
 -- but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -49,10 +50,10 @@ CREATE TABLE b (
         cvarchar_def    VARCHAR(202),
         -- cvarchar_ascii  VARCHAR(202) CHARACTER SET ASCII,
         -- cvarchar_ucs2   VARCHAR(202) CHARACTER SET UCS2,
-        -- cvarchar_utf8   VARCHAR(202) CHARACTER SET UTF8,
+        -- cvarchar_utf8   VARCHAR(202) CHARACTER SET UTF8MB3,
         cblob_def       BLOB(1000004),
         ctext_def       TEXT(1000004),
-        -- ctext_utf8      TEXT(202) CHARACTER SET UTF8,
+        -- ctext_utf8      TEXT(202) CHARACTER SET UTF8MB3,
         CONSTRAINT FK_B_1 FOREIGN KEY (a_id) REFERENCES a (id),
         INDEX I_B_FK (a_id)
 );

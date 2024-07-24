@@ -1,15 +1,16 @@
-# Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,7 +26,16 @@ INCLUDE_DIRECTORIES(SYSTEM ${GMOCK_INCLUDE_DIRS})
 # TODO(sgunders): Remove when all GMock tests use MOCK_METHOD().
 STRING(REPLACE "-Wsuggest-override" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-IF(NOT BUILD_IS_SINGLE_CONFIG)
+IF(BUILD_IS_SINGLE_CONFIG)
+  EXECUTE_PROCESS(
+    COMMAND ${CMAKE_COMMAND} -E
+    make_directory ${CMAKE_CURRENT_BINARY_DIR}/var
+    COMMAND ${CMAKE_COMMAND} -E
+    make_directory ${CMAKE_CURRENT_BINARY_DIR}/var/log
+    COMMAND ${CMAKE_COMMAND} -E
+    make_directory ${CMAKE_CURRENT_BINARY_DIR}/var/log/harness
+    )
+ELSE()
   FOREACH(config ${CMAKE_CONFIGURATION_TYPES})
     EXECUTE_PROCESS(
       COMMAND ${CMAKE_COMMAND} -E
@@ -36,15 +46,6 @@ IF(NOT BUILD_IS_SINGLE_CONFIG)
       make_directory ${CMAKE_CURRENT_BINARY_DIR}/${config}/var/log/harness
     )
   ENDFOREACH()
-ELSE()
-  EXECUTE_PROCESS(
-    COMMAND ${CMAKE_COMMAND} -E
-    make_directory ${CMAKE_CURRENT_BINARY_DIR}/var
-    COMMAND ${CMAKE_COMMAND} -E
-    make_directory ${CMAKE_CURRENT_BINARY_DIR}/var/log
-    COMMAND ${CMAKE_COMMAND} -E
-    make_directory ${CMAKE_CURRENT_BINARY_DIR}/var/log/harness
-  )
 ENDIF()
 
 ADD_SUBDIRECTORY(plugins)
@@ -52,6 +53,7 @@ ADD_SUBDIRECTORY(plugins)
 SET(TEST_MODULE harness)
 
 SET(TESTS
+  test_access_rights.cc
   test_utility_string.cc
   test_loader.cc
   test_loader_lifecycle.cc
@@ -74,6 +76,9 @@ SET(TESTS
   test_process_launcher.cc
   test_tcp_address.cc
   test_config_builder.cc
+  test_event_state_tracker.cc
+  test_config_option.cc
+  test_hexify.cc
 )
 
 FOREACH(TEST ${TESTS})
@@ -97,11 +102,27 @@ FOREACH(TEST ${TESTS})
 ENDFOREACH()
 
 SET(TESTS
+  test_tls_server_context.cc
+)
+
+FOREACH(TEST ${TESTS})
+  ADD_HARNESS_TEST_FILE(${TEST} MODULE ${TEST_MODULE}
+    INCLUDE_DIRS ${MySQLRouter_SOURCE_DIR}/src/harness/shared/include/
+    INCLUDE_DIRS ${MySQLRouter_SOURCE_DIR}/src/harness/include/
+    INCLUDE_DIRS ${MySQLRouter_BINARY_DIR}/src/harness/include/
+    LIB_DEPENDS harness_tls;test-helpers;${SSL_LIBRARIES})
+ENDFOREACH()
+
+SET(TESTS
   test_net_ts_buffer.cc
   test_net_ts_executor.cc
+  test_net_ts_impl_callstack.cc
   test_net_ts_impl_file.cc
-  test_net_ts_impl_linux_epoll_io_service.cc
+  test_net_ts_impl_io_service_base.cc
   test_net_ts_impl_kqueue_io_service.cc
+  test_net_ts_impl_linux_epoll_io_service.cc
+  test_net_ts_impl_netif.cc
+  test_net_ts_impl_poll_io_service.cc
   test_net_ts_impl_resolver.cc
   test_net_ts_impl_socket.cc
   test_net_ts_internet.cc
@@ -120,16 +141,18 @@ ENDFOREACH()
 ADD_GOOGLETEST_FILE(test_net_ts_local.cc
   MODULE ${TEST_MODULE}
   LIB_DEPENDS harness_net_ts
-  # TmpDir
+  # TempDirectory
   LIB_DEPENDS test-helpers
   )
 
 SET(TESTS
   test_stdx_bit.cc
   test_stdx_expected.cc
-  test_stdx_string_view.cc
-  test_stdx_monitor.cc
+  test_stdx_flags.cc
   test_stdx_io_file_handle.cc
+  test_stdx_monitor.cc
+  test_stdx_span.cc
+  test_stdx_ranges.cc
 )
 
 FOREACH(TEST ${TESTS})
@@ -167,3 +190,11 @@ ADD_DEPENDENCIES(mysqlrouter_all net_ts_accept)
 MYSQL_ADD_EXECUTABLE(net_ts_forward net_ts_forward.cc SKIP_INSTALL)
 TARGET_LINK_LIBRARIES(net_ts_forward harness_net_ts)
 ADD_DEPENDENCIES(mysqlrouter_all net_ts_forward)
+
+MYSQL_ADD_EXECUTABLE(acl_cli acl_cli.cc SKIP_INSTALL)
+TARGET_LINK_LIBRARIES(acl_cli harness-library)
+ADD_DEPENDENCIES(mysqlrouter_all acl_cli)
+
+MYSQL_ADD_EXECUTABLE(linux_timestamping linux_timestamping.cc SKIP_INSTALL)
+TARGET_LINK_LIBRARIES(linux_timestamping harness_net_ts harness_stdx)
+ADD_DEPENDENCIES(mysqlrouter_all linux_timestamping)

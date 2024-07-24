@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -799,7 +800,7 @@ bool trans_rollback_to_savepoint(THD *thd, LEX_STRING name) {
       log accompanied with ROLLBACK TO SAVEPOINT statement. Since the real
       write happens at the end of transaction releasing MDL on tables
       mentioned in these events (i.e. acquired after savepoint and before
-      rollback ot it) can break replication, as concurrent DROP TABLES
+      rollback of it) can break replication, as concurrent DROP TABLES
       statements will be able to drop these tables before events will get
       into binary log,
   */

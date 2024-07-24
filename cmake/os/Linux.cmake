@@ -1,15 +1,16 @@
-# Copyright (c) 2010, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2010, 2024, Oracle and/or its affiliates.
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -26,6 +27,10 @@ INCLUDE(CheckSymbolExists)
 INCLUDE(CheckCSourceRuns)
 
 SET(LINUX 1)
+
+IF(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64")
+  SET(LINUX_ARM 1)
+ENDIF()
 
 # OS display name (version_compile_os etc).
 # Used by the test suite to ignore bugs on some platforms.
@@ -60,30 +65,15 @@ IF(LINUX_FEDORA OR LINUX_RHEL OR LINUX_SUSE)
   SET(LINUX_RPM_PLATFORM 1)
 ENDIF()
 
-# We require at least GCC 5.3 or Clang 3.4.
+# We require at least GCC 7.1 Clang 5
 IF(NOT FORCE_UNSUPPORTED_COMPILER)
   IF(MY_COMPILER_IS_GNU)
-    EXECUTE_PROCESS(COMMAND ${CMAKE_C_COMPILER} -dumpversion
-                    OUTPUT_STRIP_TRAILING_WHITESPACE
-                    OUTPUT_VARIABLE GCC_VERSION)
-    # -dumpversion may output only MAJOR.MINOR rather than MAJOR.MINOR.PATCH
-    IF(GCC_VERSION VERSION_LESS 5.3)
-      SET(WARNING_LEVEL WARNING)
-      IF(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.3)
-        SET(WARNING_LEVEL FATAL_ERROR)
-      ENDIF()
-      MESSAGE(${WARNING_LEVEL}
-        "GCC 5.3 or newer is required (-dumpversion says ${GCC_VERSION})")
+    IF(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7.1)
+      MESSAGE(FATAL_ERROR "GCC 7.1 or newer is required")
     ENDIF()
   ELSEIF(MY_COMPILER_IS_CLANG)
-    CHECK_C_SOURCE_RUNS("
-      int main()
-      {
-        return (__clang_major__ < 3) ||
-               (__clang_major__ == 3 && __clang_minor__ < 4);
-      }" HAVE_SUPPORTED_CLANG_VERSION)
-    IF(NOT HAVE_SUPPORTED_CLANG_VERSION)
-      MESSAGE(FATAL_ERROR "Clang 3.4 or newer is required!")
+    IF(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5)
+      MESSAGE(FATAL_ERROR "Clang 5 or newer is required!")
     ENDIF()
   ELSE()
     MESSAGE(FATAL_ERROR "Unsupported compiler!")

@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -94,7 +95,7 @@ Sql_string I_S_CONNECTION_CONTROL_FAILED_ATTEMPTS_USERHOST(
 
   @returns 1 to indicate that entry is a match
 */
-int match_all_entries(const uchar *) { return 1; }
+int match_all_entries(const uchar *, void *) { return 1; }
 
 /**
   Callback function for LF hash to get key information
@@ -275,7 +276,7 @@ void Connection_delay_event::reset_all() {
   do {
     /* match anything */
     searched_entry = reinterpret_cast<Connection_event_record **>(
-        lf_hash_random_match(&m_entries, pins, match_all_entries, 0));
+        lf_hash_random_match(&m_entries, pins, match_all_entries, 0, nullptr));
 
     if (searched_entry != nullptr && searched_entry != MY_LF_ERRPTR &&
         (*searched_entry) &&
@@ -306,7 +307,8 @@ void set_connection_delay_IS_table(TABLE *t) { connection_delay_IS_table = t; }
     @retval 1 Error
 */
 
-int connection_delay_IS_table_writer(const uchar *ptr) {
+int connection_delay_IS_table_writer(const uchar *ptr,
+                                     void *arg [[maybe_unused]]) {
   /* Always return "no match" so that we go through all entries */
   THD *thd = current_thd;
   const Connection_event_record *const *entry;
@@ -329,7 +331,7 @@ int connection_delay_IS_table_writer(const uchar *ptr) {
                      information_schema.connection_control_failed_attempts
 */
 
-void Connection_delay_event::fill_IS_table(TABLE_LIST *tables) {
+void Connection_delay_event::fill_IS_table(Table_ref *tables) {
   DBUG_TRACE;
   TABLE *table = tables->table;
   set_connection_delay_IS_table(table);
@@ -340,7 +342,7 @@ void Connection_delay_event::fill_IS_table(TABLE_LIST *tables) {
     key =
         lf_hash_random_match(&m_entries, pins,
                              /* Functor: match anything and store the fields */
-                             connection_delay_IS_table_writer, 0);
+                             connection_delay_IS_table_writer, 0, nullptr);
     /* Always unpin after lf_hash_random_match() */
     lf_hash_search_unpin(pins);
   } while (key != nullptr);
@@ -482,8 +484,7 @@ void Connection_delay_action::conditional_wait(MYSQL_THD thd,
 
   /* Finish waiting and deregister wait condition */
   mysql_mutex_unlock(&connection_delay_mutex);
-  thd_exit_cond(thd, &stage_waiting_in_connection_control_plugin, __func__,
-                __FILE__, __LINE__);
+  thd_exit_cond(thd, &old_stage, __func__, __FILE__, __LINE__);
 
   /* Cleanup */
   mysql_mutex_destroy(&connection_delay_mutex);
@@ -491,7 +492,7 @@ void Connection_delay_action::conditional_wait(MYSQL_THD thd,
 }
 
 /**
-  @brief  Handle a connection event and if requried,
+  @brief  Handle a connection event and, if required,
   wait for random amount of time before returning.
 
   We only care about CONNECT and CHANGE_USER sub events.
@@ -563,6 +564,10 @@ bool Connection_delay_action::notify_event(
     rd_lock.unlock();
     conditional_wait(thd, wait_time);
     rd_lock.lock();
+
+    /* Introduce a delay to check that connection delay status doesn't last
+     * longer than configured */
+    DBUG_EXECUTE_IF("delay_after_connection_delay", sleep(2););
   }
 
   if (connection_event->status) {
@@ -728,7 +733,7 @@ static bool get_equal_condition_argument(Item *cond, Sql_string *eq_arg,
   @param [in] cond    Condition if any.
 */
 
-void Connection_delay_action::fill_IS_table(THD *thd, TABLE_LIST *tables,
+void Connection_delay_action::fill_IS_table(THD *thd, Table_ref *tables,
                                             Item *cond) {
   DBUG_TRACE;
   Security_context_wrapper sctx_wrapper(thd);
@@ -806,7 +811,7 @@ void deinit_connection_delay_event() {
   @returns Always returns false.
 */
 
-int fill_failed_attempts_view(THD *thd, TABLE_LIST *tables, Item *cond) {
+int fill_failed_attempts_view(THD *thd, Table_ref *tables, Item *cond) {
   if (connection_control::g_max_failed_connection_handler)
     connection_control::g_max_failed_connection_handler->fill_IS_table(
         thd, tables, cond);

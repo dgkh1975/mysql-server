@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -46,21 +47,21 @@
 struct pos_esmh_by_digest : public PFS_double_index {
   pos_esmh_by_digest() : PFS_double_index(0, 0) {}
 
-  inline void reset(void) {
+  inline void reset() {
     m_index_1 = 0;
     m_index_2 = 0;
   }
 
-  inline bool has_more_digest(void) { return (m_index_1 < digest_max); }
+  inline bool has_more_digest() { return (m_index_1 < digest_max); }
 
-  inline void next_digest(void) {
+  inline void next_digest() {
     m_index_1++;
     m_index_2 = 0;
   }
 
-  inline bool has_more_buckets(void) { return (m_index_2 < NUMBER_OF_BUCKETS); }
+  inline bool has_more_buckets() { return (m_index_2 < NUMBER_OF_BUCKETS); }
 
-  inline void next_bucket(void) { m_index_2++; }
+  inline void next_bucket() { m_index_2++; }
 };
 
 class PFS_index_esmh_by_digest : public PFS_engine_index {
@@ -132,7 +133,7 @@ class table_esmh_by_digest : public PFS_engine_table {
   static int delete_all_rows();
   static ha_rows get_row_count();
 
-  void reset_position(void) override;
+  void reset_position() override;
 
   int rnd_next() override;
   int rnd_pos(const void *pos) override;

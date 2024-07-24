@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -82,13 +83,6 @@ typedef enum enum_log_service_chistics {
   /** Service can parse lines in the format it outputs. Services flagged
       this must also be flagged LOG_SERVICE_SINK | LOG_SERVICE_PFS_SUPPORT! */
   LOG_SERVICE_LOG_PARSER = 2048,
-
-  /** Service is a special sink used during start-up that buffers log-events
-      until the log service pipeline is fully set up, at which point we'll
-      flush (that is, filter and prints) the buffered events.
-      Services flagged this must also be flagged LOG_SERVICE_SINK! */
-  LOG_SERVICE_BUFFER = 8192
-
 } log_service_chistics;
 
 /**
@@ -203,7 +197,7 @@ DECLARE_METHOD(log_service_error, flush, (void **instance));
                      the server/logging framework. It must be released
                      on close.
 
-  @returns  LOG_SERVICE_SUCCESS        success, returned hande is valid
+  @returns  LOG_SERVICE_SUCCESS        success, returned handle is valid
   @returns  otherwise                  a new instance could not be created
 */
 DECLARE_METHOD(log_service_error, open, (log_line * ll, void **instance));

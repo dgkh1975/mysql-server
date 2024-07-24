@@ -1,17 +1,18 @@
 #ifndef TIME_ZONE_COMMON_H
 #define TIME_ZONE_COMMON_H
-/* Copyright (c) 2004, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2004, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -22,15 +23,13 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-#include "my_alloc.h"  // MEM_ROOT
-
+#include "my_alloc.h"   // MEM_ROOT
+#include "my_time_t.h"  // my_time_t
 /**
   @file
   Contains common functionality shared between mysqld and
   mysql_tz_info_to_sql.
 */
-
-using my_time_t = long;
 
 /*
   Now we don't use abbreviations in server but we will do this in future.
@@ -133,7 +132,7 @@ struct TIME_ZONE_INFO {
     Note: See description of TIME_to_gmt_sec() function first.
     In order to perform MYSQL_TIME -> my_time_t conversion we need to build
   table which defines "shifted by tz offset and leap seconds my_time_t" ->
-    my_time_t function wich is almost the same (except ranges of ambiguity)
+    my_time_t function which is almost the same (except ranges of ambiguity)
     as reverse function to piecewise linear function used for my_time_t ->
     "shifted my_time_t" conversion and which is also specified as table in
     zoneinfo file or in our db (It is specified as start of time type ranges

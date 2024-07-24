@@ -1,15 +1,16 @@
-/* Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -272,8 +273,8 @@ bool Condition_information::aggregate(THD *thd, const Diagnostics_area *da) {
 
 Item *Condition_information_item::make_utf8_string_item(THD *thd,
                                                         const String *str) {
-  /* Default is utf8 character set and utf8_general_ci collation. */
-  const CHARSET_INFO *to_cs = &my_charset_utf8_general_ci;
+  /* Default is utf8mb3 character set and utf8mb3_general_ci collation. */
+  const CHARSET_INFO *to_cs = &my_charset_utf8mb3_general_ci;
   /* If a charset was not set, assume that no conversion is needed. */
   const CHARSET_INFO *from_cs = str->charset() ? str->charset() : to_cs;
   Item_string *item = new Item_string(str->ptr(), str->length(), from_cs);

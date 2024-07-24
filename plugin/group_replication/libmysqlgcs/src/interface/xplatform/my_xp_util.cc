@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -40,13 +41,28 @@ uint64_t My_xp_util::getsystime() { return my_getsystime(); }
 int My_xp_socket_util_impl::disable_nagle_in_socket(int fd) {
   int ret = -1;
   if (fd != -1) {
-    int optval = 1;
-    /* Casting optval to char * so Windows does not complain. */
-    ret = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char *)&optval,
-                     static_cast<socklen_t>(sizeof(int)));
+    int optval;
+    socklen_t optval_size = static_cast<socklen_t>(sizeof(int));
+    ret =
+        getsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char *)&optval, &optval_size);
+
+    if (ret < 0) goto err;
+
+    if (optval == 0) {
+      optval = 1;
+      ret = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char *)&optval,
+                       static_cast<socklen_t>(sizeof(int)));
+    } else {
+      MYSQL_GCS_LOG_INFO("TCP_NODELAY already set");
+      ret = 0;
+    }
   }
-  if (ret < 0)
-    MYSQL_GCS_LOG_ERROR(
-        "Error manipulating a connection's socket. Error: " << errno)
+
+err:
+  if (ret < 0) {
+    MYSQL_GCS_LOG_ERROR("Error manipulating a connection's socket. FD= "
+                        << fd << " Ret = " << ret << " Error: " << errno)
+    assert(0);
+  }
   return ret;
 }

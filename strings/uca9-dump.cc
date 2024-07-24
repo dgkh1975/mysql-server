@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -433,7 +434,7 @@ int dump_ja_hans(MY_UCA *uca, FILE *infile, FILE *outfile) {
     int bytes = my_mb_wc_utf8mb4(&ja_ch_u16, ja_han, ja_han + ja_length);
     if (bytes <= 0) break;
     ja_han += bytes;
-    int page MY_ATTRIBUTE((unused)) = ja_ch_u16 >> 8;
+    int page [[maybe_unused]] = ja_ch_u16 >> 8;
     assert(page >= 0x4E && page <= 0x9F);
     MY_UCA_ITEM *item = &uca->item[ja_ch_u16 - 0x4E00];
     item->num_of_ce = 1;

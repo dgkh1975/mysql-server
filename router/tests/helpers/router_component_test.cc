@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -46,7 +47,10 @@ void RouterComponentTest::SetUp() {
 }
 
 void RouterComponentTest::TearDown() {
-  shutdown_all();
+  shutdown_all();  // shutdown all that are still running.
+  wait_for_exit();
+
+  terminate_all_still_alive();  // terminate hanging processes.
   ensure_clean_exit();
 
   if (::testing::Test::HasFailure()) {
@@ -73,7 +77,7 @@ bool RouterComponentTest::wait_log_contains(const ProcessWrapper &router,
   using clock_type = std::chrono::steady_clock;
   const auto end = clock_type::now() + timeout;
   do {
-    const std::string log_content = router.get_full_logfile();
+    const std::string log_content = router.get_logfile_content();
     found = pattern_found(log_content, pattern);
     if (!found) {
       auto step = std::min(timeout, MSEC_STEP);
@@ -84,8 +88,16 @@ bool RouterComponentTest::wait_log_contains(const ProcessWrapper &router,
   return found;
 }
 
-std::string RouterComponentBootstrapTest::my_hostname;
 constexpr const char RouterComponentBootstrapTest::kRootPassword[];
+
+const RouterComponentBootstrapTest::OutputResponder
+    RouterComponentBootstrapTest::kBootstrapOutputResponder{
+        [](const std::string &line) -> std::string {
+          if (line == "Please enter MySQL password for root: ")
+            return kRootPassword + "\n"s;
+
+          return "";
+        }};
 
 /**
  * the tiny power function that does all the work.
@@ -113,6 +125,19 @@ void RouterComponentBootstrapTest::bootstrap_failover(
 
   std::vector<std::tuple<ProcessWrapper &, unsigned int>> mock_servers;
 
+  // shutdown the mock-servers when bootstrap is done.
+  Scope_guard guard{[&mock_servers]() {
+    // send a shutdown to all mocks
+    for (auto [proc, port] : mock_servers) {
+      proc.send_clean_shutdown_event();
+    }
+
+    // ... then wait for them all to finish.
+    for (auto [proc, port] : mock_servers) {
+      proc.wait_for_exit();
+    }
+  }};
+
   // start the mocks
   for (const auto &mock_server_config : mock_server_configs) {
     if (mock_server_config.js_filename.empty()) continue;
@@ -139,8 +164,6 @@ void RouterComponentBootstrapTest::bootstrap_failover(
     router_cmdline.emplace_back("--bootstrap=" + gr_members[0].first + ":" +
                                 std::to_string(gr_members[0].second));
 
-    router_cmdline.emplace_back("--report-host");
-    router_cmdline.emplace_back(my_hostname);
     router_cmdline.emplace_back("--connect-timeout");
     router_cmdline.emplace_back("1");
     router_cmdline.emplace_back("-d");
@@ -148,9 +171,9 @@ void RouterComponentBootstrapTest::bootstrap_failover(
   }
 
   if (getenv("WITH_VALGRIND")) {
-    // for the boostrap tests that are using this method the "--disable-rest" is
-    // not relevant so we use it for VALGRIND testing as it saves huge amount of
-    // time that generating the certificates takes
+    // for the bootstrap tests that are using this method the "--disable-rest"
+    // is not relevant so we use it for VALGRIND testing as it saves huge amount
+    // of time that generating the certificates takes
     router_cmdline.emplace_back("--disable-rest");
   }
 
@@ -159,11 +182,8 @@ void RouterComponentBootstrapTest::bootstrap_failover(
   }
 
   // launch the router
-  auto &router = launch_router_for_bootstrap(router_cmdline, expected_exitcode);
-
-  // type in the password
-  router.register_response("Please enter MySQL password for root: ",
-                           kRootPassword + "\n"s);
+  auto &router =
+      launch_router_for_bootstrap(router_cmdline, expected_exitcode, true);
 
   ASSERT_NO_FATAL_FAILURE(
       check_exit_code(router, expected_exitcode, wait_for_exit_timeout));

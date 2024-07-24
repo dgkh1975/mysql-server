@@ -1,6 +1,6 @@
 /***********************************************************************
 
-Copyright (c) 1995, 2021, Oracle and/or its affiliates.
+Copyright (c) 1995, 2024, Oracle and/or its affiliates.
 Copyright (c) 2009, Percona Inc.
 
 Portions of this file contain modifications contributed and copyrighted
@@ -14,12 +14,13 @@ This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -86,7 +87,7 @@ struct Compression {
   Compression() : m_type(NONE) {}
 
   /** Specific constructor
-  @param[in]	type		Algorithm type */
+  @param[in]    type            Algorithm type */
   explicit Compression(Type type) : m_type(type) {
 #ifdef UNIV_DEBUG
     switch (m_type) {
@@ -128,73 +129,69 @@ struct Compression {
   static constexpr uint8_t FIL_PAGE_VERSION_2 = 2;
 
   /** Check the page header type field.
-  @param[in]	page		Page contents
+  @param[in]    page            Page contents
   @return true if it is a compressed page */
-  static bool is_compressed_page(const byte *page)
-      MY_ATTRIBUTE((warn_unused_result));
+  [[nodiscard]] static bool is_compressed_page(const byte *page);
 
   /** Check the page header type field.
-  @param[in]	page		Page contents
+  @param[in]    page            Page contents
   @return true if it is a compressed and encrypted page */
-  static bool is_compressed_encrypted_page(const byte *page)
-      MY_ATTRIBUTE((warn_unused_result));
+  [[nodiscard]] static bool is_compressed_encrypted_page(const byte *page);
 
   /** Check if the version on page is valid.
-  @param[in]	version		version
+  @param[in]    version         version
   @return true if version is valid */
   static bool is_valid_page_version(uint8_t version);
 
-  /** Check wether the compression algorithm is supported.
+  /** Check whether the compression algorithm is supported.
   @param[in]      algorithm       Compression algorithm to check
   @param[out]     compression            The type that algorithm maps to
   @return DB_SUCCESS or error code */
-  static dberr_t check(const char *algorithm, Compression *compression)
-      MY_ATTRIBUTE((warn_unused_result));
+  [[nodiscard]] static dberr_t check(const char *algorithm,
+                                     Compression *compression);
 
   /** Validate the algorithm string.
   @param[in]      algorithm       Compression algorithm to check
   @return DB_SUCCESS or error code */
-  static dberr_t validate(const char *algorithm)
-      MY_ATTRIBUTE((warn_unused_result));
+  [[nodiscard]] static dberr_t validate(const char *algorithm);
 
   /** Validate the algorithm string.
   @param[in]  type  compression type
   @return true if type is valid, else false */
-  static bool validate(const Type type) MY_ATTRIBUTE((warn_unused_result));
+  [[nodiscard]] static bool validate(const Type type);
 
   /** Convert to a "string".
   @param[in]      type            The compression type
   @return the string representation */
-  static const char *to_string(Type type) MY_ATTRIBUTE((warn_unused_result));
+  [[nodiscard]] static const char *to_string(Type type);
 
   /** Convert the meta data to a std::string.
-  @param[in]      meta		Page Meta data
+  @param[in]      meta          Page Meta data
   @return the string representation */
-  static std::string to_string(const meta_t &meta)
-      MY_ATTRIBUTE((warn_unused_result));
+  [[nodiscard]] static std::string to_string(const meta_t &meta);
 
   /** Deserizlise the page header compression meta-data
-  @param[in]	page		Pointer to the page header
-  @param[out]	control		Deserialised data */
+  @param[in]    page            Pointer to the page header
+  @param[out]   control         Deserialised data */
   static void deserialize_header(const byte *page, meta_t *control);
 
   /** Check if the string is "empty" or "none".
   @param[in]      algorithm       Compression algorithm to check
   @return true if no algorithm requested */
-  static bool is_none(const char *algorithm) MY_ATTRIBUTE((warn_unused_result));
+  [[nodiscard]] static bool is_none(const char *algorithm);
 
   /** Decompress the page data contents. Page type must be FIL_PAGE_COMPRESSED,
   if not then the source contents are left unchanged and DB_SUCCESS is returned.
-  @param[in]	dblwr_read	true if double write recovery in progress
-  @param[in,out]	src		Data read from disk, decompressed data
+  @param[in]    dblwr_read      true if double write recovery in progress
+  @param[in,out]        src             Data read from disk, decompressed data
   will be copied to this page
-  @param[in,out]	dst		Scratch area to use for decompression or
+  @param[in,out]        dst             Scratch area to use for decompression or
                                   nullptr.
-  @param[in]	dst_len		If dst is valid, size of the scratch area in
+  @param[in]    dst_len         If dst is valid, size of the scratch area in
                                   bytes.
   @return DB_SUCCESS or error code */
-  static dberr_t deserialize(bool dblwr_read, byte *src, byte *dst,
-                             ulint dst_len) MY_ATTRIBUTE((warn_unused_result));
+  [[nodiscard]] static dberr_t deserialize(bool dblwr_read, byte *src,
+                                           byte *dst, ulint dst_len);
 
   /** Compression type */
   Type m_type;

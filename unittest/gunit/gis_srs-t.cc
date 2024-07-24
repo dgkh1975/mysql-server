@@ -1,15 +1,16 @@
-// Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+// Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License, version 2.0,
 // as published by the Free Software Foundation.
 //
-// This program is also distributed with certain software (including
+// This program is designed to work with certain software (including
 // but not limited to OpenSSL) that is licensed under separate terms,
 // as designated in a particular file or component or in included license
 // documentation.  The authors of MySQL hereby grant you an additional
 // permission to link the program and your derivative works with the
-// separately licensed software that they have included with MySQL.
+// separately licensed software that they have either included with
+// the program or referenced in the documentation.
 //
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -50,7 +51,9 @@ TEST(SrsTest, GeogcsProj4Parameters) {
       "84\",6378137,298.257223563]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0."
       "017453292519943278],AXIS[\"Lat\",NORTH],AXIS[\"Lon\",EAST]]");
   srs->parse_definition();
-  EXPECT_STREQ(srs->proj4_parameters().c_str(), "");
+  EXPECT_STREQ(srs->proj4_parameters().c_str(),
+               "+proj=lonlat +a=6378137 +rf=298.257223563 "
+               "+towgs84=0,0,0,0,0,0,0 +no_defs");
 
   // Ellipsoid recognized as WGS 84 (authority clause on GEOGCS).
   srs->set_definition(
@@ -80,7 +83,9 @@ TEST(SrsTest, GeogcsProj4Parameters) {
       "PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.017453292519943278],AXIS["
       "\"Lat\",NORTH],AXIS[\"Lon\",EAST]]");
   srs->parse_definition();
-  EXPECT_STREQ(srs->proj4_parameters().c_str(), "");
+  EXPECT_STREQ(
+      srs->proj4_parameters().c_str(),
+      "+proj=lonlat +a=6378137 +b=6378137 +towgs84=0,0,0,0,0,0,0 +no_defs");
 
   // Sphere with TOWGS84.
   srs->set_definition(
@@ -118,7 +123,10 @@ TEST(SrsTest, ProjcsProj4Parameters) {
       "northing\",0,AUTHORITY[\"EPSG\",\"8807\"]],UNIT[\"metre\",1],AXIS[\"X\","
       "EAST],AXIS[\"Y\",NORTH]]");
   srs->parse_definition();
-  EXPECT_STREQ(srs->proj4_parameters().c_str(), "");
+  EXPECT_STREQ(
+      srs->proj4_parameters().c_str(),
+      "+proj=webmerc +a=6378137 +rf=298.257223563 +towgs84=0,0,0,0,0,0,0 "
+      "+no_defs +to_meter=1.000000 +lon_0=0 +x_0=0 +y_0=0");
 
   delete srs;
 }

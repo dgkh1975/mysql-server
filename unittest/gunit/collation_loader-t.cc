@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -45,13 +46,11 @@ namespace {
 
 CHARSET_INFO *lookup_collation(const char *name) {
   MY_CHARSET_LOADER loader;
-  my_charset_loader_init_mysys(&loader);
   return my_collation_get_by_name(&loader, name, MYF(0));
 }
 
 CHARSET_INFO *lookup_charset(const char *name, int flag) {
   MY_CHARSET_LOADER loader;
-  my_charset_loader_init_mysys(&loader);
   return my_charset_get_by_name(&loader, name, flag, MYF(0));
 }
 
@@ -68,7 +67,7 @@ static void BM_LookupAllCollations(size_t num_iterations) {
   for (size_t i = 0; i < num_iterations; i++) {
     const CHARSET_INFO *cs = all_charsets[i % num_charsets];
     if (cs) {
-      EXPECT_NE(lookup_collation(cs->name), nullptr);
+      EXPECT_NE(lookup_collation(cs->m_coll_name), nullptr);
     }
   }
 }

@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -34,6 +35,26 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 #include <mysql/components/services/log_shared.h>  // public data types
 
 /**
+  When the logger-core was initialized.
+
+  @retval 0  logger-core is not currently available
+  @retval >0 time (micro-seconds since the epoch) the logger became available
+*/
+extern ulonglong log_builtins_started();
+
+/**
+  MySQL server's default log-processor.
+
+  Apply all components (filters, sinks, ...) in the log stack to a given event.
+
+  @param  ll    the log-event to process
+
+  @retval true  failure
+  @retval false success
+*/
+extern bool log_line_error_stack_run(log_line *ll);
+
+/**
   Finding and acquiring a service in the component framework is
   expensive, and we may use services a log (depending on how many
   events are logged per second), so we cache the relevant data.
@@ -42,6 +63,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 struct log_service_cache_entry {
   char *name;            ///< name of this service
   size_t name_len;       ///< service-name's length
+  char *urn;             ///< URN of loaded if implicitly loaded, or NULL
   my_h_service service;  ///< handle (service framework)
   int opened;            ///< currently open instances
   int requested;         ///< requested instances

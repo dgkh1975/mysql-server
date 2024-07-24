@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -50,15 +51,15 @@ bool Session_sysvar_resource_manager::init(char **var) {
     if (ptr == nullptr) return true; /* Error */
     m_sysvar_string_alloc_hash.emplace(var, unique_ptr_my_free<char>(ptr));
 
-    /* Update the variable to point to the newly alloced copy. */
+    /* Update the variable to point to the newly allocated copy. */
     *var = ptr;
   }
   return false;
 }
 
 /**
-  Frees the old alloced memory, memdup()'s the given val to a new memory
-  address & updated the session variable pointer.
+  Frees the old allocated memory, memdup()'s the given val to a new memory
+  address & updates the session variable pointer.
 
   @param var         The variable.
   @param val         The new value.
@@ -87,7 +88,7 @@ bool Session_sysvar_resource_manager::update(char **var, char *val,
     m_sysvar_string_alloc_hash[var].reset(ptr);
 
   /*
-    Update the variable to point to the newly alloced copy.
+    Update the variable to point to the newly allocated copy.
 
     If current value and the new value are both nullptr,
     this function effectively does nothing.

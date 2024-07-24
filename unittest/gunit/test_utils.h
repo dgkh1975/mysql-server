@@ -1,15 +1,16 @@
-/* Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,8 +30,7 @@
 #include "gtest/gtest.h"
 #include "my_compiler.h"
 #include "my_sys.h"
-#include "mysql/components/services/mysql_mutex_bits.h"
-#include "nullable.h"
+#include "mysql/components/services/bits/mysql_mutex_bits.h"
 #include "sql/error_handler.h"
 #include "sql/sql_error.h"
 
@@ -45,7 +45,7 @@ inline int native_compare(size_t *length, unsigned char **a,
   return memcmp(*a, *b, *length);
 }
 
-inline qsort2_cmp get_ptr_compare(size_t size MY_ATTRIBUTE((unused))) {
+inline qsort2_cmp get_ptr_compare(size_t size [[maybe_unused]]) {
   return (qsort2_cmp)native_compare;
 }
 

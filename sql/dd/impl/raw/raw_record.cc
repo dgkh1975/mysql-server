@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -64,15 +65,15 @@ bool Raw_record::update() {
 
   /**
     We ignore HA_ERR_RECORD_IS_THE_SAME here for following reason.
-    If in case we are updating childrens of some DD object,
+    If in case we are updating children of some DD object,
     and only one of the children has really changed and other have
     not. Then we get HA_ERR_RECORD_IS_THE_SAME for children (rows)
     which has not really been modified.
 
-    Currently DD framework creates/updates *all* childrens at once
+    Currently DD framework creates/updates *all* children at once
     and we don't have machinism to update only required child.
-    May be this is part of task which will implement inplace
-    alter in better way, updating only the changed child (or row)
+    Maybe this is part of a task which will implement inplace
+    alter in a better way, updating only the changed child (or row)
     and ignore others. Then we can remove the below check which
     ignores HA_ERR_RECORD_IS_THE_SAME.
   */
@@ -206,7 +207,7 @@ bool Raw_record::store_time(int field_no, my_time_t val, bool is_null) {
 
 ///////////////////////////////////////////////////////////////////////////
 
-bool Raw_record::store_timestamp(int field_no, const timeval &tv) {
+bool Raw_record::store_timestamp(int field_no, const my_timeval &tv) {
   field(field_no)->store_timestamp(&tv);
   return false;
 }
@@ -266,9 +267,9 @@ my_time_t Raw_record::read_time(int field_no) const {
 
 ///////////////////////////////////////////////////////////////////////////
 
-timeval Raw_record::read_timestamp(int field_no) const {
+my_timeval Raw_record::read_timestamp(int field_no) const {
   int warnings = 0;
-  timeval tv;
+  my_timeval tv;
   if (field(field_no)->get_timestamp(&tv, &warnings)) {
     assert(false);
     return {0, 0};

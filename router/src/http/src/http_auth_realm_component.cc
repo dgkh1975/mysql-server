@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,22 +31,32 @@
 #include "http_auth_realm.h"
 #include "mysqlrouter/http_auth_realm_component.h"
 
-void HttpAuthRealmComponent::init(std::shared_ptr<value_type> auth_realms) {
-  auth_realms_ = auth_realms;
+void HttpAuthRealmComponent::add_realm(const std::string &name,
+                                       std::shared_ptr<HttpAuthRealm> realm) {
+  std::lock_guard<std::mutex> lk(realms_m_);
+
+  auth_realms_[name] = std::move(realm);
+}
+
+void HttpAuthRealmComponent::remove_realm(const std::string &name) {
+  std::lock_guard<std::mutex> lk(realms_m_);
+
+  const auto it = auth_realms_.find(name);
+  if (it != auth_realms_.end()) {
+    auth_realms_.erase(it);
+  }
 }
 
 std::shared_ptr<HttpAuthRealm> HttpAuthRealmComponent::get(
     const std::string &inst) {
-  if (auto realms = auth_realms_.lock()) {
-    auto it = realms->find(inst);
-    if (it == realms->end()) {
-      return nullptr;
-    }
+  std::lock_guard<std::mutex> lk(realms_m_);
 
-    return it->second;
-  } else {
+  auto it = auth_realms_.find(inst);
+  if (it == auth_realms_.end()) {
     return nullptr;
   }
+
+  return it->second;
 }
 
 std::error_code HttpAuthRealmComponent::authenticate(

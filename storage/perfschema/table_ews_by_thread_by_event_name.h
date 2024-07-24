@@ -1,15 +1,16 @@
-/* Copyright (c) 2010, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2010, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -89,21 +90,21 @@ struct pos_ews_by_thread_by_event_name : public PFS_triple_index,
                                          public PFS_instrument_view_constants {
   pos_ews_by_thread_by_event_name() : PFS_triple_index(0, FIRST_VIEW, 1) {}
 
-  inline void reset(void) {
+  inline void reset() {
     m_index_1 = 0;
     m_index_2 = FIRST_VIEW;
     m_index_3 = 1;
   }
 
-  inline void next_thread(void) {
+  inline void next_thread() {
     m_index_1++;
     m_index_2 = FIRST_VIEW;
     m_index_3 = 1;
   }
 
-  inline bool has_more_view(void) { return (m_index_2 <= LAST_VIEW); }
+  inline bool has_more_view() { return (m_index_2 <= LAST_VIEW); }
 
-  inline void next_view(void) {
+  inline void next_view() {
     m_index_2++;
     m_index_3 = 1;
   }
@@ -118,7 +119,7 @@ class table_ews_by_thread_by_event_name : public PFS_engine_table {
   static int delete_all_rows();
   static ha_rows get_row_count();
 
-  void reset_position(void) override;
+  void reset_position() override;
 
   int rnd_next() override;
   int rnd_pos(const void *pos) override;

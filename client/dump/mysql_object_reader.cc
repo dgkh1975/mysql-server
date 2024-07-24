@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -83,10 +84,14 @@ void Mysql_object_reader::read_table_rows_task(
 
   if (!runner) return;
 
+  if (m_options->m_skip_gipk)
+    runner->run_query(
+        "/*!80030 SET SESSION "
+        "show_gipk_in_create_table_and_information_schema = OFF */");
+
   Table *table = table_rows_dump_task->get_related_table();
 
   std::vector<const Mysql::Tools::Base::Mysql_query_runner::Row *> columns;
-  std::vector<std::string> field_names;
 
   runner->run_query_store(
       "SELECT `COLUMN_NAME`, `EXTRA` FROM " +
@@ -138,6 +143,10 @@ void Mysql_object_reader::read_table_rows_task(
   row_fetching_context->process_buffer();
   if (row_fetching_context->is_all_rows_processed())
     delete row_fetching_context;
+  if (m_options->m_skip_gipk)
+    runner->run_query(
+        "/*!80030 SET SESSION "
+        "show_gipk_in_create_table_and_information_schema = default */");
   delete runner;
 }
 

@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,7 +30,7 @@
 // which do nothing except log that they ran. start() persists until stop()
 // makes it exit.
 //
-// The notable feature of this plugin is its (artificial) depenency on another
+// The notable feature of this plugin is its (artificial) dependency on another
 // test plugin, "lifecycle".  This is useful in testing correctness of plugin
 // initialisation and deinitialisation.
 //
@@ -101,13 +102,17 @@ mysql_harness::Plugin LIFECYCLE2_API
         "Lifecycle2 test plugin",                // name
         VERSION_NUMBER(1, 0, 0),
         // requires
-        required.size(), required.data(),
+        required.size(),
+        required.data(),
         // conflicts
-        0, nullptr,
+        0,
+        nullptr,
         init,    // init
         deinit,  // deinit
         start,   // start
         stop,    // stop
         false,   // declares_readiness
+        0,
+        nullptr,
 };
 }

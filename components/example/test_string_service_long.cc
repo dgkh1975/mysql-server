@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -34,9 +35,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 // Value must be a multiple of 16 (or TEST_TEXT_LIT_LENGTH)
 #define MAX_BUFFER_LENGTH 4096
 
-#define WRITE_LOG(format, lit_log_text)                   \
-  log_text_len = sprintf(log_text, format, lit_log_text); \
-  fwrite((uchar *)log_text, sizeof(char), log_text_len, outfile)
+#define WRITE_LOG(format, lit_log_text)                                 \
+  log_text_len = sprintf(log_text, format, lit_log_text);               \
+  if (fwrite((uchar *)log_text, sizeof(char), log_text_len, outfile) != \
+      static_cast<size_t>(log_text_len))                                \
+    return true;
 
 /**
   This file contains a test (example) component, which tests the service
@@ -83,15 +86,15 @@ mysql_service_status_t test_string_service_init() {
     if (mysql_service_mysql_string_converter->convert_from_buffer(
             &out_string,
             test_text,  // its a input buffer
-            strlen(test_text) + 10, "utf8")) {
+            strlen(test_text) + 10, "utf8mb3")) {
       WRITE_LOG("%s\n",
                 "Length too high for buffer in convert from buffer: passed.");
     }
-    // Lenght is zero for buffer in convert from buffer
+    // Length is zero for buffer in convert from buffer
     if (mysql_service_mysql_string_converter->convert_from_buffer(
             &out_string,
             test_text,  // its a input buffer
-            0, "utf8")) {
+            0, "utf8mb3")) {
       WRITE_LOG("%s\n",
                 "Length is zero for buffer in convert from buffer: failed.");
     } else {
@@ -102,7 +105,7 @@ mysql_service_status_t test_string_service_init() {
     if (mysql_service_mysql_string_converter->convert_from_buffer(
             &out_string,
             test_text,  // its a input buffer
-            strlen(test_text), "utf8")) {
+            strlen(test_text), "utf8mb3")) {
       WRITE_LOG("%s\n", "Convert from buffer failed.");
     } else {
       uint out_length = 0;
@@ -133,7 +136,7 @@ mysql_service_status_t test_string_service_init() {
           WRITE_LOG("%s\n", "Tolower passed:");
           // Convert low string to buffer
           if (mysql_service_mysql_string_converter->convert_to_buffer(
-                  low_string, low_test_text, MAX_BUFFER_LENGTH, "utf8")) {
+                  low_string, low_test_text, MAX_BUFFER_LENGTH, "utf8mb3")) {
             WRITE_LOG("%s\n", "Convert to buffer failed.");
           } else {
             WRITE_LOG("%s\n", low_test_text);
@@ -152,7 +155,8 @@ mysql_service_status_t test_string_service_init() {
         } else {
           WRITE_LOG("%s\n", "Toupper passed:");
           if (mysql_service_mysql_string_converter->convert_to_buffer(
-                  upper_string, upper_test_text, MAX_BUFFER_LENGTH, "utf8")) {
+                  upper_string, upper_test_text, MAX_BUFFER_LENGTH,
+                  "utf8mb3")) {
             WRITE_LOG("%s\n", "Convert to buffer failed.");
           } else {
             WRITE_LOG("%s\n", upper_test_text);
@@ -196,7 +200,7 @@ mysql_service_status_t test_string_service_init() {
         uint count = 0;
         WRITE_LOG("%s\n", "Create iterator passed.");
         while (mysql_service_mysql_string_iterator->iterator_get_next(
-                   out_iterator, &out_iter_char) != true) {
+                   out_iterator, &out_iter_char) == 0) {
           count++;
         }
         if (count < MAX_BUFFER_LENGTH) {

@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -31,6 +32,7 @@
 #include <ostream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <vector>
 
@@ -38,10 +40,7 @@
 #include <fcntl.h>
 #endif
 
-#ifdef _WIN32
-#include <aclapi.h>
-#endif
-
+#include "mysql/harness/access_rights.h"
 #include "mysql/harness/stdx/expected.h"
 
 namespace mysql_harness {
@@ -119,12 +118,12 @@ class HARNESS_EXPORT Path {
    * Construct a path
    *
    * @param path Non-empty string denoting the path.
+   * @throws std::invalid_argument
    */
-  /** @overload */                // throws std::invalid_argument
-  Path(const std::string &path);  // NOLINT(runtime/explicit)
+  Path(std::string path);
 
-  /** @overload */         // throws std::invalid_argument
-  Path(const char *path);  // NOLINT(runtime/explicit)
+  Path(std::string_view path) : Path(std::string(path)) {}
+  Path(const char *path) : Path(std::string(path)) {}
 
   /**
    * Create a path from directory, basename, and extension.
@@ -224,7 +223,7 @@ class HARNESS_EXPORT Path {
    * Append a path component to the current path.
    *
    * This function will append a path component to the path using the
-   * apropriate directory separator.
+   * appropriate directory separator.
    *
    * @param other Path component to append to the path.
    */
@@ -242,9 +241,6 @@ class HARNESS_EXPORT Path {
    * @param other Path component to be appended to the path
    */
   Path join(const Path &other) const;
-
-  /** @overload */
-  Path join(const char *other) const { return join(Path(other)); }
 
   /**
    * Returns the canonical form of the path, resolving relative paths.
@@ -279,7 +275,7 @@ class HARNESS_EXPORT Path {
   /**
    * Directory separator string.
    *
-   * @note This is platform-dependent and defined in the apropriate
+   * @note This is platform-dependent and defined in the appropriate
    * source file.
    */
   static const char *const directory_separator;
@@ -287,7 +283,7 @@ class HARNESS_EXPORT Path {
   /**
    * Root directory string.
    *
-   * @note This is platform-dependent and defined in the apropriate
+   * @note This is platform-dependent and defined in the appropriate
    * source file.
    */
   static const char *const root_directory;
@@ -422,6 +418,8 @@ class HARNESS_EXPORT Directory : public Path {
    */
   DirectoryIterator begin();
 
+  DirectoryIterator begin() const { return cbegin(); }
+
   /**
    * Constant iterator to first entry.
    *
@@ -435,6 +433,8 @@ class HARNESS_EXPORT Directory : public Path {
    * @return Returns an iterator pointing *past-the-end* of the entries.
    */
   DirectoryIterator end();
+
+  DirectoryIterator end() const { return cend(); }
 
   /**
    * Constant iterator past-the-end of entries.
@@ -457,7 +457,7 @@ class HARNESS_EXPORT Directory : public Path {
    * Recursively create a list of relative paths from a directory. Path will
    * be relative to the given directory. Empty directories are also listed.
    *
-   * @return Recursive list of paths from a direcotry.
+   * @return Recursive list of paths from a directory.
    */
   std::vector<Path> list_recursive() const;
 
@@ -538,30 +538,6 @@ std::string get_plugin_dir(const std::string &runtime_dir);
 HARNESS_EXPORT
 std::string get_tests_data_dir(const std::string &runtime_dir);
 
-#ifdef _WIN32
-/**
- * Deleter for smart pointers pointing to objects allocated with `std::malloc`.
- */
-template <typename T>
-class StdFreeDeleter {
- public:
-  void operator()(T *ptr) { std::free(ptr); }
-};
-
-/**
- * Retrieves file's DACL security descriptor.
- *
- * @param[in] file_name File name.
- *
- * @return File's DACL security descriptor.
- *
- * @throw std::exception Failed to retrieve security descriptor.
- */
-HARNESS_EXPORT std::unique_ptr<SECURITY_DESCRIPTOR, decltype(&free)>
-get_security_descriptor(const std::string &file_name);
-
-#endif
-
 #ifndef _WIN32
 using perm_mode = mode_t;
 HARNESS_EXPORT
@@ -576,7 +552,7 @@ extern const perm_mode kStrictDirectoryPerm;
  * *
  * @param dir       name (or path) of the directory to create
  * @param mode      permission mode for the created directory
- * @param recursive if true then immitated unix `mkdir -p` recursively
+ * @param recursive if true then imitate unix `mkdir -p` recursively
  *                  creating parent directories if needed
  * @retval 0 operation succeeded
  * @retval -1 operation failed because of wrong parameters

@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -60,14 +61,13 @@ class ItemFilterTest : public ::testing::Test {
   void SetUp() override {
     initializer.SetUp();
     init_sql_alloc(PSI_NOT_INSTRUMENTED, &m_alloc,
-                   thd()->variables.range_alloc_block_size, 0);
+                   thd()->variables.range_alloc_block_size);
   }
 
   void TearDown() override {
     delete m_table;
 
     initializer.TearDown();
-    free_root(&m_alloc, MYF(0));
   }
 
   THD *thd() { return initializer.thd(); }
@@ -206,7 +206,7 @@ class ItemFilterTest : public ::testing::Test {
   MEM_ROOT m_alloc;
 
   Fake_TABLE *m_table;
-  TABLE_LIST *m_table_list;
+  Table_ref *m_table_list;
   /*
     Pointer to m_table->field. Only valid if the table was
     created by calling one of ItemFilterTest::create_table*()
@@ -297,7 +297,7 @@ TEST_F(ItemFilterTest, BasicDefaultRows) {
                            m_field[0], unused_int, unused_int, used_tables,
                            &no_ignore_flds);
   // Check filtering for predicate: field0 IS NOT NULL
-  create_item_check_filter(1.0 - COND_FILTER_EQUALITY,
+  create_item_check_filter(1.0F - COND_FILTER_EQUALITY,
                            Item_func::ISNOTNULL_FUNC, m_field[0], unused_int,
                            unused_int, used_tables, &no_ignore_flds);
   // Check filtering for predicate: field0 BETWEEN 10 AND 12

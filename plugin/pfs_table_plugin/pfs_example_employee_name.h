@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -28,7 +29,8 @@
 #include <mysql/plugin.h>
 
 /* Service handle */
-extern SERVICE_TYPE(pfs_plugin_table) * table_svc;
+extern SERVICE_TYPE(pfs_plugin_column_integer_v1) * col_int_svc;
+extern SERVICE_TYPE(pfs_plugin_column_string_v2) * col_string_svc;
 
 /* Global share pointer for pfs_example_employee_name table */
 extern PFS_engine_table_share_proxy ename_st_share;
@@ -104,8 +106,7 @@ class Ename_index_by_emp_num : public Ename_index {
   PSI_plugin_key_integer m_emp_num;
 
   bool match(Ename_Record *record) override {
-    return table_svc->match_key_integer(false, record->e_number.val,
-                                        &m_emp_num);
+    return col_int_svc->match_key(false, record->e_number.val, &m_emp_num);
   }
 };
 
@@ -116,8 +117,8 @@ class Ename_index_by_emp_fname : public Ename_index {
   char m_emp_fname_buffer[EMPLOYEE_NAME_LEN];
 
   bool match(Ename_Record *record) override {
-    return table_svc->match_key_string(false, record->f_name,
-                                       record->f_name_length, &m_emp_fname);
+    return col_string_svc->match_key_string(
+        false, record->f_name, record->f_name_length, &m_emp_fname);
   }
 };
 

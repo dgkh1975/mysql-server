@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -122,10 +123,10 @@ class Sql_cmd_dml : public Sql_cmd {
     Check that user has some relevant privileges for all tables involved in
     the statement, e.g. SELECT privileges for tables selected from, INSERT
     privileges for tables inserted into, etc. This function will also populate
-    TABLE_LIST::grant with all privileges the user has for each table, which
-    is later used during checking of column privileges.
-    Note that at preparation time, views are not expanded yet. Privilege
-    checking is thus rudimentary and must be complemented with later calls to
+    Table_ref::grant with all privileges the user has for each table,
+    which is later used during checking of column privileges. Note that at
+    preparation time, views are not expanded yet. Privilege checking is thus
+    rudimentary and must be complemented with later calls to
     Query_block::check_view_privileges().
     The reason to call this function at such an early stage is to be able to
     quickly reject statements for which the user obviously has insufficient

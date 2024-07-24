@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2003, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2003, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -153,8 +154,7 @@ class CPCD {
     /**
      * @brief Constructs and empty Process
      */
-    Process(const Properties &props, class CPCD *cpcd,
-            uintptr_t sessionid = 0);
+    Process(const Properties &props, class CPCD *cpcd, uintptr_t sessionid = 0);
     /**
      *  @brief Monitors the process
      *
@@ -219,7 +219,7 @@ class CPCD {
 
     /** Session Id to which the Process belongs
      *
-     * @note Used to validate if requests are comming from the same session
+     * @note Used to validate if requests are coming from the same session
      *       that created these processes. Should apply to temporary processes
      *       only.
      */
@@ -347,7 +347,7 @@ class CPCD {
     /** Creates a new CPCD::Monitor object, connected to the specified
      *	CPCD.
      *  A new thread will be created, which will poll the processes of
-     *  the CPCD at the specifed interval.
+     *  the CPCD at the specified interval.
      */
     Monitor(CPCD *cpcd, int poll = CPCD_DEFAULT_POLLING_INTERVAL);
 

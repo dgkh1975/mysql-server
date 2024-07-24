@@ -1,15 +1,16 @@
-/* Copyright (c) 2014, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2014, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -113,7 +114,7 @@ Master_info *Multisource_info::get_mi(const char *channel_name) {
   return it->second;
 }
 
-void Multisource_info::delete_mi(const char *channel_name) {
+bool Multisource_info::delete_mi(const char *channel_name) {
   DBUG_TRACE;
 
   m_channel_map_lock->assert_some_wrlock();
@@ -135,8 +136,15 @@ void Multisource_info::delete_mi(const char *channel_name) {
     map_it = rep_channel_map.find(GROUP_REPLICATION_CHANNEL);
     assert(map_it != rep_channel_map.end());
 
-    it = map_it->second.find(channel_name);
-    assert(it != map_it->second.end());
+    if (map_it != rep_channel_map.end()) {
+      it = map_it->second.find(channel_name);
+      assert(it != map_it->second.end());
+    }
+  }
+
+  if (map_it == rep_channel_map.end() || it == map_it->second.end()) {
+    // the channel identified by channel_name could not be found
+    return true;
   }
 
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
@@ -169,6 +177,7 @@ void Multisource_info::delete_mi(const char *channel_name) {
     }
     delete mi;
   }
+  return false;
 }
 
 bool Multisource_info::is_group_replication_channel_name(const char *channel,
@@ -389,7 +398,7 @@ bool Rpl_channel_filters::build_do_and_ignore_table_hashes() {
     if (it->second->build_do_table_hash() ||
         it->second->build_ignore_table_hash()) {
       LogErr(ERROR_LEVEL, ER_FAILED_TO_BUILD_DO_AND_IGNORE_TABLE_HASHES);
-      return -1;
+      return true;
     }
   }
   m_channel_to_filter_lock->unlock();

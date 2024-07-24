@@ -1,15 +1,16 @@
-// Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+// Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License, version 2.0,
 // as published by the Free Software Foundation.
 //
-// This program is also distributed with certain software (including
+// This program is designed to work with certain software (including
 // but not limited to OpenSSL) that is licensed under separate terms,
 // as designated in a particular file or component or in included license
 // documentation.  The authors of MySQL hereby grant you an additional
 // permission to link the program and your derivative works with the
-// separately licensed software that they have included with MySQL.
+// separately licensed software that they have either included with
+// the program or referenced in the documentation.
 //
 // This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -35,13 +36,24 @@
           "description": "metadata-cache section definition",
           "type": "object",
           "additionalProperties": false,
-          "required": ["group-replication-id", "cluster-metadata-servers"],
+          "required": ["cluster-metadata-servers"],
           "properties": {
             "group-replication-id": {
               "description":
                   "In case of the Group Replication ID the metadata cache module was bootstrapped against, in case of Async Replicaset cluster ID the metadata cache module was bootstrapped against",
               "type": "string"
             },
+            "clusterset-id": {
+              "description":
+                  "Id of the ClusterSet the metadata cache module was bootstrapped against",
+              "type": "string"
+            },
+            "oneOf":
+                [
+                  {"required": ["group-replication-id"]},
+                  {"required": ["clusterset-id"]}
+                ],
+
             "cluster-metadata-servers": {
               "description":
                   "List of the metadata servers that metadata cache module uses for fetching metadata",
@@ -57,7 +69,7 @@
             },
             "view-id": {
               "description":
-                  "Last seen view_id of the AsyncReplicaset cluster metadata",
+                  "Last seen view_id of the Replicaset Cluster or ClusterSet metadata",
               "type": "number"
             }
           }

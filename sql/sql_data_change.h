@@ -1,17 +1,18 @@
 #ifndef SQL_DATA_CHANGE_INCLUDED
 #define SQL_DATA_CHANGE_INCLUDED
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -100,7 +101,7 @@ class COPY_INFO {
   const operation_type m_optype;
 
   /**
-     List of columns of the target table which the statement will explicitely
+     List of columns of the target table which the statement will explicitly
      fill; and thus we must not set a function default for them.
      NULL means "empty list".
   */
@@ -160,7 +161,7 @@ class COPY_INFO {
 
      @param optype           The data change operation type.
      @param inserted_columns List of columns of the target table which
-                             the statement will explicitely fill; COPY_INFO
+                             the statement will explicitly fill; COPY_INFO
                              must not set a function default for them. NULL
                              means "empty list".
      @param manage_defaults  Whether this object should manage function
@@ -196,7 +197,7 @@ class COPY_INFO {
 
      @param optype            The data change operation type.
      @param inserted_columns List of columns of the target table which
-                             the statement will explicitely fill; COPY_INFO
+                             the statement will explicitly fill; COPY_INFO
                              must not set a function default for them. NULL
                              means "empty list".
      @param inserted_columns2 A second list like inserted_columns
@@ -277,7 +278,7 @@ class COPY_INFO {
                   my_error has already been called so the calling function
                   only needs to bail out.
   */
-  bool set_function_defaults(TABLE *table);
+  [[nodiscard]] bool set_function_defaults(TABLE *table);
 
   /**
      Adds the columns that are bound to receive default values from a function

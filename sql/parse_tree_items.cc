@@ -1,15 +1,16 @@
-/* Copyright (c) 2013, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2013, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -115,7 +116,7 @@ static Item *handle_sql2003_note184_exception(Parse_context *pc, Item *left,
     should be re-interpreted as an Item_in_subselect, which corresponds
     to a <table subquery> when used inside an <in predicate>.
 
-    Our reading of Note 184 is reccursive, so that all:
+    Our reading of Note 184 is recursive, so that all:
     - IN (( <subquery> ))
     - IN ((( <subquery> )))
     - IN '('^N <subquery> ')'^N
@@ -393,6 +394,7 @@ bool PTI_simple_ident_q_3d::itemize(Parse_context *pc, Item **res) {
                                                                    : db;
   if (pc->select->no_table_names_allowed) {
     my_error(ER_TABLENAME_NOT_ALLOWED_HERE, MYF(0), table, thd->where);
+    return true;
   }
   if ((pc->select->parsing_place != CTX_HAVING) ||
       (pc->select->get_in_sum_expr() > 0)) {
@@ -553,7 +555,7 @@ bool PTI_user_variable::itemize(Parse_context *pc, Item **res) {
   return false;
 }
 
-bool PTI_variable_aux_3d::itemize(Parse_context *pc, Item **res) {
+bool PTI_get_system_variable::itemize(Parse_context *pc, Item **res) {
   if (super::itemize(pc, res)) return true;
 
   LEX *lex = pc->thd->lex;
@@ -562,33 +564,9 @@ bool PTI_variable_aux_3d::itemize(Parse_context *pc, Item **res) {
     return true;
   }
 
-  /* disallow "SELECT @@global.global.variable" */
-  if (ident1.str && ident2.str && check_reserved_words(ident1.str)) {
-    error(pc, ident1_pos);
-    return true;
-  }
-
-  LEX_STRING *domain;
-  LEX_STRING *variable;
-  if (ident2.str && !is_key_cache_variable_suffix(ident2.str)) {
-    LEX_STRING component_var;
-    domain = &ident1;
-    variable = &ident2;
-    String tmp_name;
-    if (tmp_name.reserve(domain->length + 1 + variable->length + 1) ||
-        tmp_name.append(domain->str) || tmp_name.append('.') ||
-        tmp_name.append(variable->str))
-      return true;  // OOM
-    component_var.str = tmp_name.c_ptr();
-    component_var.length = tmp_name.length();
-    variable->str = nullptr;
-    variable->length = 0;
-    *res = get_system_var(pc, var_type, component_var, *variable, true);
-  } else
-    *res = get_system_var(pc, var_type, ident1, ident2, true);
-  if (*res == nullptr) return true;
-  if (is_identifier(ident1, "warning_count") ||
-      is_identifier(ident1, "error_count")) {
+  if (m_opt_prefix.str == nullptr &&
+      (is_identifier(m_name.str, "warning_count") ||
+       is_identifier(m_name.str, "error_count"))) {
     /*
       "Diagnostics variable" used in a non-diagnostics statement.
       Save the information we need for the former, but clear the
@@ -597,7 +575,8 @@ bool PTI_variable_aux_3d::itemize(Parse_context *pc, Item **res) {
     */
     lex->keep_diagnostics = DA_KEEP_COUNTS;
   }
-  return false;
+  *res = get_system_variable(pc, m_scope, m_opt_prefix, m_name, true);
+  return *res == nullptr;
 }
 
 bool PTI_count_sym::itemize(Parse_context *pc, Item **res) {

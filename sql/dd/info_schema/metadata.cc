@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -425,15 +426,16 @@ bool update_plugins_I_S_metadata(THD *thd) {
   Create INFORMATION_SCHEMA system views.
 */
 bool create_system_views(THD *thd, bool is_non_dd_based) {
-  // Force use of utf8 charset.
+  // Force use of utf8mb3 charset.
   const CHARSET_INFO *client_cs = thd->variables.character_set_client;
   const CHARSET_INFO *cs = thd->variables.collation_connection;
   const CHARSET_INFO *m_client_cs, *m_connection_cl;
   Disable_binlog_guard binlog_guard(thd);
   Implicit_substatement_state_guard substatement_guard(thd);
 
-  resolve_charset("utf8", system_charset_info, &m_client_cs);
-  resolve_collation("utf8_general_ci", system_charset_info, &m_connection_cl);
+  resolve_charset("utf8mb3", system_charset_info, &m_client_cs);
+  resolve_collation("utf8mb3_general_ci", system_charset_info,
+                    &m_connection_cl);
 
   thd->variables.character_set_client = m_client_cs;
   thd->variables.collation_connection = m_connection_cl;
@@ -520,6 +522,11 @@ bool update_server_I_S_metadata(THD *thd) {
   Update_context ctx(thd, true);
   const dd::Schema *sch_obj = ctx.info_schema();
   if (sch_obj == nullptr) return true;
+
+  LogErr(INFORMATION_LEVEL, ER_INFORMATION_SCHEMA_VERSION_CHANGE,
+         (actual_version > d->get_target_I_S_version() ? "Downgrading"
+                                                       : "Upgrading"),
+         actual_version, d->get_target_I_S_version());
 
   /*
     Stage 1:

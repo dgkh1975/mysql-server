@@ -1,15 +1,16 @@
-/* Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,6 +25,8 @@
 #define DD_UPGRADE_IMPL__SERVER_H_INCLUDED
 
 #include <stdio.h>
+
+#include <set>
 
 #include "my_sys.h"  // ErrorHandlerFunctionPointer
 #include "sql/dd/string_type.h"
@@ -66,15 +69,23 @@ class Bootstrap_error_handler {
   // Set abort on error flag and enable error logging for certain fatal error.
   static void set_abort_on_error(uint error);
 
+  // Check if error should be logged.
+  static bool should_log_error(uint error);
+
  public:
   Bootstrap_error_handler();
 
-  // Mark as error is set.
+  // Log all errors to the error log file too.
   void set_log_error(bool log_error);
+
+  void set_allowlist_errors(std::set<uint> &error_codes);
+  void clear_allowlist_errors();
 
   ~Bootstrap_error_handler();
   static bool m_log_error;
   static bool abort_on_error;
+  // Set of errors which are logged to error log file always.
+  static std::set<uint> m_allowlist_errors;
 };
 
 /**

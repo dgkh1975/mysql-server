@@ -1,15 +1,16 @@
-/* Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -29,7 +30,8 @@
 class Rpl_async_conn_failover_add_managed : public Udf_service_impl {
  private:
   Udf_charset_service m_charset_service;
-  static const std::string m_udf_name;
+  static constexpr const char *m_udf_name =
+      "asynchronous_connection_failover_add_managed";
   bool m_initialized{false};
 
  public:
@@ -85,7 +87,7 @@ class Rpl_async_conn_failover_add_managed : public Udf_service_impl {
                                char *message);
 
   /**
-    Deinitialize variables initalized during init function.
+    Deinitialize variables initialized during init function.
 
     @param[in] init_id     UDF_INIT structure
   */

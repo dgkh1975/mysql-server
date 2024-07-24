@@ -200,11 +200,11 @@ INSERT INTO t1 (col1) VALUES(STR_TO_DATE('31.10.0000 15.30','%d.%m.%Y %H.%i'));
 INSERT INTO t1 (col1) VALUES(STR_TO_DATE('31.0.2004 15.30','%d.%m.%Y %H.%i'));
 --error 1411
 INSERT INTO t1 (col1) VALUES(STR_TO_DATE('0.10.2004 15.30','%d.%m.%Y %H.%i'));
---error 1292
+--error 1411
 INSERT INTO t1 (col1) VALUES(STR_TO_DATE('31.9.2004 15.30','%d.%m.%Y %H.%i'));
 --error 1411
 INSERT INTO t1 (col1) VALUES(STR_TO_DATE('32.10.2004 15.30','%d.%m.%Y %H.%i'));
---error 1292
+--error 1411
 INSERT INTO t1 (col1) VALUES(STR_TO_DATE('29.02.2003 15.30','%d.%m.%Y %H.%i'));
 --error 1411
 INSERT INTO t1 (col1) VALUES(STR_TO_DATE('15.13.2004 15.30','%d.%m.%Y %H.%i'));
@@ -221,11 +221,11 @@ INSERT INTO t1 (col2) VALUES(STR_TO_DATE('31.10.0000 15.30','%d.%m.%Y %H.%i'));
 INSERT INTO t1 (col2) VALUES(STR_TO_DATE('31.0.2004 15.30','%d.%m.%Y %H.%i'));
 --error 1411
 INSERT INTO t1 (col2) VALUES(STR_TO_DATE('0.10.2004 15.30','%d.%m.%Y %H.%i'));
---error 1292
+--error 1411
 INSERT INTO t1 (col2) VALUES(STR_TO_DATE('31.9.2004 15.30','%d.%m.%Y %H.%i'));
 --error 1411
 INSERT INTO t1 (col2) VALUES(STR_TO_DATE('32.10.2004 15.30','%d.%m.%Y %H.%i'));
---error 1292
+--error 1411
 INSERT INTO t1 (col2) VALUES(STR_TO_DATE('29.02.2003 15.30','%d.%m.%Y %H.%i'));
 --error 1411
 INSERT INTO t1 (col2) VALUES(STR_TO_DATE('15.13.2004 15.30','%d.%m.%Y %H.%i'));
@@ -242,11 +242,11 @@ INSERT INTO t1 (col3) VALUES(STR_TO_DATE('31.10.0000 15.30','%d.%m.%Y %H.%i'));
 INSERT INTO t1 (col3) VALUES(STR_TO_DATE('31.0.2004 15.30','%d.%m.%Y %H.%i'));
 --error 1411
 INSERT INTO t1 (col3) VALUES(STR_TO_DATE('0.10.2004 15.30','%d.%m.%Y %H.%i'));
---error 1292
+--error 1411
 INSERT INTO t1 (col3) VALUES(STR_TO_DATE('31.9.2004 15.30','%d.%m.%Y %H.%i'));
 --error 1411
 INSERT INTO t1 (col3) VALUES(STR_TO_DATE('32.10.2004 15.30','%d.%m.%Y %H.%i'));
---error 1292
+--error 1411
 INSERT INTO t1 (col3) VALUES(STR_TO_DATE('29.02.2003 15.30','%d.%m.%Y %H.%i'));
 --error 1411
 INSERT INTO t1 (col3) VALUES(STR_TO_DATE('15.13.2004 15.30','%d.%m.%Y %H.%i'));
@@ -473,6 +473,8 @@ INSERT INTO t1 (col2) VALUES(256.0);
 SELECT MOD(col1,0) FROM t1 WHERE col1 > 0 LIMIT 1;
 --error 1264
 UPDATE t1 SET col1 = col1 - 50 WHERE col1 < 0;
+# Different row number with the hypergraph optimizer.
+--replace_regex /at row 1$/at row 3/
 --error 1264
 UPDATE t1 SET col2=col2 + 50 WHERE col2 > 0;
 --error 1365
@@ -531,6 +533,8 @@ INSERT INTO t1 (col2) VALUES(-1.0);
 INSERT INTO t1 (col2) VALUES(65536.0);
 --error 1264
 UPDATE t1 SET col1 = col1 - 50 WHERE col1 < 0;
+# Different row number with the hypergraph optimizer.
+--replace_regex /at row 1$/at row 3/
 --error 1264
 UPDATE t1 SET col2 = col2 + 50 WHERE col2 > 0;
 --error 1365
@@ -584,6 +588,8 @@ INSERT INTO t1 (col2) VALUES(16777216.0);
 
 --error 1264
 UPDATE t1 SET col1 = col1 - 50 WHERE col1 < 0;
+# Different row number with the hypergraph optimizer.
+--replace_regex /at row 1$/at row 3/
 --error 1264
 UPDATE t1 SET col2 = col2 + 50 WHERE col2 > 0;
 --error 1365
@@ -637,6 +643,8 @@ INSERT INTO t1 (col2) VALUES(4294967296.0);
 
 --error 1264
 UPDATE t1 SET col1 = col1 - 50 WHERE col1 < 0;
+# Different row number with the hypergraph optimizer.
+--replace_regex /at row 1$/at row 3/
 --error 1264
 UPDATE t1 SET col2 =col2 + 50 WHERE col2 > 0;
 --error 1365
@@ -752,6 +760,8 @@ INSERT INTO t1 VALUES ('-1010.55');
 INSERT INTO t1 VALUES ('-100E+1');
 --error 1366
 INSERT INTO t1 VALUES ('-100E');
+# Different row number with the hypergraph optimizer.
+--replace_regex /at row 1$/at row 6/
 --error 1264
 UPDATE t1 SET col1 =col1 * 50000 WHERE col1 =11;
 --error 1365
@@ -790,6 +800,8 @@ INSERT INTO t1 (col2) VALUES (-1.1E-3);
 INSERT INTO t1 (col1) VALUES ('+3.4E+39');
 --error 1264
 INSERT INTO t1 (col2) VALUES ('-1.1E-3');
+# Different row number with the hypergraph optimizer.
+--replace_regex /at row 1$/at row 2/
 --error 1264
 UPDATE t1 SET col1 =col1 * 5000 WHERE col1 > 0;
 --error 1365
@@ -855,11 +867,17 @@ INSERT INTO t1 (col1) VALUES ('hellobob');
 --error 1406
 INSERT INTO t1 (col2) VALUES ('hellobob');
 INSERT INTO t1 (col2) VALUES ('hello  ');
+# Different row number with the hypergraph optimizer.
+--replace_regex /at row 1$/at row 2/
 --error 1406
 UPDATE t1 SET col1 ='hellobob' WHERE col1 ='he';
+# Different row number with the hypergraph optimizer.
+--replace_regex /at row 1$/at row 2/
 --error 1406
 UPDATE t1 SET col2 ='hellobob' WHERE col2 ='he';
 INSERT IGNORE INTO t1 VALUES ('hellobob', 'hellobob');
+# Different row number with the hypergraph optimizer.
+--replace_regex /at row 1$/at row 2/
 UPDATE IGNORE t1 SET col2 ='hellotrudy' WHERE col2 ='he';
 SELECT * FROM t1;
 DROP TABLE t1;
@@ -874,9 +892,13 @@ INSERT INTO t1 (col1) VALUES ('yellow');
 INSERT INTO t1 (col1) VALUES ('redd');
 --error 1265
 INSERT INTO t1 VALUES ('');
+# Different row number with the hypergraph optimizer.
+--replace_regex /at row 1$/at row 3/
 --error 1265
 UPDATE t1 SET col1 ='yellow' WHERE col1 ='green';
 INSERT IGNORE INTO t1 VALUES ('yellow');
+# Different row number with the hypergraph optimizer.
+--replace_regex /at row 1$/at row 2/
 UPDATE IGNORE t1 SET col1 ='yellow' WHERE col1 ='blue';
 SELECT * FROM t1;
 DROP TABLE t1;
@@ -1637,3 +1659,29 @@ SHOW CREATE TABLE t3;
 SELECT * FROM t2;
 
 DROP TABLE t1, t2, t3;
+
+--echo #
+--echo # Bug#34704094: Mysql str_to_date can correct convert for '2022-11-30'
+--echo #
+
+SET sql_mode='NO_ZERO_DATE';
+select str_to_date('0000-00-00', '%Y-%m-%d');
+--echo # Not compliant with how CAST works
+select str_to_date('0000-01-00', '%Y-%m-%d');
+--echo # Not compliant with how CAST works
+select str_to_date('0000-00-01', '%Y-%m-%d');
+select str_to_date('2023-02-31', '%Y-%m-%d');
+
+SET sql_mode='NO_ZERO_IN_DATE';
+select str_to_date('0000-00-00', '%Y-%m-%d');
+select str_to_date('0000-01-00', '%Y-%m-%d');
+select str_to_date('0000-00-01', '%Y-%m-%d');
+select str_to_date('2023-02-31', '%Y-%m-%d');
+
+SET sql_mode='ALLOW_INVALID_DATES';
+select str_to_date('0000-00-00', '%Y-%m-%d');
+select str_to_date('0000-01-00', '%Y-%m-%d');
+select str_to_date('0000-00-01', '%Y-%m-%d');
+select str_to_date('2023-02-31', '%Y-%m-%d');
+
+SET sql_mode=@org_mode;

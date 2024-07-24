@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,9 +26,11 @@
 #ifndef Ndb_sql_record_layout_H
 #define Ndb_sql_record_layout_H
 
+#include <assert.h>
 #include <string>
 
 #include "NdbApi.hpp"
+#include "storage/ndb/plugin/ndb_require.h"
 
 class Ndb_record_layout {
  public:
@@ -41,6 +44,7 @@ class Ndb_record_layout {
 
   void addColumn(const NdbDictionary::Column *);
 
+  void initRowBuffer(char *data) const;
   void setNull(int idx, char *data) const;
   void setNotNull(int idx, char *data) const;
   void setValue(int idx, unsigned short, char *data) const;
@@ -59,15 +63,25 @@ class Ndb_record_layout {
   bool getValue(const char *data, int idx, unsigned int *value) const;
 
  private:
-  unsigned int m_columns, m_seq;
+  static constexpr unsigned MAX_NULLABLE_COLUMNS = 32;
+
+  const unsigned int m_columns;
+  unsigned int m_seq;
+  unsigned m_nullable_columns = 0;
 };
 
 inline void Ndb_record_layout::setNull(int idx, char *data) const {
+  ndbcluster::ndbrequire(record_specs[idx].column->getNullable());
+  assert(record_specs[idx].nullbit_byte_offset < MAX_NULLABLE_COLUMNS / 8);
+  assert(record_specs[idx].nullbit_bit_in_byte < 8);
   *(data + record_specs[idx].nullbit_byte_offset) |=
       (char)(1 << record_specs[idx].nullbit_bit_in_byte);
 }
 
 inline void Ndb_record_layout::setNotNull(int idx, char *data) const {
+  if (!record_specs[idx].column->getNullable()) return;
+  assert(record_specs[idx].nullbit_byte_offset < MAX_NULLABLE_COLUMNS / 8);
+  assert(record_specs[idx].nullbit_bit_in_byte < 8);
   *(data + record_specs[idx].nullbit_byte_offset) &=
       (char)(0xFF ^ (1 << record_specs[idx].nullbit_bit_in_byte));
 }

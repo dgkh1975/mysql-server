@@ -1,7 +1,7 @@
 include/master-slave.inc
 Warnings:
 Note	####	Sending passwords in plain text without SSL/TLS is extremely insecure.
-Note	####	Storing MySQL user name or password information in the master info repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START SLAVE; see the 'START SLAVE Syntax' in the MySQL Manual for more information.
+Note	####	Storing MySQL user name or password information in the connection metadata repository is not secure and is therefore not recommended. Please consider using the USER and PASSWORD connection options for START REPLICA; see the 'START REPLICA Syntax' in the MySQL Manual for more information.
 [connection master]
 #### INITIALIZE ####
 [connection slave]
@@ -11,8 +11,14 @@ SET @@GLOBAL.replica_parallel_workers= 4;
 include/start_slave.inc
 [connection master]
 SET @save_binlog_transaction_dependency_tracking = @@GLOBAL.binlog_transaction_dependency_tracking;
+Warnings:
+Warning	1287	'@@binlog_transaction_dependency_tracking' is deprecated and will be removed in a future release.
 SET GLOBAL binlog_transaction_dependency_tracking = COMMIT_ORDER;
+Warnings:
+Warning	1287	'@@binlog_transaction_dependency_tracking' is deprecated and will be removed in a future release.
 SET GLOBAL binlog_transaction_dependency_tracking = WRITESET;
+Warnings:
+Warning	1287	'@@binlog_transaction_dependency_tracking' is deprecated and will be removed in a future release.
 
 #### 0.0.0.0: WITHOUT PK, NULLABLE, NOT UNIQUE, NO INDEX ####
 
@@ -815,7 +821,11 @@ DROP TABLE t1;
 DROP TABLE t2;
 #### CLEAN UP ####
 SET @@GLOBAL.binlog_transaction_dependency_tracking= COMMIT_ORDER;
+Warnings:
+Warning	1287	'@@binlog_transaction_dependency_tracking' is deprecated and will be removed in a future release.
 SET @@GLOBAL.binlog_transaction_dependency_tracking= @save_binlog_transaction_dependency_tracking;
+Warnings:
+Warning	1287	'@@binlog_transaction_dependency_tracking' is deprecated and will be removed in a future release.
 include/sync_slave_sql_with_master.inc
 SET @@GLOBAL.replica_parallel_workers= @save_replica_parallel_workers;
 include/rpl_end.inc

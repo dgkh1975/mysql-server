@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,9 +26,11 @@
 #ifndef MYSQL_HARNESS_STRING_UTILS_INCLUDED
 #define MYSQL_HARNESS_STRING_UTILS_INCLUDED
 
-#include <string>
-#include <vector>
 #include "harness_export.h"
+
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace mysql_harness {
 
@@ -43,7 +46,7 @@ namespace mysql_harness {
  * @return std::vector<string> containing tokens
  */
 HARNESS_EXPORT
-std::vector<std::string> split_string(const std::string &data,
+std::vector<std::string> split_string(const std::string_view &data,
                                       const char delimiter,
                                       bool allow_empty = true);
 
@@ -70,6 +73,22 @@ void right_trim(std::string &str);
  */
 HARNESS_EXPORT
 void trim(std::string &str);
+
+/**
+ * Returns the input string with number of lines reduced to selected value.
+ *
+ * @param str input string
+ * @param limit maximum number of lines of the returned string
+ * @param replace_with string that should be used in place of the removed lines
+ *
+ * @returns If the input string contains more than 'limit' number of lines, it
+ * removes the lines from the middle leaving only 'limit' number of lines
+ * (limit/2 of the first lines and limit/2 of the last lines). Otherwise it
+ * returns the whole input string.
+ */
+HARNESS_EXPORT
+std::string limit_lines(const std::string &str, const size_t limit,
+                        const std::string &replace_with = "");
 
 }  // namespace mysql_harness
 

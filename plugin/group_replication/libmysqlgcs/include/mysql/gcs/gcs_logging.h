@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,6 +25,7 @@
 #define GCS_LOGGING_INCLUDED
 
 #include <atomic>
+#include <cstdint>
 #include <string>
 
 #include "plugin/group_replication/libmysqlgcs/include/mysql/gcs/gcs_types.h"
@@ -362,7 +364,7 @@ class Gcs_debug_options {
   static bool is_valid_debug_options(const std::string &debug_options);
 
   /**
-    Get the set of debug options passed as paramter as an unsigned integer.
+    Get the set of debug options passed as parameter as an unsigned integer.
 
     If there is any invalid debug option in the debug_options parameter, true
     is returned.
@@ -376,7 +378,7 @@ class Gcs_debug_options {
                                 int64_t &res_debug_options);
 
   /**
-    Get the set of debug options passed as paramter as a string.
+    Get the set of debug options passed as parameter as a string.
 
     If there is any invalid debug option in the debug_options parameter, true
     is returned.

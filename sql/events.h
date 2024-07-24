@@ -1,17 +1,18 @@
 #ifndef _EVENT_H_
 #define _EVENT_H_
-/* Copyright (c) 2004, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2004, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -39,11 +40,11 @@
 #include "my_inttypes.h"
 #include "my_psi_config.h"
 #include "my_time.h" /* interval_type */
-#include "mysql/components/services/psi_cond_bits.h"
-#include "mysql/components/services/psi_mutex_bits.h"
-#include "mysql/components/services/psi_stage_bits.h"
-#include "mysql/components/services/psi_thread_bits.h"
-#include "mysql/psi/psi_memory.h"  // PSI_memory_key
+#include "mysql/components/services/bits/psi_cond_bits.h"
+#include "mysql/components/services/bits/psi_mutex_bits.h"
+#include "mysql/components/services/bits/psi_stage_bits.h"
+#include "mysql/components/services/bits/psi_thread_bits.h"
+#include "sql/psi_memory_key.h"
 
 class Event_db_repository;
 class Event_parse_data;
@@ -64,14 +65,12 @@ extern PSI_cond_key key_event_scheduler_COND_state;
 extern PSI_thread_key key_thread_event_scheduler, key_thread_event_worker;
 #endif /* HAVE_PSI_INTERFACE */
 
-extern PSI_memory_key key_memory_event_basic_root;
-
 /* Always defined, for SHOW PROCESSLIST. */
 extern PSI_stage_info stage_waiting_on_empty_queue;
 extern PSI_stage_info stage_waiting_for_next_activation;
 extern PSI_stage_info stage_waiting_for_scheduler_to_stop;
 
-int sortcmp_lex_string(LEX_CSTRING s, LEX_CSTRING t, CHARSET_INFO *cs);
+int sortcmp_lex_string(LEX_CSTRING s, LEX_CSTRING t, const CHARSET_INFO *cs);
 
 /**
   @brief A facade to the functionality of the Event Scheduler.

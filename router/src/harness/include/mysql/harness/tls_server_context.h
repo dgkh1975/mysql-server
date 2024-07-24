@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -49,9 +50,9 @@ class HARNESS_TLS_EXPORT TlsServerContext : public TlsContext {
    *
    * they are filtered out if set through cipher_list()
    */
-  static constexpr std::array<const char *, 9> unacceptable_cipher_spec{
-      "!aNULL", "!eNULL", "!EXPORT", "!MD5",  "!DES",
-      "!RC2",   "!RC4",   "!PSK",    "!SSLv3"};
+  static constexpr std::array<const char *, 12> unacceptable_cipher_spec{
+      "!aNULL", "!eNULL", "!EXPORT", "!LOW", "!MD5", "!DES",
+      "!3DES",  "!RC2",   "!RC4",    "!PSK", "!kDH", "!SSLv3"};
 
   /**
    * construct a TLS Context for server-side.
@@ -64,11 +65,11 @@ class HARNESS_TLS_EXPORT TlsServerContext : public TlsContext {
    *
    * cerifiticate is verified against the key
    *
-   * @param cert_chain_file filename of a PEM file containing a certificate
    * @param private_key_file filename of a PEM file containing a key
+   * @param cert_chain_file filename of a PEM file containing a certificate
    */
   stdx::expected<void, std::error_code> load_key_and_cert(
-      const std::string &cert_chain_file, const std::string &private_key_file);
+      const std::string &private_key_file, const std::string &cert_chain_file);
 
   /**
    * init temporary DH parameters.
@@ -100,9 +101,37 @@ class HARNESS_TLS_EXPORT TlsServerContext : public TlsContext {
                                                std::bitset<2> tls_opts = 0);
 
   /**
+   * get the security level.
+   *
+   * | sec-level | RSA-min-key-size |
+   * +-----------+------------------+
+   * |         1 |             1024 |
+   * |         2 |             2048 |
+   * |         3 |             3072 |
+   * |         4 |             7680 |
+   * |         5 |            15360 |
+   *
+   * @see SSL_CTX_get_security_level()
+   *
+   * @returns the security level of the ssl-ctx.
+   */
+  int security_level() const;
+
+  /**
    * default ciphers.
    */
   static std::vector<std::string> default_ciphers();
+
+  /**
+   * set the session-id context for ssl-context reuse.
+   *
+   * unique identifier of the ssl-ctx.
+   *
+   * @param sid_ctx opaque string of size sid_ctx_len
+   * @param sid_ctx_len length of sid_ctx_len
+   */
+  stdx::expected<void, std::error_code> session_id_context(
+      const unsigned char *sid_ctx, unsigned int sid_ctx_len);
 };
 
 #endif

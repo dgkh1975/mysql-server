@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2020, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2020, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -107,15 +108,20 @@ ThreadAffinity::affinity() const noexcept {
   SetThreadAffinityMask(thread_id_, cur_mask);
 
   // create bitmask from old_mask.
-  return {stdx::in_place, cur_mask};
+  return {std::in_place, cur_mask};
 #else
   return stdx::make_unexpected(make_error_code(std::errc::not_supported));
 #endif
 }
 
+// Doxygen gets confused by [[maybe_unused]]
+
+/**
+ @cond
+*/
 stdx::expected<void, std::error_code> ThreadAffinity::affinity(
     std::bitset<ThreadAffinity::max_cpus> cpus
-        MY_ATTRIBUTE((unused))) const noexcept {
+    [[maybe_unused]]) const noexcept {
 #if defined(__linux__) || defined(__FreeBSD__)
   thread_affinity_cpu_set_type cpuset;
 
@@ -170,3 +176,7 @@ stdx::expected<void, std::error_code> ThreadAffinity::affinity(
   return stdx::make_unexpected(make_error_code(std::errc::not_supported));
 #endif
 }
+
+/**
+ @endcond
+*/

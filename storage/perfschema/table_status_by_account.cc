@@ -1,15 +1,16 @@
-/* Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -105,7 +106,7 @@ PFS_engine_table *table_status_by_account::create(PFS_engine_table_share *) {
   return new table_status_by_account();
 }
 
-int table_status_by_account::delete_all_rows(void) {
+int table_status_by_account::delete_all_rows() {
   mysql_mutex_lock(&LOCK_status);
   reset_status_by_thread();
   reset_status_by_account();
@@ -113,9 +114,9 @@ int table_status_by_account::delete_all_rows(void) {
   return 0;
 }
 
-ha_rows table_status_by_account::get_row_count(void) {
+ha_rows table_status_by_account::get_row_count() {
   mysql_mutex_lock(&LOCK_status);
-  size_t status_var_count = all_status_vars.size();
+  const size_t status_var_count = all_status_vars.size();
   mysql_mutex_unlock(&LOCK_status);
   return (global_account_container.get_row_count() * status_var_count);
 }
@@ -126,7 +127,7 @@ table_status_by_account::table_status_by_account()
       m_pos(),
       m_next_pos() {}
 
-void table_status_by_account::reset_position(void) {
+void table_status_by_account::reset_position() {
   m_pos.reset();
   m_next_pos.reset();
 }
@@ -138,7 +139,7 @@ int table_status_by_account::rnd_init(bool /* scan */) {
   return 0;
 }
 
-int table_status_by_account::rnd_next(void) {
+int table_status_by_account::rnd_next() {
   /*
     For each account, build a cache of status variables using totals from all
     threads associated with the account.
@@ -178,7 +179,7 @@ int table_status_by_account::rnd_pos(const void *pos) {
   return HA_ERR_RECORD_DELETED;
 }
 
-int table_status_by_account::index_init(uint idx MY_ATTRIBUTE((unused)), bool) {
+int table_status_by_account::index_init(uint idx [[maybe_unused]], bool) {
   /* Build array of SHOW_VARs from the global status array prior to
    * materializing. */
   m_status_cache.initialize_client_session();
@@ -191,7 +192,7 @@ int table_status_by_account::index_init(uint idx MY_ATTRIBUTE((unused)), bool) {
   return 0;
 }
 
-int table_status_by_account::index_next(void) {
+int table_status_by_account::index_next() {
   /*
     For each account, build a cache of status variables using totals from all
     threads associated with the account.
@@ -263,11 +264,11 @@ int table_status_by_account::read_row_values(TABLE *table, unsigned char *buf,
       switch (f->field_index()) {
         case 0: /* USER */
         case 1: /* HOST */
-          m_row.m_account.set_field(f->field_index(), f);
+          m_row.m_account.set_nullable_field(f->field_index(), f);
           break;
         case 2: /* VARIABLE_NAME */
-          set_field_varchar_utf8(f, m_row.m_variable_name.m_str,
-                                 m_row.m_variable_name.m_length);
+          set_field_varchar_utf8mb4(f, m_row.m_variable_name.m_str,
+                                    m_row.m_variable_name.m_length);
           break;
         case 3: /* VARIABLE_VALUE */
           m_row.m_variable_value.set_field(f);

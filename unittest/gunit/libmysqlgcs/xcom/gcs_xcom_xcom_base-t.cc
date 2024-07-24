@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -33,19 +34,29 @@
 #include "xcom_memory.h"
 #include "xcom_transport.h"
 
+#include "plugin/group_replication/libmysqlgcs/src/bindings/xcom/xcom/network/network_provider_manager.h"
+#include "plugin/group_replication/libmysqlgcs/src/bindings/xcom/xcom/network/xcom_network_provider.h"
+
 namespace xcom_base_unittest {
 
 class XcomBase : public GcsBaseTest {
  protected:
-  XcomBase() { ::init_cache(); }
-  ~XcomBase() override { ::deinit_cache(); }
+  XcomBase() {
+    ::init_cache();
+
+    auto &net_manager = Network_provider_manager::getInstance();
+
+    auto xcom_network_provider = std::make_shared<Xcom_network_provider>();
+    net_manager.add_network_provider(xcom_network_provider);
+  }
+  ~XcomBase() { ::deinit_cache(); }
 };
 
 TEST_F(XcomBase, XcomSendClientAppDataUpgradeScenario) {
   app_data a;
   std::string address("127.0.0.1:12345");
 
-  char *names[] = {const_cast<char *>(address.c_str())};
+  char const *names[]{address.c_str()};
   node_address *na = new_node_address(1, names);
 
   a.body.c_t = add_node_type;
@@ -63,7 +74,7 @@ TEST_F(XcomBase, XcomSendClientAppDataUpgradeScenarioV6) {
   app_data a;
   std::string address("[::1]:12345");
 
-  char *names[] = {const_cast<char *>(address.c_str())};
+  char const *names[]{address.c_str()};
   node_address *na = new_node_address(1, names);
 
   a.body.c_t = add_node_type;
@@ -82,7 +93,7 @@ TEST_F(XcomBase, XcomSendClientAppDataUpgradeScenarioMalformed) {
   app_data a;
   std::string address("::1]:12345");
 
-  char *names[] = {const_cast<char *>(address.c_str())};
+  char const *names[]{address.c_str()};
   node_address *na = new_node_address(1, names);
 
   a.body.c_t = add_node_type;
@@ -100,7 +111,7 @@ TEST_F(XcomBase, XcomSendClientAppDataUpgradeScenarioMalformed) {
 TEST_F(XcomBase, XcomNewClientEligibleDowngradeScenario) {
   std::string address("127.0.0.1:12345");
 
-  char *names[] = {const_cast<char *>(address.c_str())};
+  char const *names[]{address.c_str()};
   node_address *na = new_node_address(1, names);
 
   site_def *sd = new_site_def();
@@ -118,7 +129,7 @@ TEST_F(XcomBase, XcomNewClientEligibleDowngradeScenario) {
 TEST_F(XcomBase, XcomNewClientEligibleDowngradeScenarioFail) {
   std::string address("[::1]:12345");
 
-  char *names[] = {const_cast<char *>(address.c_str())};
+  char const *names[]{address.c_str()};
   node_address *na = new_node_address(1, names);
 
   site_def *sd = new_site_def();
@@ -192,6 +203,11 @@ TEST_F(XcomBase, GetSynodeAppDataSuccessful) {
   synode.msgno = 0;
   synode.node = 0;
 
+  synode_no origin;
+  origin.group_id = 12345;
+  origin.msgno = 0;
+  origin.node = 1;
+
   synode_no_array synodes;
   synodes.synode_no_array_len = 1;
   synodes.synode_no_array_val = &synode;
@@ -203,6 +219,7 @@ TEST_F(XcomBase, GetSynodeAppDataSuccessful) {
   /* Add the synode to the cache, and set it as decided. */
   char const *const payload = "Message in a bottle";
   app_data_ptr a = new_app_data();
+  a->unique_id = origin;
   a->body.c_t = app_type;
   a->body.app_u_u.data.data_len = std::strlen(payload) + 1;
   a->body.app_u_u.data.data_val = const_cast<char *>(payload);
@@ -220,6 +237,7 @@ TEST_F(XcomBase, GetSynodeAppDataSuccessful) {
 
   ASSERT_EQ(result.synode_app_data_array_len, 1);
   ASSERT_EQ(synode_eq(result.synode_app_data_array_val[0].synode, synode), 1);
+  ASSERT_EQ(synode_eq(result.synode_app_data_array_val[0].origin, origin), 1);
   ASSERT_EQ(result.synode_app_data_array_val[0].data.data_len,
             p->a->body.app_u_u.data.data_len);
   ASSERT_EQ(std::strcmp(result.synode_app_data_array_val[0].data.data_val,
@@ -762,8 +780,7 @@ TEST_F(XcomBase, HandleBootWithoutIdentity) {
   synod.node = 0;
 
   // Fake node information.
-  char *name = const_cast<char *>("127.0.0.1:10001");
-  char *names[] = {name};
+  char const *names[]{"127.0.0.1:10001"};
   blob uuid;
   uuid.data.data_len = 1;
   uuid.data.data_val = const_cast<char *>("1");
@@ -797,8 +814,7 @@ TEST_F(XcomBase, HandleBootWithIdentityOfExistingMember) {
   synod.node = 0;
 
   // Fake node information.
-  char *name = const_cast<char *>("127.0.0.1:10001");
-  char *names[] = {name};
+  char const *names[]{"127.0.0.1:10001"};
   blob uuid;
   uuid.data.data_len = 1;
   uuid.data.data_val = const_cast<char *>("1");
@@ -834,8 +850,7 @@ TEST_F(XcomBase, HandleBootWithIdentityOfNonExistingMember) {
   synod.node = 0;
 
   // Fake node information.
-  char *name = const_cast<char *>("127.0.0.1:10001");
-  char *names[] = {name};
+  char const *names[]{"127.0.0.1:10001"};
   blob uuid;
   uuid.data.data_len = 1;
   uuid.data.data_val = const_cast<char *>("1");
@@ -875,8 +890,8 @@ TEST_F(XcomBase, HandleBootWithMoreThanOneIdentity) {
   synod.node = 0;
 
   // Fake node information.
-  char *name = const_cast<char *>("127.0.0.1:10001");
-  char *names[] = {name};
+  char const *name{"127.0.0.1:10001"};
+  char const *names[]{name};
   blob uuid;
   uuid.data.data_len = 1;
   uuid.data.data_val = const_cast<char *>("1");
@@ -890,8 +905,8 @@ TEST_F(XcomBase, HandleBootWithMoreThanOneIdentity) {
 
   pax_msg *need_boot = pax_msg_new(synod, nullptr);
   // need_boot_op with two identities.
-  char *other_name = const_cast<char *>("127.0.0.1:10002");
-  char *two_names[] = {name, other_name};
+  char const *other_name{"127.0.0.1:10002"};
+  char const *two_names[] = {name, other_name};
   blob two_uuids[] = {uuid, uuid};
   node_address *identity = ::new_node_address_uuid(2, two_names, two_uuids);
   need_boot->op = need_boot_op;
@@ -934,9 +949,9 @@ TEST_F(XcomBase, ProcessPingToUsFullSmokeTest) {
   server srv_from;
   srv_from.last_ping_received = 0.0;
   srv_from.number_of_pings_received = 0;
-  srv_from.con.connected_ = CON_PROTO;
-  srv_from.con.fd = 0;
-  srv_from.con.ssl_fd = nullptr;
+
+  srv_from.con = new_connection(0, nullptr);
+  srv_from.con->connected_ = CON_PROTO;
 
   char srv_addr[1024] = "test";
   srv_from.srv = &srv_addr[0];
@@ -966,6 +981,8 @@ TEST_F(XcomBase, ProcessPingToUsFullSmokeTest) {
   has_disconnected = pre_process_incoming_ping(&site, &pm, true, 5.0);
   ASSERT_EQ(4, srv_from.number_of_pings_received);
   ASSERT_FALSE(has_disconnected);
+
+  free(srv_from.con);
 }
 
 /**
@@ -985,9 +1002,8 @@ TEST_F(XcomBase, ProcessPingToUsDoNothingIfNodeIsBooting) {
   server srv_from;
   srv_from.last_ping_received = 0.0;
   srv_from.number_of_pings_received = 0;
-  srv_from.con.connected_ = CON_PROTO;
-  srv_from.con.fd = 0;
-  srv_from.con.ssl_fd = nullptr;
+  srv_from.con = new_connection(0, nullptr);
+  srv_from.con->connected_ = CON_PROTO;
 
   char srv_addr[1024] = "test";
   srv_from.srv = &srv_addr[0];
@@ -1017,6 +1033,8 @@ TEST_F(XcomBase, ProcessPingToUsDoNothingIfNodeIsBooting) {
   has_disconnected = pre_process_incoming_ping(&site, &pm, false, 5.0);
   ASSERT_EQ(0, srv_from.number_of_pings_received);
   ASSERT_FALSE(has_disconnected);
+
+  free(srv_from.con);
 }
 
 /**
@@ -1042,7 +1060,8 @@ TEST_F(XcomBase, ProcessPingToUsDoNotShutdownInactiveConnection) {
   server srv_from;
   srv_from.last_ping_received = 0.0;
   srv_from.number_of_pings_received = 0;
-  srv_from.con.connected_ = CON_NULL;
+  srv_from.con = new_connection(-1, nullptr);
+  srv_from.con->connected_ = CON_NULL;
 
   site.nodeno = 1;
   site.global_node_set.node_set_len = 3;
@@ -1068,6 +1087,8 @@ TEST_F(XcomBase, ProcessPingToUsDoNotShutdownInactiveConnection) {
   has_disconnected = pre_process_incoming_ping(&site, &pm, true, 5.0);
   ASSERT_EQ(4, srv_from.number_of_pings_received);
   ASSERT_FALSE(has_disconnected);
+
+  free(srv_from.con);
 }
 
 /**
@@ -1091,7 +1112,8 @@ TEST_F(XcomBase, ProcessPingToUsDoNotShutdownResetPings) {
   server srv_from;
   srv_from.last_ping_received = 0.0;
   srv_from.number_of_pings_received = 0;
-  srv_from.con.connected_ = CON_NULL;
+  srv_from.con = new_connection(-1, nullptr);
+  srv_from.con->connected_ = CON_NULL;
 
   site.nodeno = 1;
   site.global_node_set.node_set_len = 3;
@@ -1113,6 +1135,8 @@ TEST_F(XcomBase, ProcessPingToUsDoNotShutdownResetPings) {
   has_disconnected = pre_process_incoming_ping(&site, &pm, true, 10.0);
   ASSERT_EQ(1, srv_from.number_of_pings_received);
   ASSERT_FALSE(has_disconnected);
+
+  free(srv_from.con);
 }
 
 /**
@@ -1144,18 +1168,16 @@ TEST_F(XcomBase, ProcessPingToUsTwoServersSendingPings) {
   server srv_from1, srv_from2;
   srv_from1.last_ping_received = 0.0;
   srv_from1.number_of_pings_received = 0;
-  srv_from1.con.connected_ = CON_PROTO;
-  srv_from1.con.fd = 0;
-  srv_from1.con.ssl_fd = nullptr;
+  srv_from1.con = new_connection(0, nullptr);
+  srv_from1.con->connected_ = CON_PROTO;
 
   srv_from1.srv = &srv_addr[0];
   srv_from1.port = 12345;
 
   srv_from2.last_ping_received = 0.0;
   srv_from2.number_of_pings_received = 0;
-  srv_from2.con.connected_ = CON_PROTO;
-  srv_from2.con.fd = 0;
-  srv_from2.con.ssl_fd = nullptr;
+  srv_from2.con = new_connection(0, nullptr);
+  srv_from2.con->connected_ = CON_PROTO;
 
   srv_from2.srv = &srv_addr[0];
   srv_from2.port = 12346;
@@ -1192,6 +1214,9 @@ TEST_F(XcomBase, ProcessPingToUsTwoServersSendingPings) {
   has_disconnected = pre_process_incoming_ping(&site, &pm1, true, 5.0);
   ASSERT_EQ(4, srv_from1.number_of_pings_received);
   ASSERT_FALSE(has_disconnected);
+
+  free(srv_from1.con);
+  free(srv_from2.con);
 }
 
 }  // namespace xcom_base_unittest

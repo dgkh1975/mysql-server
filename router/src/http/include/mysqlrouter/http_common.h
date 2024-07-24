@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -44,6 +45,7 @@
 #include <system_error>
 #include <vector>
 
+#include "my_compiler.h"
 #include "my_io.h"
 #include "my_macros.h"
 
@@ -53,7 +55,7 @@
 // http_common.cc
 
 /**
- * `libevent` global state managment
+ * `libevent` global state management
  */
 class HTTP_COMMON_EXPORT Event {
  public:
@@ -95,7 +97,16 @@ constexpr type Write{1 << Pos::Write};
 constexpr type Signal{1 << Pos::Signal};
 }  // namespace EventFlags
 using EventBaseSocket = evutil_socket_t;
+
+MY_COMPILER_DIAGNOSTIC_PUSH()
+// Suppress warning for now.
+// TODO(lkotula) Use proper 64bit/32bit signed/unsigned type based on platform.
+// 'initializing': truncation of constant value.
+MY_COMPILER_MSVC_DIAGNOSTIC_IGNORE(4309)
+MY_COMPILER_CLANG_DIAGNOSTIC_IGNORE("-Wconstant-conversion")
 const int kEventBaseInvalidSocket = INVALID_SOCKET;
+MY_COMPILER_DIAGNOSTIC_POP()
+
 /**
  * Main event registration and dispatch `engine`
  *

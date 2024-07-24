@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
 as published by the Free Software Foundation.
 
-This program is also distributed with certain software (including
+This program is designed to work with certain software (including
 but not limited to OpenSSL) that is licensed under separate terms,
 as designated in a particular file or component or in included license
 documentation.  The authors of MySQL hereby grant you an additional
 permission to link the program and your derivative works with the
-separately licensed software that they have included with MySQL.
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -137,7 +138,7 @@ bool Rotate_innodb_master_key::execute() {
     /*
       Though we failed to write to binlog,
       there is no way we can undo this operation.
-      So, covert error to a warning and let user
+      So, convert error to a warning and let user
       know that something went wrong while trying
       to make entry in binlog.
     */
@@ -237,11 +238,18 @@ bool Reload_keyring::execute() {
     return true;
   }
 
-  if (srv_keyring_load->load(opt_plugin_dir, mysql_real_data_home) == true) {
+  if (srv_keyring_load->load(opt_plugin_dir, mysql_real_data_home) != 0) {
     /* We encountered an error. Figure out what it is. */
     my_error(ER_RELOAD_KEYRING_FAILURE, MYF(0));
     return true;
   }
+
+  /*
+    Persisted variables require keyring support to
+    persist SENSITIVE variables in a secure manner.
+  */
+  persisted_variables_refresh_keyring_support();
+
   my_ok(m_thd);
   return false;
 }

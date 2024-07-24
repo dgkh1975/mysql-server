@@ -1,15 +1,16 @@
-# Copyright (c) 2009, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2009, 2024, Oracle and/or its affiliates.
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -25,7 +26,7 @@
 #
 
 SET(SHARED_LIB_MAJOR_VERSION "21")
-SET(SHARED_LIB_MINOR_VERSION "1")
+SET(SHARED_LIB_MINOR_VERSION "2")
 SET(PROTOCOL_VERSION "10")
 
 # Generate "something" to trigger cmake rerun when MYSQL_VERSION changes
@@ -62,6 +63,32 @@ MACRO(GET_MYSQL_VERSION)
     MESSAGE(FATAL_ERROR "MYSQL_VERSION file cannot be parsed.")
   ENDIF()
 
+  MYSQL_GET_CONFIG_VALUE("MYSQL_VERSION_STABILITY" MYSQL_VERSION_STABILITY)
+
+  IF(NOT DEFINED MYSQL_VERSION_STABILITY)
+    MESSAGE(FATAL_ERROR "MYSQL_VERSION file cannot be parsed, missing version attributes.")
+  ENDIF()
+
+  IF(NOT MYSQL_VERSION_STABILITY STREQUAL "\"LTS\"" AND
+     NOT MYSQL_VERSION_STABILITY STREQUAL "\"INNOVATION\"")
+    MESSAGE(FATAL_ERROR "MYSQL_VERSION_STABILITY can be set to INNOVATION or LTS.")
+  ENDIF()
+
+  # Versions like 8.0.x, 8.4.x, and x.7.y (x > 8) should be LTS
+  IF ((MAJOR_VERSION EQUAL "8" AND MINOR_VERSION EQUAL "0" AND PATCH_VERSION GREATER "34") OR
+      (MAJOR_VERSION EQUAL "8" AND MINOR_VERSION EQUAL "4") OR
+      (MAJOR_VERSION GREATER "8" AND MINOR_VERSION EQUAL "7"))
+    IF (NOT MYSQL_VERSION_STABILITY STREQUAL "\"LTS\"")
+      MESSAGE(FATAL_ERROR "Version ${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION} should "
+                          "be an LTS release.")
+    ENDIF()
+  ELSE()
+    IF (NOT MYSQL_VERSION_STABILITY STREQUAL "\"INNOVATION\"")
+      MESSAGE(FATAL_ERROR "Version ${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION} should "
+                          "be an innovation release.")
+    ENDIF()
+  ENDIF()
+
   SET(VERSION
     "${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}${EXTRA_VERSION}")
   MESSAGE(STATUS "MySQL ${VERSION}")
@@ -79,50 +106,50 @@ MACRO(GET_MYSQL_VERSION)
   SET(CPACK_PACKAGE_VERSION_MINOR ${MINOR_VERSION})
   SET(CPACK_PACKAGE_VERSION_PATCH ${PATCH_VERSION})
 
-  IF(WITH_NDBCLUSTER)
-    # Read MySQL Cluster version values from MYSQL_VERSION, these are optional
-    # as by default MySQL Cluster is using the MySQL Server version
-    MYSQL_GET_CONFIG_VALUE("MYSQL_CLUSTER_VERSION_MAJOR" CLUSTER_MAJOR_VERSION)
-    MYSQL_GET_CONFIG_VALUE("MYSQL_CLUSTER_VERSION_MINOR" CLUSTER_MINOR_VERSION)
-    MYSQL_GET_CONFIG_VALUE("MYSQL_CLUSTER_VERSION_PATCH" CLUSTER_PATCH_VERSION)
-    MYSQL_GET_CONFIG_VALUE("MYSQL_CLUSTER_VERSION_EXTRA" CLUSTER_EXTRA_VERSION)
+  # Read MySQL Cluster version values from MYSQL_VERSION, these are optional
+  # as by default MySQL Cluster is using the MySQL Server version
+  MYSQL_GET_CONFIG_VALUE("MYSQL_CLUSTER_VERSION_MAJOR" CLUSTER_MAJOR_VERSION)
+  MYSQL_GET_CONFIG_VALUE("MYSQL_CLUSTER_VERSION_MINOR" CLUSTER_MINOR_VERSION)
+  MYSQL_GET_CONFIG_VALUE("MYSQL_CLUSTER_VERSION_PATCH" CLUSTER_PATCH_VERSION)
+  MYSQL_GET_CONFIG_VALUE("MYSQL_CLUSTER_VERSION_EXTRA" CLUSTER_EXTRA_VERSION)
 
-    # Set MySQL Cluster version same as the MySQL Server version
-    # unless a specific MySQL Cluster version has been specified
-    # in the MYSQL_VERSION file. This is the version used when creating
-    # the cluster package names as well as by all the NDB binaries.
-    IF(DEFINED CLUSTER_MAJOR_VERSION AND
-       DEFINED CLUSTER_MINOR_VERSION AND
-       DEFINED CLUSTER_PATCH_VERSION)
-      # Set MySQL Cluster version to the specific version defined in MYSQL_VERSION
-      SET(MYSQL_CLUSTER_VERSION "${CLUSTER_MAJOR_VERSION}")
+  # Set MySQL Cluster version same as the MySQL Server version
+  # unless a specific MySQL Cluster version has been specified
+  # in the MYSQL_VERSION file. This is the version used when creating
+  # the cluster package names as well as by all the NDB binaries.
+  IF(DEFINED CLUSTER_MAJOR_VERSION AND
+     DEFINED CLUSTER_MINOR_VERSION AND
+     DEFINED CLUSTER_PATCH_VERSION)
+    # Set MySQL Cluster version to the specific version defined in MYSQL_VERSION
+    SET(MYSQL_CLUSTER_VERSION "${CLUSTER_MAJOR_VERSION}")
+    SET(MYSQL_CLUSTER_VERSION
+      "${MYSQL_CLUSTER_VERSION}.${CLUSTER_MINOR_VERSION}")
+    SET(MYSQL_CLUSTER_VERSION
+      "${MYSQL_CLUSTER_VERSION}.${CLUSTER_PATCH_VERSION}")
+    IF(DEFINED CLUSTER_EXTRA_VERSION)
       SET(MYSQL_CLUSTER_VERSION
-        "${MYSQL_CLUSTER_VERSION}.${CLUSTER_MINOR_VERSION}")
-      SET(MYSQL_CLUSTER_VERSION
-        "${MYSQL_CLUSTER_VERSION}.${CLUSTER_PATCH_VERSION}")
-      IF(DEFINED CLUSTER_EXTRA_VERSION)
-        SET(MYSQL_CLUSTER_VERSION
-          "${MYSQL_CLUSTER_VERSION}${CLUSTER_EXTRA_VERSION}")
-      ENDIF()
-    ELSE()
-      # Set MySQL Cluster version to the same as MySQL Server, possibly
-      # overriding the extra version with value specified in MYSQL_VERSION
-      # This might be used when MySQL Cluster is still released as DMR
-      # while MySQL Server is already GA.
-      SET(MYSQL_CLUSTER_VERSION
-        "${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}")
-      IF(DEFINED CLUSTER_EXTRA_VERSION)
-        # Using specific MySQL Cluster extra version
-        SET(MYSQL_CLUSTER_VERSION
-          "${MYSQL_CLUSTER_VERSION}${CLUSTER_EXTRA_VERSION}")
-        # Override the extra version for rpm packages
-        STRING(REGEX REPLACE "^-" "." MYSQL_VERSION_EXTRA_DOT
-          "${CLUSTER_EXTRA_VERSION}")
-      ELSE()
-        SET(MYSQL_CLUSTER_VERSION
-          "${MYSQL_CLUSTER_VERSION}${EXTRA_VERSION}")
-      ENDIF()
+        "${MYSQL_CLUSTER_VERSION}${CLUSTER_EXTRA_VERSION}")
     ENDIF()
+  ELSE()
+    # Set MySQL Cluster version to the same as MySQL Server, possibly
+    # overriding the extra version with value specified in MYSQL_VERSION
+    # This might be used when MySQL Cluster is still released as DMR
+    # while MySQL Server is already GA.
+    SET(MYSQL_CLUSTER_VERSION
+      "${MAJOR_VERSION}.${MINOR_VERSION}.${PATCH_VERSION}")
+    IF(DEFINED CLUSTER_EXTRA_VERSION)
+      # Using specific MySQL Cluster extra version
+      SET(MYSQL_CLUSTER_VERSION
+        "${MYSQL_CLUSTER_VERSION}${CLUSTER_EXTRA_VERSION}")
+      # Override the extra version for rpm packages
+      STRING(REGEX REPLACE "^-" "." MYSQL_VERSION_EXTRA_DOT
+        "${CLUSTER_EXTRA_VERSION}")
+    ELSE()
+      SET(MYSQL_CLUSTER_VERSION
+        "${MYSQL_CLUSTER_VERSION}${EXTRA_VERSION}")
+    ENDIF()
+  ENDIF()
+  IF(WITH_NDB)
     MESSAGE(STATUS "MySQL Cluster version: ${MYSQL_CLUSTER_VERSION}")
 
     SET(VERSION_SRC "${MYSQL_CLUSTER_VERSION}")

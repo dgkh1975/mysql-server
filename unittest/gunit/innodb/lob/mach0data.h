@@ -1,17 +1,18 @@
 /*****************************************************************************
 
-Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
-This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
-particular file or component or in included license documentation. The authors
-of MySQL hereby grant you an additional permission to link the program and
-your derivative works with the separately licensed software that they have
-included with MySQL.
+This program is designed to work with certain software (including
+but not limited to OpenSSL) that is licensed under separate terms,
+as designated in a particular file or component or in included license
+documentation.  The authors of MySQL hereby grant you an additional
+permission to link the program and your derivative works with the
+separately licensed software that they have either included with
+the program or referenced in the documentation.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
 ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
@@ -83,7 +84,7 @@ inline uint32_t mach_read_ulint(const byte *ptr, mlog_id_t type) {
 bytes. The most significant byte is at the lowest address.
 @param[in]      b       pointer to 6 bytes to read
 @return 48-bit integer */
-inline ib_uint64_t mach_read_from_6(const byte *b) {
+inline uint64_t mach_read_from_6(const byte *b) {
   ut_ad(b != nullptr);
 
   return (ut_ull_create(mach_read_from_2(b), mach_read_from_4(b + 2)));
@@ -93,7 +94,7 @@ inline ib_uint64_t mach_read_from_6(const byte *b) {
 bytes. We store the most significant byte to the lowest address.
 @param[in]      b       pointer to 6 bytes where to store
 @param[in]      n       48-bit integer to write */
-inline void mach_write_to_6(byte *b, ib_uint64_t n) {
+inline void mach_write_to_6(byte *b, uint64_t n) {
   ut_ad(b != nullptr);
 
   mach_write_to_2(b, (ulint)(n >> 32));

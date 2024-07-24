@@ -1,15 +1,16 @@
-/* Copyright (c) 2008, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2008, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -193,8 +194,6 @@ void PFS_memory_shared_stat::count_builtin_alloc(size_t size) {
   if (old_value < size) {
     m_alloc_size_capacity = 0;
   }
-
-  return;
 }
 
 void PFS_memory_shared_stat::count_builtin_free(size_t size) {
@@ -222,8 +221,6 @@ void PFS_memory_shared_stat::count_builtin_free(size_t size) {
   if (old_value < size) {
     m_free_size_capacity = 0;
   }
-
-  return;
 }
 
 PFS_memory_stat_alloc_delta *PFS_memory_shared_stat::count_alloc(
@@ -398,6 +395,29 @@ void PFS_memory_monitoring_stat::reset() {
   m_high_size_used = 0;
 }
 
+void PFS_session_all_memory_stat::reset() {
+  m_controlled.reset();
+  m_total.reset();
+}
+
+void PFS_session_all_memory_stat::count_controlled_alloc(size_t size) {
+  m_controlled.count_alloc(size);
+  m_total.count_alloc(size);
+}
+
+void PFS_session_all_memory_stat::count_uncontrolled_alloc(size_t size) {
+  m_total.count_alloc(size);
+}
+
+void PFS_session_all_memory_stat::count_controlled_free(size_t size) {
+  m_controlled.count_free(size);
+  m_total.count_free(size);
+}
+
+void PFS_session_all_memory_stat::count_uncontrolled_free(size_t size) {
+  m_total.count_free(size);
+}
+
 void PFS_memory_monitoring_stat::normalize(bool global) {
   if (m_free_count_capacity > m_missing_free_count_capacity) {
     m_free_count_capacity -= m_missing_free_count_capacity;
@@ -411,11 +431,11 @@ void PFS_memory_monitoring_stat::normalize(bool global) {
     m_free_size_capacity = 0;
   }
 
-  ssize_t current_count = m_alloc_count - m_free_count;
+  const ssize_t current_count = m_alloc_count - m_free_count;
   m_low_count_used = current_count - m_free_count_capacity;
   m_high_count_used = current_count + m_alloc_count_capacity;
 
-  ssize_t current_size = m_alloc_size - m_free_size;
+  const ssize_t current_size = m_alloc_size - m_free_size;
   m_low_size_used = current_size - m_free_size_capacity;
   m_high_size_used = current_size + m_alloc_size_capacity;
 
@@ -428,14 +448,6 @@ void PFS_memory_monitoring_stat::normalize(bool global) {
     }
   }
 }
-
-// Missing overload for Studio 12.6 Sun C++ 5.15
-#if defined(__SUNPRO_CC) && (__SUNPRO_CC == 0x5150)
-inline size_t &operator+=(size_t &target, const std::atomic<size_t> &val) {
-  target += val.load();
-  return target;
-}
-#endif
 
 void memory_partial_aggregate(PFS_memory_safe_stat *from,
                               PFS_memory_shared_stat *stat) {
@@ -678,10 +690,10 @@ void memory_full_aggregate_with_reassign(const PFS_memory_safe_stat *from,
 
   stat->m_used = true;
 
-  size_t alloc_count = from->m_alloc_count;
-  size_t free_count = from->m_free_count;
-  size_t alloc_size = from->m_alloc_size;
-  size_t free_size = from->m_free_size;
+  const size_t alloc_count = from->m_alloc_count;
+  const size_t free_count = from->m_free_count;
+  const size_t alloc_size = from->m_alloc_size;
+  const size_t free_size = from->m_free_size;
 
   size_t net;
   size_t capacity;
@@ -786,10 +798,10 @@ void memory_full_aggregate_with_reassign(const PFS_memory_safe_stat *from,
   stat1->m_used = true;
   stat2->m_used = true;
 
-  size_t alloc_count = from->m_alloc_count;
-  size_t free_count = from->m_free_count;
-  size_t alloc_size = from->m_alloc_size;
-  size_t free_size = from->m_free_size;
+  const size_t alloc_count = from->m_alloc_count;
+  const size_t free_count = from->m_free_count;
+  const size_t alloc_size = from->m_alloc_size;
+  const size_t free_size = from->m_free_size;
 
   size_t tmp;
   size_t net;
@@ -967,10 +979,10 @@ void memory_monitoring_aggregate(const PFS_memory_safe_stat *from,
     return;
   }
 
-  size_t alloc_count = from->m_alloc_count;
-  size_t free_count = from->m_free_count;
-  size_t alloc_size = from->m_alloc_size;
-  size_t free_size = from->m_free_size;
+  const size_t alloc_count = from->m_alloc_count;
+  const size_t free_count = from->m_free_count;
+  const size_t alloc_size = from->m_alloc_size;
+  const size_t free_size = from->m_free_size;
 
   stat->m_alloc_count += alloc_count;
   stat->m_free_count += free_count;
@@ -997,10 +1009,10 @@ void memory_monitoring_aggregate(const PFS_memory_shared_stat *from,
     return;
   }
 
-  size_t alloc_count = from->m_alloc_count;
-  size_t free_count = from->m_free_count;
-  size_t alloc_size = from->m_alloc_size;
-  size_t free_size = from->m_free_size;
+  const size_t alloc_count = from->m_alloc_count;
+  const size_t free_count = from->m_free_count;
+  const size_t alloc_size = from->m_alloc_size;
+  const size_t free_size = from->m_free_size;
 
   stat->m_alloc_count += from->m_alloc_count;
   stat->m_free_count += from->m_free_count;

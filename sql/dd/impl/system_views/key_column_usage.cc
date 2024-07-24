@@ -1,15 +1,16 @@
-/* Copyright (c) 2017, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2017, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -50,7 +51,7 @@ Key_column_usage::Key_column_usage() {
   m_target_def.add_field(FIELD_TABLE_NAME, "TABLE_NAME",
                          "tbl.name" + m_target_def.fs_name_collation());
   m_target_def.add_field(FIELD_COLUMN_NAME, "COLUMN_NAME",
-                         "col.name COLLATE utf8_tolower_ci");
+                         "col.name COLLATE utf8mb3_tolower_ci");
   m_target_def.add_field(FIELD_ORDINAL_POSITION, "ORDINAL_POSITION",
                          "constraints.ordinal_position");
   m_target_def.add_field(FIELD_POSITION_IN_UNIQUE_CONSTRAINT,
@@ -82,7 +83,7 @@ Key_column_usage::Key_column_usage() {
       "    WHERE idx.table_id = tbl.id"
       "      AND idx.type IN ('PRIMARY', 'UNIQUE')"
       "  UNION ALL SELECT"
-      "    fk.name COLLATE utf8_tolower_ci AS CONSTRAINT_NAME,"
+      "    fk.name COLLATE utf8mb3_tolower_ci AS CONSTRAINT_NAME,"
       "    fkcu.ordinal_position AS ORDINAL_POSITION,"
       "    fkcu.ordinal_position AS POSITION_IN_UNIQUE_CONSTRAINT,"
       "    fk.referenced_table_schema AS REFERENCED_TABLE_SCHEMA,"
@@ -101,7 +102,8 @@ Key_column_usage::Key_column_usage() {
   m_target_def.add_where("CAN_ACCESS_COLUMN(sch.name, tbl.name, col.name)");
   m_target_def.add_where(
       "AND IS_VISIBLE_DD_OBJECT(tbl.hidden, "
-      "col.hidden <> 'Visible' OR constraints.HIDDEN)");
+      "col.hidden NOT IN ('Visible', 'User') OR constraints.HIDDEN, "
+      "col.options)");
 }
 
 }  // namespace system_views

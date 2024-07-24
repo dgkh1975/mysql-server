@@ -1,15 +1,16 @@
-/* Copyright (c) 2016, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2016, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -51,8 +52,8 @@ using keyring::Logger;
 
 mysql_rwlock_t LOCK_keyring;
 
-int check_keyring_file_data(MYSQL_THD thd MY_ATTRIBUTE((unused)),
-                            SYS_VAR *var MY_ATTRIBUTE((unused)), void *save,
+int check_keyring_file_data(MYSQL_THD thd [[maybe_unused]],
+                            SYS_VAR *var [[maybe_unused]], void *save,
                             st_mysql_value *value) {
   char buff[FN_REFLEN + 1];
   const char *keyring_filename;
@@ -87,7 +88,7 @@ static char *keyring_file_data_value = nullptr;
 static MYSQL_SYSVAR_STR(
     data,                                              /* name       */
     keyring_file_data_value,                           /* value      */
-    PLUGIN_VAR_RQCMDARG,                               /* flags      */
+    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_NODEFAULT,        /* flags      */
     "The path to the keyring file. Must be specified", /* comment    */
     check_keyring_file_data,                           /* check()    */
     update_keyring_file_data,                          /* update()   */
@@ -106,14 +107,20 @@ static SERVICE_TYPE(registry) *reg_srv = nullptr;
 SERVICE_TYPE(log_builtins) *log_bi = nullptr;
 SERVICE_TYPE(log_builtins_string) *log_bs = nullptr;
 
-static int keyring_init(MYSQL_PLUGIN plugin_info MY_ATTRIBUTE((unused))) {
+static int keyring_init(MYSQL_PLUGIN plugin_info [[maybe_unused]]) {
   if (init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs)) return true;
+
+  logger.reset(new Logger());
+  logger->log(WARNING_LEVEL, ER_SERVER_WARN_DEPRECATED, "keyring_file plugin",
+              "component_keyring_file");
 
   try {
     SSL_library_init();  // always returns 1
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     ERR_load_BIO_strings();
     SSL_load_error_strings();
     OpenSSL_add_all_algorithms();
+#endif /* OPENSSL_VERSION_NUMBER < 0x30000000L */
 
 #ifdef HAVE_PSI_INTERFACE
     keyring_init_psi_keys();
@@ -123,7 +130,6 @@ static int keyring_init(MYSQL_PLUGIN plugin_info MY_ATTRIBUTE((unused))) {
 
     if (init_keyring_locks()) return true;
 
-    logger.reset(new Logger());
     if (create_keyring_dir_if_does_not_exist(keyring_file_data_value)) {
       logger->log(ERROR_LEVEL, ER_KEYRING_FAILED_TO_CREATE_KEYRING_DIR);
       return true;
@@ -150,7 +156,7 @@ static int keyring_init(MYSQL_PLUGIN plugin_info MY_ATTRIBUTE((unused))) {
   }
 }
 
-static int keyring_deinit(void *arg MY_ATTRIBUTE((unused))) {
+static int keyring_deinit(void *arg [[maybe_unused]]) {
 // not taking a lock here as the calls to keyring_deinit are serialized by
 // the plugin framework
 #if OPENSSL_VERSION_NUMBER < 0x10100000L

@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -21,6 +22,9 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
+
+// enable using Rapidjson library with std::string
+#define RAPIDJSON_HAS_STDSTRING 1
 
 #include "my_rapidjson_size_t.h"
 
@@ -33,11 +37,6 @@
 #include <cstring>
 #include <stdexcept>
 #include <thread>
-
-/* static */ constexpr std::chrono::milliseconds
-    MockServerRestClient::kMockServerMaxRestEndpointStepTime;
-/* static */ constexpr std::chrono::milliseconds
-    MockServerRestClient::kMockServerDefaultRestEndpointTimeout;
 
 MockServerRestClient::MockServerRestClient(const uint16_t http_port,
                                            const std::string &http_hostname)
@@ -109,39 +108,46 @@ std::string MockServerRestClient::get_globals_as_json_string() {
   return json_payload;
 }
 
-static rapidjson::Document get_json_doc(const std::string &name,
-                                        const std::string &payload) {
-  rapidjson::Document json_doc;
-  json_doc.Parse(payload.c_str());
-  if (!json_doc.HasMember(name.c_str())) {
-    throw std::runtime_error(std::string("Json payload does not have value: ") +
-                             name + " payload: " + payload);
-  }
-  return json_doc;
-}
-
 int MockServerRestClient::get_int_global(const std::string &global_name) {
   const auto json_payload = get_globals_as_json_string();
-  auto json_doc = get_json_doc(global_name, json_payload);
-  if (!json_doc[global_name.c_str()].IsInt()) {
-    throw std::runtime_error(
-        std::string("Invalid global type: ") +
-        std::to_string(json_doc[global_name.c_str()].GetType()) +
-        ", expected Int");
+
+  rapidjson::Document json_doc;
+  json_doc.Parse(json_payload);
+
+  const auto it = json_doc.FindMember(global_name);
+
+  if (it == json_doc.MemberEnd()) {
+    throw std::runtime_error(std::string("Json payload does not have value: ") +
+                             global_name + " payload: " + json_payload);
   }
-  return json_doc[global_name.c_str()].GetInt();
+
+  if (!it->value.IsInt()) {
+    throw std::runtime_error(std::string("Invalid global type: ") +
+                             std::to_string(it->value.GetType()) +
+                             ", expected Int");
+  }
+  return it->value.GetInt();
 }
 
 bool MockServerRestClient::get_bool_global(const std::string &global_name) {
   const auto json_payload = get_globals_as_json_string();
-  auto json_doc = get_json_doc(global_name, json_payload);
-  if (!json_doc[global_name.c_str()].IsBool()) {
-    throw std::runtime_error(
-        std::string("Invalid global type: ") +
-        std::to_string(json_doc[global_name.c_str()].GetType()) +
-        ", expected Bool");
+
+  rapidjson::Document json_doc;
+  json_doc.Parse(json_payload);
+
+  const auto it = json_doc.FindMember(global_name);
+
+  if (it == json_doc.MemberEnd()) {
+    throw std::runtime_error(std::string("Json payload does not have value: ") +
+                             global_name + " payload: " + json_payload);
   }
-  return json_doc[global_name.c_str()].GetBool();
+
+  if (!(it->value.IsBool())) {
+    throw std::runtime_error(std::string("Invalid global type: ") +
+                             std::to_string(it->value.GetType()) +
+                             ", expected Bool");
+  }
+  return it->value.GetBool();
 }
 
 void MockServerRestClient::send_delete(const std::string &uri) {

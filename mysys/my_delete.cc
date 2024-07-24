@@ -1,15 +1,16 @@
-/* Copyright (c) 2000, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2000, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    Without limiting anything contained in the foregoing, this file,
    which is part of C Driver for MySQL (Connector/C), is also subject to the
@@ -68,7 +69,7 @@ int my_delete(const char *name, myf MyFlags) {
 
   The function deletes the file with its preliminary renaming. This is
   because when not-closed share-delete file is deleted it still lives on
-  a disk until it will not be closed everwhere. This may conflict with an
+  a disk until it will not be closed everywhere. This may conflict with an
   attempt to create a new file with the same name. The deleted file is
   renamed to <name>.<num>.deleted where <name> - the initial name of the
   file, <num> - a hexadecimal number chosen to make the temporal name to
@@ -89,14 +90,14 @@ int my_delete(const char *name, myf MyFlags) {
 
 */
 int nt_share_delete(const char *name, myf MyFlags) {
-  char buf[MAX_PATH + 20];
-  ulong cnt;
+  char buf[MAX_PATH + 25];
+  ulonglong cnt;
   DBUG_TRACE;
   DBUG_PRINT("my", ("name %s MyFlags %d", name, MyFlags));
 
-  for (cnt = GetTickCount(); cnt; cnt--) {
+  for (cnt = GetTickCount64(); cnt; cnt--) {
     errno = 0;
-    sprintf(buf, "%s.%08X.deleted", name, cnt);
+    sprintf(buf, "%s.%08llX.deleted", name, cnt);
     if (MoveFile(name, buf)) break;
 
     if ((errno = GetLastError()) == ERROR_ALREADY_EXISTS) continue;

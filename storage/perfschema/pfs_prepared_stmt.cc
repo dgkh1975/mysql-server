@@ -1,15 +1,16 @@
-/* Copyright (c) 2013, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2013, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -53,7 +54,7 @@ int init_prepared_stmt(const PFS_global_param *param) {
 }
 
 /** Cleanup table PREPARED_STATEMENTS_INSTANCE. */
-void cleanup_prepared_stmt(void) { global_prepared_stmt_container.cleanup(); }
+void cleanup_prepared_stmt() { global_prepared_stmt_container.cleanup(); }
 
 void PFS_prepared_stmt::reset_data() {
   m_prepare_stat.reset();
@@ -105,17 +106,13 @@ PFS_prepared_stmt *create_prepared_stmt(
 
     /* If this statement prepare is called from a SP. */
     if (pfs_program) {
-      pfs->m_owner_object_type = pfs_program->m_type;
-      strncpy(pfs->m_owner_object_schema, pfs_program->m_schema_name,
-              pfs_program->m_schema_name_length);
-      pfs->m_owner_object_schema_length = pfs_program->m_schema_name_length;
-      strncpy(pfs->m_owner_object_name, pfs_program->m_object_name,
-              pfs_program->m_object_name_length);
-      pfs->m_owner_object_name_length = pfs_program->m_object_name_length;
+      pfs->m_owner_object_type = pfs_program->m_key.m_type;
+      pfs->m_owner_object_schema = pfs_program->m_key.m_schema_name;
+      pfs->m_owner_object_name = pfs_program->m_key.m_object_name;
     } else {
       pfs->m_owner_object_type = NO_OBJECT_TYPE;
-      pfs->m_owner_object_schema_length = 0;
-      pfs->m_owner_object_name_length = 0;
+      pfs->m_owner_object_schema.reset();
+      pfs->m_owner_object_name.reset();
     }
 
     if (pfs_stmt) {
@@ -126,6 +123,8 @@ PFS_prepared_stmt *create_prepared_stmt(
       }
     }
 
+    pfs->m_secondary = false;
+
     /* Insert this record. */
     pfs->m_lock.dirty_to_allocated(&dirty_state);
   }
@@ -135,5 +134,4 @@ PFS_prepared_stmt *create_prepared_stmt(
 
 void delete_prepared_stmt(PFS_prepared_stmt *pfs) {
   global_prepared_stmt_container.deallocate(pfs);
-  return;
 }

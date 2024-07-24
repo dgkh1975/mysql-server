@@ -1,15 +1,16 @@
-/* Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -57,11 +58,12 @@ size_t normalize_string(const CHARSET_INFO *cs, const String_type &src,
 
   @param thd                 Thread
   @param schema_name         Abbreviation or name of schema (I_S, P_S, ndbinfo)
-                             for use in warning message output
+                             for use in warning message output; nullptr if no
+                             warning should be emitted
 
   @returns false on success, otherwise true.
 */
-bool check_if_server_ddse_readonly(THD *thd, const char *schema_name);
+bool check_if_server_ddse_readonly(THD *thd, const char *schema_name = nullptr);
 
 ///////////////////////////////////////////////////////////////////////////
 

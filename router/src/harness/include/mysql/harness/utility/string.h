@@ -1,16 +1,17 @@
 /*
-  Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+  Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
   as published by the Free Software Foundation.
 
-  This program is also distributed with certain software (including
+  This program is designed to work with certain software (including
   but not limited to OpenSSL) that is licensed under separate terms,
   as designated in a particular file or component or in included license
   documentation.  The authors of MySQL hereby grant you an additional
   permission to link the program and your derivative works with the
-  separately licensed software that they have included with MySQL.
+  separately licensed software that they have either included with
+  the program or referenced in the documentation.
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -30,6 +31,8 @@
 #include <numeric>  // accumulate
 #include <string>
 #include <vector>
+
+#include "my_compiler.h"  // MY_ATTRIBUTE
 
 namespace mysql_harness {
 namespace utility {
@@ -54,6 +57,10 @@ bool HARNESS_EXPORT ends_with(const std::string &str,
  */
 bool HARNESS_EXPORT starts_with(const std::string &str,
                                 const std::string &prefix);
+
+HARNESS_EXPORT
+MY_ATTRIBUTE((format(printf, 1, 2)))
+std::string string_format(const char *format, ...);
 
 }  // namespace utility
 
@@ -83,8 +90,8 @@ struct Join<Container, std::string> {
     }
 
 #if 0
-    // once benchmarked that this is equivalent ot the hand-rolled version
-    // (number of allocs, ...) this implmentation could be used.
+    // once benchmarked that this is equivalent of the hand-rolled version
+    // (number of allocs, ...) this implementation could be used.
     return std::accumulate(std::next(cont.begin()), cont.end(), o,
                            [&delim](std::string a, const std::string &b) {
                              return a.append(delim).append(b);
@@ -144,6 +151,14 @@ template <class Container>
 std::string join(Container cont, const std::string &delim) {
   return detail::Join<Container, typename Container::value_type>::impl(cont,
                                                                        delim);
+}
+/* Checks that given string belongs to the collection of strings */
+template <class T>
+constexpr bool str_in_collection(const T &t, const std::string_view &k) {
+  for (auto v : t) {
+    if (v == k) return true;
+  }
+  return false;
 }
 
 }  // namespace mysql_harness

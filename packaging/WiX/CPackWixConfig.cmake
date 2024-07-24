@@ -1,15 +1,16 @@
-# Copyright (c) 2010, 2021, Oracle and/or its affiliates.
-# 
+# Copyright (c) 2010, 2024, Oracle and/or its affiliates.
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -20,10 +21,23 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 
-SET(CPACK_COMPONENTS_USED 
-    "Server;Client;DataFiles;Development;SharedLibraries;Documentation;IniFiles;Readme;Server_Scripts;Meb;MebReadme;Router")
+SET(CPACK_COMPONENTS_USED
+  Client
+  DataFiles
+  Development
+  Documentation
+  Info
+  IniFiles
+  Meb
+  MebReadme
+  Readme
+  Router
+  Server
+  Server_Scripts
+  SharedLibraries
+  )
 
-IF(WITH_NDBCLUSTER)
+IF(WITH_NDB)
   MESSAGE(STATUS "This is Cluster build, append additional components")
   SET(CPACK_COMPONENTS_USED
     "${CPACK_COMPONENTS_USED};ClusterTools;ClusterDataNode;ClusterManagementServer;ClusterManagementClient;ClusterJ;nodejs")
@@ -47,9 +61,13 @@ FOREACH(comp1 ${CPACK_COMPONENTS_USED})
 ENDFOREACH()
 SET(CPACK_COMPONENTS_ALL ${CPACK_ALL})
 
-# Always install (hidden), includes Readme files
+# Always install (hidden)
 SET(CPACK_COMPONENT_GROUP_ALWAYSINSTALL_HIDDEN 1)
+
+# Feature Readme, Info and Documentation (hidden, always install)
 SET(CPACK_COMPONENT_README_GROUP "AlwaysInstall")
+SET(CPACK_COMPONENT_INFO_GROUP "AlwaysInstall")
+SET(CPACK_COMPONENT_DOCUMENTATION_GROUP "AlwaysInstall") # Likely empty
 
 # Feature MySQL Server
 SET(CPACK_COMPONENT_GROUP_MYSQLSERVER_DISPLAY_NAME "MySQL Server")
@@ -61,36 +79,34 @@ SET(CPACK_COMPONENT_GROUP_MYSQLSERVER_DESCRIPTION "Install MySQL Server")
  # Subfeature "Shared libraries" (hidden)
  SET(CPACK_COMPONENT_SHAREDLIBRARIES_GROUP "MySQLServer")
  SET(CPACK_COMPONENT_SHAREDLIBRARIES_HIDDEN 1)
- # Subfeature "Client" 
+ # Subfeature "Client"
  SET(CPACK_COMPONENT_CLIENT_GROUP "MySQLServer")
  SET(CPACK_COMPONENT_CLIENT_DISPLAY_NAME "Client Programs")
- SET(CPACK_COMPONENT_CLIENT_DESCRIPTION 
+ SET(CPACK_COMPONENT_CLIENT_DESCRIPTION
    "Various helpful (commandline) tools including the mysql command line client" )
 
- # Subfeature "Meb" 
- SET(CPACK_COMPONENT_GROUP_ALWAYSINSTALL_HIDDEN 1)
+ # Subfeature "Meb" (hidden, always install)
  SET(CPACK_COMPONENT_MEB_GROUP "AlwaysInstall")
- # Subfeature "MebReadme" 
- SET(CPACK_COMPONENT_GROUP_ALWAYSINSTALL_HIDDEN 1)
+
+ # Subfeature "MebReadme" (hidden, always install)
  SET(CPACK_COMPONENT_MEBREADME_GROUP "AlwaysInstall")
 
- #Subfeature MySQL Router
- SET(CPACK_COMPONENT_GROUP_ALWAYSINSTALL_HIDDEN 1)
+ #Subfeature MySQL Router (hidden, always install)
  SET(CPACK_COMPONENT_ROUTER_GROUP "AlwaysInstall")
-    
- #Subfeature "Data Files" 
+
+ #Subfeature "Data Files"
  SET(CPACK_COMPONENT_DATAFILES_GROUP "MySQLServer")
  SET(CPACK_COMPONENT_DATAFILES_DISPLAY_NAME "Server data files")
  SET(CPACK_COMPONENT_DATAFILES_DESCRIPTION "Server data files" )
  SET(CPACK_COMPONENT_DATAFILES_HIDDEN 1)
-  
+
 #Feature "Devel"
 SET(CPACK_COMPONENT_GROUP_DEVEL_DISPLAY_NAME "Development Components")
 SET(CPACK_COMPONENT_GROUP_DEVEL_DESCRIPTION "Installs C/C++ header files and libraries")
  #Subfeature "Development"
  SET(CPACK_COMPONENT_DEVELOPMENT_GROUP "Devel")
  SET(CPACK_COMPONENT_DEVELOPMENT_HIDDEN 1)
-  
+
  #Subfeature "Embedded"
  SET(CPACK_COMPONENT_EMBEDDED_GROUP "Devel")
  SET(CPACK_COMPONENT_EMBEDDED_DISPLAY_NAME "Embedded server library")
@@ -104,11 +120,6 @@ SET(CPACK_COMPONENT_GROUP_DEBUGSYMBOLS_WIX_LEVEL 2)
  SET(CPACK_COMPONENT_DEBUGINFO_GROUP "DebugSymbols")
  SET(CPACK_COMPONENT_DEBUGINFO_HIDDEN 1)
 
-#Feature Documentation
-SET(CPACK_COMPONENT_DOCUMENTATION_DISPLAY_NAME "Documentation")
-SET(CPACK_COMPONENT_DOCUMENTATION_DESCRIPTION "Installs documentation")
-SET(CPACK_COMPONENT_DOCUMENTATION_WIX_LEVEL 2)
-
 #Feature tests
 SET(CPACK_COMPONENT_TEST_DISPLAY_NAME "Tests")
 SET(CPACK_COMPONENT_TEST_DESCRIPTION "Installs unittests (requires Perl to run)")
@@ -121,7 +132,7 @@ SET(CPACK_COMPONENT_GROUP_MISC_WIX_LEVEL 100)
   SET(CPACK_COMPONENT_INIFILES_GROUP "Misc")
   SET(CPACK_COMPONENT_SERVER_SCRIPTS_GROUP "Misc")
 
-IF(WITH_NDBCLUSTER)
+IF(WITH_NDB)
   MESSAGE(STATUS "This is Cluster build, define additional components")
   #Feature "Cluster"
   SET(CPACK_COMPONENT_GROUP_CLUSTER_DISPLAY_NAME "MySQL Cluster")

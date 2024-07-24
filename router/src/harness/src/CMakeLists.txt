@@ -1,15 +1,16 @@
-# Copyright (c) 2019, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2019, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -62,12 +63,16 @@ ADD_DYNAMIC_STATE_SCHEMA_COMMAND(SHARED)
 ADD_DYNAMIC_STATE_SCHEMA_COMMAND(STATIC)
 
 SET(harness_source
+  access_rights.cc
   loader.cc
   dynamic_loader.cc
   utilities.cc
+  config_option.cc
   config_parser.cc
+  plugin_config.cc
   designator.cc
   dynamic_state.cc
+  event_state_tracker.cc
   loader_config.cc
   common.cc
   filesystem.cc
@@ -83,9 +88,11 @@ SET(harness_source
   logging/handler.cc
   logging/logger.cc
   logging/logger_plugin.cc
-  logging/logging.cc
+# logging/logging.cc       empty file
   logging/registry.cc
+  log_reopen.cc
   random_generator.cc
+  signal_handler.cc
   sd_notify.cc
   socket_operations.cc
   tcp_address.cc
@@ -97,6 +104,8 @@ SET(harness_source
   keyring/keyring_memory.cc
   keyring/keyring_file.cc
   keyring/master_key_file.cc
+  process_state_component.cc
+  log_reopen_component.cc
   )
 
 IF(WIN32)
@@ -148,7 +157,9 @@ CONFIGURE_FILE(plugin.h.in ${MySQLRouter_BINARY_DIR}/${INSTALL_INCLUDE_DIR}/plug
 # create harness library - static version
 ADD_LIBRARY(harness-archive STATIC
   ${harness_source} ${GENERATED_SOURCES_STATIC})
-TARGET_LINK_LIBRARIES(harness-archive ${common_libraries})
+ADD_DEPENDENCIES(mysqlrouter_all harness-archive)
+
+TARGET_LINK_LIBRARIES(harness-archive {common_libraries} extra::rapidjson)
 TARGET_INCLUDE_DIRECTORIES(harness-archive PUBLIC
   ../include ${CMAKE_CURRENT_BINARY_DIR}/src_STATIC)
 IF(WIN32)
@@ -159,9 +170,11 @@ ENDIF()
 # create harness library - dynamic version
 ADD_LIBRARY(harness-library SHARED
   ${harness_source} ${GENERATED_SOURCES_SHARED})
+ADD_DEPENDENCIES(mysqlrouter_all harness-library)
 
 # mysys is need for my_print_stacktrace
-TARGET_LINK_LIBRARIES(harness-library ${common_libraries} mysys)
+TARGET_LINK_LIBRARIES(harness-library
+  ${common_libraries} mysys extra::rapidjson)
 TARGET_INCLUDE_DIRECTORIES(harness-library PUBLIC
   ../include ${CMAKE_CURRENT_BINARY_DIR}/src_SHARED)
 
@@ -174,14 +187,14 @@ IF(SOLARIS)
   TARGET_LINK_LIBRARIES(harness-archive -lnsl -lsocket)
 ENDIF()
 
-IF(NOT WIN32)
-  SET_TARGET_PROPERTIES(harness-archive harness-library PROPERTIES
-    OUTPUT_NAME "mysqlharness"
+IF(WIN32)
+  SET_TARGET_PROPERTIES(harness-archive PROPERTIES
+    OUTPUT_NAME "mysqlharness_a"
     PREFIX "lib"
     SOVERSION 1)
 ELSE()
-  SET_TARGET_PROPERTIES(harness-archive PROPERTIES
-    OUTPUT_NAME "mysqlharness_a"
+  SET_TARGET_PROPERTIES(harness-archive harness-library PROPERTIES
+    OUTPUT_NAME "mysqlharness"
     PREFIX "lib"
     SOVERSION 1)
 ENDIF()
@@ -201,22 +214,23 @@ ENDIF()
 ADD_INSTALL_RPATH_FOR_OPENSSL(harness-library)
 SET_PATH_TO_CUSTOM_SSL_FOR_APPLE(harness-library)
 
-IF(NOT WIN32)
+IF(WIN32)
+  INSTALL(TARGETS harness-library
+    RUNTIME DESTINATION "${ROUTER_INSTALL_BINDIR}"
+    COMPONENT Router)
+ELSE()
   INSTALL(TARGETS harness-library
     LIBRARY
     DESTINATION ${ROUTER_INSTALL_LIBDIR} COMPONENT Router
     NAMELINK_SKIP
     )
-ELSE()
-  INSTALL(TARGETS harness-library
-    RUNTIME DESTINATION "${ROUTER_INSTALL_BINDIR}"
-    COMPONENT Router)
 ENDIF()
 
 ADD_LIBRARY(harness_stdx SHARED
   stdx/filesystem.cc
   stdx/io/file_handle.cc
 )
+ADD_DEPENDENCIES(mysqlrouter_all harness_stdx)
 TARGET_SOURCES(harness_stdx
   INTERFACE
   ${CMAKE_CURRENT_SOURCE_DIR}/../include/mysql/harness/stdx/bit.h
@@ -251,6 +265,7 @@ ADD_LIBRARY(harness_tls SHARED
   tls_error.cc
   tls_server_context.cc
   )
+ADD_DEPENDENCIES(mysqlrouter_all harness_tls)
 
 IF(TARGET copy_openssl_dlls)
   ADD_DEPENDENCIES(harness_tls copy_openssl_dlls)

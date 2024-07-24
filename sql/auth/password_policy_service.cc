@@ -1,15 +1,16 @@
-/*  Copyright (c) 2015, 2021, Oracle and/or its affiliates.
+/*  Copyright (c) 2015, 2024, Oracle and/or its affiliates.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License, version 2.0,
     as published by the Free Software Foundation.
 
-    This program is also distributed with certain software (including
+    This program is designed to work with certain software (including
     but not limited to OpenSSL) that is licensed under separate terms,
     as designated in a particular file or component or in included license
     documentation.  The authors of MySQL hereby grant you an additional
     permission to link the program and your derivative works with the
-    separately licensed software that they have included with MySQL.
+    separately licensed software that they have either included with
+    the program or referenced in the documentation.
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -24,7 +25,7 @@
 #include <stddef.h>
 
 #include "lex_string.h"
-#include "m_ctype.h" /* my_charset_utf8_bin */
+#include "m_ctype.h" /* my_charset_utf8mb3_bin */
 #include "m_string.h"
 /* assert */
 #include "my_inttypes.h"
@@ -78,7 +79,7 @@ int my_validate_password_policy(const char *password,
   int res = 0;
 
   if (password) {
-    String tmp_str(password, password_len, &my_charset_utf8_bin);
+    String tmp_str(password, password_len, &my_charset_utf8mb3_bin);
     password_str = tmp_str;
   }
   if (!srv_registry->acquire("validate_password", &h_pv_svc)) {
@@ -111,7 +112,7 @@ int my_validate_password_policy(const char *password,
 
   Implementation of a plugin service @ref mysql_password_policy_service_st
   method.
-  Typically called when new user is created or exsisting password is changed.
+  Typically called when new user is created or existing password is changed.
   Calls the @ref validate_password_plugin / validate_password_component
   plugin's / component's @ref st_mysql_validate_password::get_password_strength
   method.
@@ -137,7 +138,8 @@ int my_calculate_password_strength(const char *password,
   SERVICE_TYPE(validate_password) * ret;
   String password_str;
 
-  if (password) password_str.set(password, password_len, &my_charset_utf8_bin);
+  if (password)
+    password_str.set(password, password_len, &my_charset_utf8mb3_bin);
   if (!srv_registry->acquire("validate_password", &h_pv_svc)) {
     ret = reinterpret_cast<SERVICE_TYPE(validate_password) *>(h_pv_svc);
     if (!ret->get_strength((void *)current_thd, (my_h_string)&password_str,

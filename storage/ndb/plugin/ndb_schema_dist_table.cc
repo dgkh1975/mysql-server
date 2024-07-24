@@ -1,16 +1,17 @@
 /*
-   Copyright (c) 2018, 2021, Oracle and/or its affiliates.
+   Copyright (c) 2018, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -28,6 +29,8 @@
 #include <sstream>
 
 #include "sql/item_strfunc.h"
+#include "storage/ndb/plugin/ndb_dd.h"
+#include "storage/ndb/plugin/ndb_dd_table.h"
 #include "storage/ndb/plugin/ndb_log.h"
 #include "storage/ndb/plugin/ndb_retry.h"
 #include "storage/ndb/plugin/ndb_schema_dist.h"
@@ -41,7 +44,6 @@ const char *Ndb_schema_dist_table::COL_NAME = "name";
 const char *Ndb_schema_dist_table::COL_QUERY = "query";
 const char *Ndb_schema_dist_table::COL_ID = "id";
 const char *Ndb_schema_dist_table::COL_VERSION = "version";
-std::string Ndb_schema_dist_table::old_ndb_schema_uuid = "";
 static const char *COL_SLOCK = "slock";
 static const char *COL_NODEID = "node_id";
 static const char *COL_EPOCH = "epoch";
@@ -68,7 +70,7 @@ bool Ndb_schema_dist_table::check_schema() const {
   // varbinary, at least 63 bytes long
   // NOTE! The 63 bytes length for the db and name column is a legacy bug
   // which doesn't have enough room for MySQL's max identitfier size. For
-  // backwards compatiblity reasons it's allowed to use such a schema
+  // backwards compatibility reasons it's allowed to use such a schema
   // distribution table but not all identifiers will be possible to distribute.
   if (!(check_column_exist(COL_DB) && check_column_varbinary(COL_DB) &&
         check_column_minlength(COL_DB, LEGACY_IDENTIFIER_LENGTH))) {
@@ -328,6 +330,17 @@ bool Ndb_schema_dist_table::need_upgrade() const {
   if (!have_schema_op_id_column()) {
     return true;
   }
+
+  // Check if the table contains the ndb_schema_uuid.
+  std::string ndb_schema_uuid;
+  if (!get_schema_uuid(&ndb_schema_uuid)) {
+    // Failed to read from NDB
+    return true;
+  }
+  if (ndb_schema_uuid.empty()) {
+    return true;
+  }
+
   // The 'db' and 'name' column need to be upgrade if length is shorter than
   // current identifier length
   if (get_column_max_length(COL_DB) < IDENTIFIER_LENGTH ||
@@ -335,6 +348,14 @@ bool Ndb_schema_dist_table::need_upgrade() const {
     return true;
   }
   return false;
+}
+
+bool Ndb_schema_dist_table::need_reinstall(const dd::Table *tab) const {
+  dd::String_type dd_schema_uuid;
+  if (!ndb_dd_table_get_schema_uuid(tab, &dd_schema_uuid)) {
+    return true;
+  }
+  return strcmp(m_ndb_schema_uuid.c_str(), dd_schema_uuid.c_str()) != 0;
 }
 
 bool Ndb_schema_dist_table::drop_events_in_NDB() const {
@@ -558,10 +579,10 @@ bool Ndb_schema_dist_table::update_schema_uuid_in_NDB(
   return true;
 }
 
-bool Ndb_schema_dist_table::pre_upgrade() const {
+bool Ndb_schema_dist_table::pre_upgrade() {
   // During upgrade, the schema UUID need not be regenerated.
   // Save it for restoring it later after upgrade
-  if (!get_schema_uuid(&old_ndb_schema_uuid)) return false;
+  if (!get_schema_uuid(&m_ndb_schema_uuid)) return false;
   return true;
 }
 
@@ -569,7 +590,7 @@ bool Ndb_schema_dist_table::post_install() const {
   DBUG_TRACE;
 
   std::string schema_uuid;
-  if (old_ndb_schema_uuid.empty()) {
+  if (m_ndb_schema_uuid.empty()) {
     // The table was just created
     // Generate a new schema uuid for the table
     String schema_uuid_buf;
@@ -579,7 +600,7 @@ bool Ndb_schema_dist_table::post_install() const {
   } else {
     // The table was just upgraded
     // Restore the old schema UUID
-    schema_uuid = std::move(old_ndb_schema_uuid);
+    schema_uuid = std::move(m_ndb_schema_uuid);
     ndb_log_verbose(19, "Restoring schema UUID : %s after upgrade",
                     schema_uuid.c_str());
   }
@@ -588,5 +609,20 @@ bool Ndb_schema_dist_table::post_install() const {
   if (!update_schema_uuid_in_NDB(schema_uuid)) {
     return false;
   }
+  return true;
+}
+
+bool Ndb_schema_dist_table::post_install_in_DD() const {
+  // Retrieve the new schema UUID from NDB
+  std::string ndb_schema_uuid;
+  if (!get_schema_uuid(&ndb_schema_uuid)) return false;
+
+  // Update it
+  if (!ndb_dd_update_schema_uuid(const_cast<THD *>(get_thd()),
+                                 ndb_schema_uuid)) {
+    ndb_log_warning("Failed to update schema uuid in DD.");
+    return false;
+  }
+
   return true;
 }

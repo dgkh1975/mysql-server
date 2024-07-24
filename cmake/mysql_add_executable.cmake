@@ -1,15 +1,16 @@
-# Copyright (c) 2009, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2009, 2024, Oracle and/or its affiliates.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
 # as published by the Free Software Foundation.
 #
-# This program is also distributed with certain software (including
+# This program is designed to work with certain software (including
 # but not limited to OpenSSL) that is licensed under separate terms,
 # as designated in a particular file or component or in included license
 # documentation.  The authors of MySQL hereby grant you an additional
 # permission to link the program and your derivative works with the
-# separately licensed software that they have included with MySQL.
+# separately licensed software that they have either included with
+# the program or referenced in the documentation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -19,6 +20,48 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
+
+IF(APPLE)
+  SET(DEV_ENTITLEMENT_FILE ${CMAKE_BINARY_DIR}/dev.entitlements)
+
+  # use PlistBuddy to create the dev.entitlements file
+  # if it doesn't exist.
+  #
+  # - get-task-allow allows a debugger to attach to a binary
+  ADD_CUSTOM_COMMAND(
+    OUTPUT ${DEV_ENTITLEMENT_FILE}
+    COMMAND /usr/libexec/PlistBuddy
+    -c "Add :com.apple.security.get-task-allow bool true"
+    ${DEV_ENTITLEMENT_FILE}
+    )
+
+  ADD_CUSTOM_TARGET(GenerateDevEntitlements
+    DEPENDS ${DEV_ENTITLEMENT_FILE}
+    )
+ENDIF()
+
+
+# add developer specific entitlements to the target.
+#
+# - allow debugger to attach.
+#
+# @param TGT targetname
+FUNCTION(MACOS_ADD_DEVELOPER_ENTITLEMENTS TGT)
+  # Ensure the dev.entitlement file is created before codesign is called.
+  ADD_DEPENDENCIES(${TGT} GenerateDevEntitlements)
+
+  # Use 'codesign' to add the dev.entitlements to the target
+  ADD_CUSTOM_COMMAND(TARGET ${TGT} POST_BUILD
+    COMMAND codesign
+    ARGS
+      --sign -
+      --preserve-metadata=entitlements
+      --force
+      --entitlements ${DEV_ENTITLEMENT_FILE}
+      $<TARGET_FILE:${TGT}>
+    )
+ENDFUNCTION()
+
 
 # MYSQL_ADD_EXECUTABLE(target sources... options/keywords...)
 #
@@ -30,11 +73,17 @@
 
 FUNCTION(MYSQL_ADD_EXECUTABLE target_arg)
   SET(EXECUTABLE_OPTIONS
-    ENABLE_EXPORTS
+    ENABLE_EXPORTS     # For Linux, link with: -Wl,--export-dynamic -rdynamic
+                       # This option is needed for some uses of "dlopen" or
+                       # to allow obtaining backtraces from within a program.
+                       # We disable it for non-Linux platforms.
+                       # On WIN32 it would add /implib:.... to the linker
+                       # command, which is probably not what you want
+                       # (except for mysqld.lib which is used by plugins).
     EXCLUDE_FROM_ALL   # add target, but do not build it by default
     EXCLUDE_FROM_PGO   # add target, but do not build for PGO
-    EXCLUDE_ON_SOLARIS # do not build by default on Solaris
     SKIP_INSTALL       # do not install it
+    SKIP_TCMALLOC      # do not link with tcmalloc
     )
   SET(EXECUTABLE_ONE_VALUE_KW
     ADD_TEST           # add unit test, sets SKIP_INSTALL
@@ -43,8 +92,11 @@ FUNCTION(MYSQL_ADD_EXECUTABLE target_arg)
     RUNTIME_OUTPUT_DIRECTORY
     )
   SET(EXECUTABLE_MULTI_VALUE_KW
+    COMPILE_DEFINITIONS # for TARGET_COMPILE_DEFINITIONS
+    COMPILE_OPTIONS     # for TARGET_COMPILE_OPTIONS
     DEPENDENCIES
     INCLUDE_DIRECTORIES # for TARGET_INCLUDE_DIRECTORIES
+    SYSTEM_INCLUDE_DIRECTORIES # for TARGET_INCLUDE_DIRECTORIES SYSTEM
     LINK_LIBRARIES
     )
   CMAKE_PARSE_ARGUMENTS(ARG
@@ -68,6 +120,20 @@ FUNCTION(MYSQL_ADD_EXECUTABLE target_arg)
   ADD_VERSION_INFO(${target} EXECUTABLE sources)
 
   ADD_EXECUTABLE(${target} ${sources})
+  TARGET_COMPILE_FEATURES(${target} PUBLIC cxx_std_17)
+
+  IF(TARGET my_tcmalloc)
+    IF(ARG_SKIP_TCMALLOC OR target MATCHES "^rpd")
+      # nothing, use glibc malloc/free
+    ELSE()
+      IF(WITH_VALGRIND)
+        TARGET_LINK_LIBRARIES(${target} my_tcmalloc_debug)
+      ELSE()
+        TARGET_LINK_LIBRARIES(${target} my_tcmalloc)
+      ENDIF()
+      ADD_INSTALL_RPATH(${target} "\$ORIGIN/../${INSTALL_PRIV_LIBDIR}")
+    ENDIF()
+  ENDIF()
 
   SET_PATH_TO_CUSTOM_SSL_FOR_APPLE(${target})
 
@@ -77,31 +143,29 @@ FUNCTION(MYSQL_ADD_EXECUTABLE target_arg)
   IF(ARG_COMPONENT STREQUAL "Router")
     ADD_DEPENDENCIES(mysqlrouter_all ${target})
   ENDIF()
+  IF(NOT ARG_EXCLUDE_FROM_ALL)
+    ADD_DEPENDENCIES(executable_all ${target})
+  ENDIF()
 
   IF(ARG_INCLUDE_DIRECTORIES)
     TARGET_INCLUDE_DIRECTORIES(${target} PRIVATE ${ARG_INCLUDE_DIRECTORIES})
+  ENDIF()
+  IF(ARG_SYSTEM_INCLUDE_DIRECTORIES)
+    TARGET_INCLUDE_DIRECTORIES(${target} SYSTEM PRIVATE ${ARG_SYSTEM_INCLUDE_DIRECTORIES})
   ENDIF()
   IF(ARG_LINK_LIBRARIES)
     TARGET_LINK_LIBRARIES(${target} ${ARG_LINK_LIBRARIES})
   ENDIF()
 
   IF(ARG_EXCLUDE_FROM_PGO)
-    IF(FPROFILE_GENERATE OR FPROFILE_USE)
+    IF(FPROFILE_GENERATE)
       SET(ARG_EXCLUDE_FROM_ALL TRUE)
       SET(ARG_SKIP_INSTALL TRUE)
       UNSET(ARG_ADD_TEST)
     ENDIF()
   ENDIF()
 
-  IF(SOLARIS AND ARG_EXCLUDE_ON_SOLARIS)
-    MESSAGE(WARNING
-      "Likely link failure for this compiler, skipping target ${target}")
-    SET(ARG_EXCLUDE_FROM_ALL TRUE)
-    SET(ARG_SKIP_INSTALL TRUE)
-    UNSET(ARG_ADD_TEST)
-  ENDIF()
-
-  IF(ARG_ENABLE_EXPORTS)
+  IF(LINUX AND ARG_ENABLE_EXPORTS)
     SET_TARGET_PROPERTIES(${target} PROPERTIES ENABLE_EXPORTS TRUE)
   ENDIF()
 
@@ -116,6 +180,18 @@ FUNCTION(MYSQL_ADD_EXECUTABLE target_arg)
   SET_TARGET_PROPERTIES(${target} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${TARGET_RUNTIME_OUTPUT_DIRECTORY})
 
+  IF(ARG_COMPILE_DEFINITIONS)
+    TARGET_COMPILE_DEFINITIONS(${target} PRIVATE ${ARG_COMPILE_DEFINITIONS})
+  ENDIF()
+
+  IF(ARG_COMPILE_OPTIONS)
+    TARGET_COMPILE_OPTIONS(${target} PRIVATE ${ARG_COMPILE_OPTIONS})
+  ENDIF()
+
+  IF(APPLE AND WITH_DEVELOPER_ENTITLEMENTS)
+    MACOS_ADD_DEVELOPER_ENTITLEMENTS(${target})
+  ENDIF()
+
   IF(WIN32_CLANG AND WITH_ASAN)
     TARGET_LINK_LIBRARIES(${target} "${ASAN_LIB_DIR}/clang_rt.asan-x86_64.lib")
     TARGET_LINK_LIBRARIES(${target} "${ASAN_LIB_DIR}/clang_rt.asan_cxx-x86_64.lib")
@@ -125,6 +201,7 @@ FUNCTION(MYSQL_ADD_EXECUTABLE target_arg)
 
   # Add unit test, do not install it.
   IF (ARG_ADD_TEST)
+    ADD_DEPENDENCIES(unittest_all ${target})
     ADD_TEST(${ARG_ADD_TEST}
       ${TARGET_RUNTIME_OUTPUT_DIRECTORY}/${target})
     SET(ARG_SKIP_INSTALL TRUE)
@@ -133,6 +210,10 @@ FUNCTION(MYSQL_ADD_EXECUTABLE target_arg)
   IF(COMPRESS_DEBUG_SECTIONS)
     MY_TARGET_LINK_OPTIONS(${target}
       "LINKER:--compress-debug-sections=zlib")
+  ENDIF()
+
+  IF(HAVE_BUILD_ID_SUPPORT)
+    MY_TARGET_LINK_OPTIONS(${target} "LINKER:--build-id=sha1")
   ENDIF()
 
   # tell CPack where to install

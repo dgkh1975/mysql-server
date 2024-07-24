@@ -1,15 +1,16 @@
-/* Copyright (c) 2011, 2021, Oracle and/or its affiliates.
+/* Copyright (c) 2011, 2024, Oracle and/or its affiliates.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
 
-   This program is also distributed with certain software (including
+   This program is designed to work with certain software (including
    but not limited to OpenSSL) that is licensed under separate terms,
    as designated in a particular file or component or in included license
    documentation.  The authors of MySQL hereby grant you an additional
    permission to link the program and your derivative works with the
-   separately licensed software that they have included with MySQL.
+   separately licensed software that they have either included with
+   the program or referenced in the documentation.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -35,7 +36,7 @@ namespace binary_log_debug {
 bool debug_query_mts_corrupt_db_names = false;
 bool debug_checksum_test = false;
 bool debug_simulate_invalid_address = false;
-bool debug_pretend_version_50034_in_binlog = false;
+
 }  // namespace binary_log_debug
 
 namespace binary_log {
@@ -78,7 +79,7 @@ enum_binlog_checksum_alg Log_event_footer::get_checksum_alg(
 
    @return  the version-safe checksum alg descriptor where zero
             designates no checksum, 255 - the orginator is
-            checksum-unaware (effectively no checksum) and the actuall
+            checksum-unaware (effectively no checksum) and the actual
             [1-254] range alg descriptor.
 */
 enum_binlog_checksum_alg Log_event_footer::get_checksum_alg(const char *buf,
@@ -156,7 +157,7 @@ bool Log_event_footer::event_checksum_test(unsigned char *event_buf,
 #endif
       BAPI_ASSERT(alg == BINLOG_CHECKSUM_ALG_CRC32);
       /*
-        Complile time guard to watch over  the max number of alg
+        Compile time guard to watch over the max number of alg
       */
       static_assert(BINLOG_CHECKSUM_ALG_ENUM_END <= 0x80, "");
     }

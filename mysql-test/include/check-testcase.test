@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2013, 2021, Oracle and/or its affiliates.
+# Copyright (c) 2013, 2024, Oracle and/or its affiliates.
 #
 
 # ==== Purpose ====
@@ -107,6 +107,20 @@ if ($NDB_BACKUP_DIR)
   --error 1
   file_exists $backup_dir;
 }
+if (`SELECT COUNT(*) = 1 FROM INFORMATION_SCHEMA.ENGINES
+       WHERE engine = 'ndbcluster' AND
+                    support IN ('YES', 'DEFAULT', 'ENABLED')`)
+{
+  echo Check that same data nodes are up and have same node group assignment.;
+  error 0, ER_GET_ERRMSG;
+  SELECT node_id, group_id FROM ndbinfo.ndb$membership ORDER BY node_id, group_id;
+
+  # Check that there are no left over error injections still active.
+  # To allow test with ndbcluster but without any data nodes allow error
+  # ER_GET_ERRMSG.
+  error 0, ER_GET_ERRMSG;
+  SELECT * FROM ndbinfo.ndb$threadblock_details;
+}
 
 # There might be more than one server used by a test and check-testcase.test
 # will be run for each server. The file lists for each server needs to be
@@ -154,6 +168,7 @@ if ($proceed_with_check_of_files) {
   SET SESSION sql_log_bin = 0;
   # Checking needs to create temporary tables without primary key
   SET SESSION sql_require_primary_key = 0;
+  SET SESSION sql_generate_invisible_primary_key = 0;
 
   USE test;
 
@@ -237,7 +252,7 @@ EOF
       --enable_abort_on_error
     }
 
-    SELECT filename FROM file_tbl
+    SELECT /*+SET_VAR(use_secondary_engine=OFF)*/ filename FROM file_tbl
       WHERE filename NOT LIKE 'check-mysqld_%'
       AND filename NOT LIKE 'mysql%.sock%'
       AND filename NOT LIKE 'file_list_%.flist'
